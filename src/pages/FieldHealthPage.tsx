@@ -88,7 +88,16 @@ export function FieldHealthPage() {
             <strong className="text-[var(--as-text)]">
               ESA / Copernicus Sentinel-2
             </strong>{' '}
-            optical imagery (separate from NASA POWER climate records). Weather observations come from Open-Meteo / fallback weather providers.
+            optical imagery (separate from NASA POWER climate records).{' '}
+            <a
+              href="https://open-meteo.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium as-text-accent underline hover:opacity-80"
+            >
+              Weather data by Open-Meteo.com
+            </a>{' '}
+            (CC BY 4.0), with optional fallback weather providers when configured.
           </p>
           <p>
             NDVI and NDMI are canopy vegetation and moisture indicators—not direct soil fertility lab tests or confirmed agronomic diagnoses.
@@ -234,6 +243,22 @@ export function FieldHealthPage() {
                       .join(' · ') || 'Weather context loaded'
                   : 'Weather provider unavailable'}
               </p>
+              {result.weather_available && (
+                <p className="text-[11px] text-[var(--as-text-muted)] pt-1">
+                  {result.weather_source === 'openweathermap' ? (
+                    'Weather data via OpenWeatherMap fallback'
+                  ) : (
+                    <a
+                      href="https://open-meteo.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="as-text-accent underline hover:opacity-80"
+                    >
+                      Weather data by Open-Meteo.com
+                    </a>
+                  )}
+                </p>
+              )}
             </div>
           </div>
 

@@ -184,6 +184,26 @@ export function ReportsPage() {
                       : 'Unavailable'
                   }`
               : 'Not fetched in this session'}
+            {fieldObs?.weather_available && (
+              <>
+                {' · '}
+                {fieldObs.satellite_available && fieldObs.temperature_c !== null
+                  ? `Weather: ${fieldObs.temperature_c}°C · `
+                  : ''}
+                {fieldObs.weather_source === 'openweathermap' ? (
+                  'Weather data via OpenWeatherMap fallback'
+                ) : (
+                  <a
+                    href="https://open-meteo.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="as-text-accent underline hover:opacity-80"
+                  >
+                    Weather data by Open-Meteo.com
+                  </a>
+                )}
+              </>
+            )}
           </p>
           <p className="text-[#64748B] dark:text-[#94A3B8]">
             Rotation Screening:{' '}

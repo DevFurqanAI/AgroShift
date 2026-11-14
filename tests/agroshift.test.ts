@@ -1171,3 +1171,71 @@ test('26. AssistantMarkdown blocks raw HTML / dangerous URLs and AssistantPage r
   assert.match(assistantPageSource, /msg\.role === 'assistant'/);
   assert.match(assistantPageSource, /<AssistantMarkdown content=\{msg\.content\} \/>/);
 });
+
+test('27. Weather displays include Open-Meteo CC BY 4.0 attribution and partial analyze errors stay distinct', async () => {
+  const fieldHealthSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/FieldHealthPage.tsx'),
+    'utf8'
+  );
+  const overviewSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/OverviewPage.tsx'),
+    'utf8'
+  );
+  const reportsSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/ReportsPage.tsx'),
+    'utf8'
+  );
+
+  for (const src of [fieldHealthSource, overviewSource, reportsSource]) {
+    assert.match(src, /https:\/\/open-meteo\.com\//);
+    assert.match(src, /Weather data by Open-Meteo\.com/);
+    assert.match(src, /rel="noopener noreferrer"/);
+  }
+  assert.match(fieldHealthSource, /CC BY 4\.0/);
+
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          ndvi: null,
+          ndvi_status: null,
+          ndmi: null,
+          ndmi_status: null,
+          temperature_c: 29.2,
+          humidity_percent: 49,
+          recent_rainfall_mm: 0,
+          heat_risk: 'LOW',
+          rainfall_status: 'LOW',
+          possible_water_stress: null,
+          analysis_confidence: 'LOW',
+          satellite_available: false,
+          satellite_observation_date: null,
+          cloud_cover_percent: null,
+          satellite_message:
+            'Satellite imagery request was rejected for this field boundary or query parameters.',
+          satellite_error_kind: 'invalid_request',
+          weather_available: true,
+          weather_message: null,
+          weather_source: 'open-meteo',
+          weather_error_kind: null,
+          ai_explanation: 'Weather indicators loaded while satellite imagery was rejected.',
+          recommendations: ['Verify boundary geometry and retry later.'],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
+
+    const parsed = await analyzeFieldHealth(
+      { latitude: 31.2, longitude: 72.4, acres: 5, polygon_geojson: null, language: 'en' },
+      undefined,
+      'https://api.example.com'
+    );
+    assert.equal(parsed.satellite_available, false);
+    assert.equal(parsed.satellite_error_kind, 'invalid_request');
+    assert.equal(parsed.weather_available, true);
+    assert.equal(parsed.weather_source, 'open-meteo');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+

@@ -4,8 +4,9 @@ import math
 import logging
 import threading
 import time
+import re
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import requests
 try:
@@ -21,6 +22,8 @@ groq_client = Groq(api_key=settings.GROQ_API_KEY) if (Groq and settings.GROQ_API
 
 COPERNICUS_TOKEN_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
 COPERNICUS_STATS_URL = "https://sh.dataspace.copernicus.eu/api/v1/statistics"
+# Free non-commercial Open-Meteo endpoint: does not require or accept an API key.
+OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 
 _provider_lock = threading.Lock()
 _copernicus_token_cache: Dict[str, Any] = {
@@ -30,6 +33,8 @@ _copernicus_token_cache: Dict[str, Any] = {
 }
 _copernicus_cooldown_until: float = 0.0
 _copernicus_cooldown_message: Optional[str] = None
+_open_meteo_cooldown_until: float = 0.0
+_open_meteo_cooldown_message: Optional[str] = None
 _analysis_satellite_cache: Dict[str, Dict[str, Any]] = {}
 _analysis_weather_cache: Dict[str, Dict[str, Any]] = {}
 
@@ -37,18 +42,72 @@ SATELLITE_SUCCESS_TTL_SECONDS = 900.0
 SATELLITE_NO_SCENE_TTL_SECONDS = 180.0
 WEATHER_SUCCESS_TTL_SECONDS = 300.0
 
+_REDACT_SECRET_RE = re.compile(
+    r"(Bearer\s+\S+|(?:client_secret|access_token|refresh_token|appid|api_key|apikey|token)=[^&\s]+)",
+    re.IGNORECASE,
+)
+
 
 def clear_provider_caches() -> None:
     """Clear in-memory token, cooldown, and observation caches (used in tests)."""
     global _copernicus_cooldown_until, _copernicus_cooldown_message
+    global _open_meteo_cooldown_until, _open_meteo_cooldown_message
     with _provider_lock:
         _copernicus_token_cache["cred_hash"] = None
         _copernicus_token_cache["access_token"] = None
         _copernicus_token_cache["expires_at"] = 0.0
         _copernicus_cooldown_until = 0.0
         _copernicus_cooldown_message = None
+        _open_meteo_cooldown_until = 0.0
+        _open_meteo_cooldown_message = None
         _analysis_satellite_cache.clear()
         _analysis_weather_cache.clear()
+
+
+def _sanitize_provider_detail(raw: Any, max_len: int = 240) -> str:
+    if not isinstance(raw, str):
+        return ""
+    cleaned = " ".join(raw.split())
+    cleaned = _REDACT_SECRET_RE.sub("[REDACTED]", cleaned)
+    return cleaned[:max_len]
+
+
+def _extract_provider_error_detail(res: Any) -> str:
+    """Extract a concise, secret-free error summary from a provider HTTP response."""
+    parts = []
+    try:
+        payload = res.json()
+    except (ValueError, TypeError, AttributeError):
+        payload = None
+
+    if isinstance(payload, dict):
+        err = payload.get("error")
+        if isinstance(err, dict):
+            for key in ("code", "reason", "message"):
+                val = err.get(key)
+                if isinstance(val, str) and val.strip():
+                    parts.append(val.strip())
+            nested_errors = err.get("errors")
+            if isinstance(nested_errors, list) and nested_errors:
+                first = nested_errors[0]
+                if isinstance(first, dict):
+                    first_msg = first.get("message") or first.get("violation") or first.get("parameter")
+                    if isinstance(first_msg, str) and first_msg.strip():
+                        parts.append(first_msg.strip())
+        elif isinstance(err, str) and err.strip():
+            parts.append(err.strip())
+
+        for key in ("error_description", "reason", "message", "detail"):
+            val = payload.get(key)
+            if isinstance(val, str) and val.strip() and val.strip() not in parts:
+                parts.append(val.strip())
+
+    if not parts:
+        raw_text = getattr(res, "text", None)
+        if isinstance(raw_text, str) and raw_text.strip():
+            parts.append(raw_text.strip())
+
+    return _sanitize_provider_detail(" | ".join(parts))
 
 
 def _parse_retry_after_seconds(headers: Any, default_seconds: float = 60.0, max_seconds: float = 300.0) -> float:
@@ -83,6 +142,25 @@ def _get_active_copernicus_cooldown() -> Optional[str]:
         if _copernicus_cooldown_until <= now:
             _copernicus_cooldown_until = 0.0
             _copernicus_cooldown_message = None
+        return None
+
+
+def _set_open_meteo_cooldown(seconds: float, message: str) -> None:
+    global _open_meteo_cooldown_until, _open_meteo_cooldown_message
+    with _provider_lock:
+        _open_meteo_cooldown_until = max(_open_meteo_cooldown_until, time.monotonic() + seconds)
+        _open_meteo_cooldown_message = message
+
+
+def _get_active_open_meteo_cooldown() -> Optional[str]:
+    global _open_meteo_cooldown_until, _open_meteo_cooldown_message
+    with _provider_lock:
+        now = time.monotonic()
+        if _open_meteo_cooldown_until > now and _open_meteo_cooldown_message:
+            return _open_meteo_cooldown_message
+        if _open_meteo_cooldown_until <= now:
+            _open_meteo_cooldown_until = 0.0
+            _open_meteo_cooldown_message = None
         return None
 
 
@@ -161,11 +239,90 @@ def classify_rainfall(rainfall_mm: float) -> str:
 
 
 def _extract_polygon_geometry(polygon_geojson: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    if not polygon_geojson:
+    if not polygon_geojson or not isinstance(polygon_geojson, dict):
         return None
     if polygon_geojson.get("type") == "Feature":
         return polygon_geojson.get("geometry")
     return polygon_geojson
+
+
+def _normalize_polygon_2d(geometry: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Return a clean GeoJSON Polygon with 2D [lng, lat] closed rings, or None if unusable."""
+    if not isinstance(geometry, dict) or geometry.get("type") != "Polygon":
+        return None
+    coords = geometry.get("coordinates")
+    if not isinstance(coords, list) or not coords:
+        return None
+    normalized_rings = []
+    for ring in coords:
+        if not isinstance(ring, list) or len(ring) < 4:
+            return None
+        clean_ring = []
+        for point in ring:
+            if not isinstance(point, (list, tuple)) or len(point) < 2:
+                return None
+            lon = _safe_number(point[0], -180, 180)
+            lat = _safe_number(point[1], -90, 90)
+            if lon is None or lat is None:
+                return None
+            clean_ring.append([float(lon), float(lat)])
+        if clean_ring[0] != clean_ring[-1]:
+            clean_ring.append(list(clean_ring[0]))
+        normalized_rings.append(clean_ring)
+    return {"type": "Polygon", "coordinates": normalized_rings}
+
+
+def _compute_epsg4326_resolution(
+    polygon_geometry: Optional[Dict[str, Any]],
+    target_meters: float = 10.0,
+) -> Tuple[float, float]:
+    """
+    Convert target metric resolution (10m for Sentinel-2) into EPSG:4326 degrees.
+
+    Copernicus / Sentinel Hub Statistical API interprets `resx` and `resy` in the
+    units of `input.bounds.properties.crs` (degrees for EPSG:4326). Passing `10`
+    in EPSG:4326 requests 10-degree pixels (~1,110 km), causing HTTP 400 errors.
+    """
+    center_lat = 0.0
+    span_x = 0.0
+    span_y = 0.0
+
+    coords = (polygon_geometry or {}).get("coordinates") if isinstance(polygon_geometry, dict) else None
+    exterior = coords[0] if isinstance(coords, list) and coords and isinstance(coords[0], list) else []
+    pts = [
+        (float(p[0]), float(p[1]))
+        for p in exterior
+        if isinstance(p, (list, tuple)) and len(p) >= 2
+        and _safe_number(p[0], -180, 180) is not None
+        and _safe_number(p[1], -90, 90) is not None
+    ]
+    if pts:
+        lngs = [p[0] for p in pts]
+        lats = [p[1] for p in pts]
+        min_lng, max_lng = min(lngs), max(lngs)
+        min_lat, max_lat = min(lats), max(lats)
+        center_lat = (min_lat + max_lat) / 2.0
+        span_x = max(0.0, max_lng - min_lng)
+        span_y = max(0.0, max_lat - min_lat)
+
+    resy = target_meters / 111320.0
+    cos_lat = max(0.1, math.cos(math.radians(center_lat)))
+    resx = target_meters / (111320.0 * cos_lat)
+
+    # Stay well below Sentinel Hub's 2500x2500 max synchronous pixel dimensions
+    max_dim_px = 1500.0
+    if span_x > 0 and (span_x / resx) > max_dim_px:
+        resx = span_x / max_dim_px
+    if span_y > 0 and (span_y / resy) > max_dim_px:
+        resy = span_y / max_dim_px
+
+    # Ensure ultra-small polygons still resolve to at least ~2 pixels across
+    if 0 < span_x < resx:
+        resx = max(span_x / 2.0, 1e-6)
+    if 0 < span_y < resy:
+        resy = max(span_y / 2.0, 1e-6)
+
+    return round(resx, 8), round(resy, 8)
 
 
 def _fallback_bbox_polygon(lat: float, lng: float, delta: float = 0.001) -> Dict[str, Any]:
@@ -265,12 +422,22 @@ def _acquire_copernicus_token(force_refresh: bool = False) -> Dict[str, Any]:
                 f"Please wait about {int(round(retry_after))} seconds before refreshing."
             )
             _set_copernicus_cooldown(retry_after, msg)
-            logger.warning("Copernicus token endpoint returned HTTP 429 (cooldown %ss)", int(round(retry_after)))
+            detail = _extract_provider_error_detail(res)
+            logger.warning(
+                "Copernicus token endpoint returned HTTP 429 (cooldown %ss)%s",
+                int(round(retry_after)),
+                f": {detail}" if detail else "",
+            )
             return {"ok": False, "error_kind": "rate_limited", "message": msg}
 
         if res.status_code in (401, 403):
             _invalidate_copernicus_token()
-            logger.warning("Copernicus token endpoint rejected credentials (HTTP %d)", res.status_code)
+            detail = _extract_provider_error_detail(res)
+            logger.warning(
+                "Copernicus token endpoint rejected credentials (HTTP %d)%s",
+                res.status_code,
+                f": {detail}" if detail else "",
+            )
             return {
                 "ok": False,
                 "error_kind": "invalid_credentials",
@@ -281,9 +448,14 @@ def _acquire_copernicus_token(force_refresh: bool = False) -> Dict[str, Any]:
             time.sleep(0.5)
             continue
 
+        detail = _extract_provider_error_detail(res)
+        logger.warning(
+            "Copernicus token endpoint returned HTTP %d%s",
+            res.status_code,
+            f": {detail}" if detail else "",
+        )
         break
 
-    logger.warning("Copernicus token request failed with HTTP %s", last_status)
     return {
         "ok": False,
         "error_kind": "provider_error",
@@ -337,6 +509,7 @@ def fetch_sentinel2_indices(polygon_geometry: Dict[str, Any], token: str) -> Dic
     now = datetime.now(timezone.utc)
     time_from = (now - timedelta(days=45)).strftime("%Y-%m-%dT00:00:00Z")
     time_to = now.strftime("%Y-%m-%dT23:59:59Z")
+    resx, resy = _compute_epsg4326_resolution(polygon_geometry, target_meters=10.0)
 
     request_body = {
         "input": {
@@ -347,7 +520,6 @@ def fetch_sentinel2_indices(polygon_geometry: Dict[str, Any], token: str) -> Dic
             "data": [{
                 "type": "sentinel-2-l2a",
                 "dataFilter": {
-                    "timeRange": {"from": time_from, "to": time_to},
                     "maxCloudCoverage": 80,
                 },
             }],
@@ -356,8 +528,8 @@ def fetch_sentinel2_indices(polygon_geometry: Dict[str, Any], token: str) -> Dic
             "timeRange": {"from": time_from, "to": time_to},
             "aggregationInterval": {"of": "P1D"},
             "evalscript": NDVI_NDMI_EVALSCRIPT,
-            "resx": 10,
-            "resy": 10,
+            "resx": resx,
+            "resy": resy,
         },
     }
 
@@ -366,11 +538,16 @@ def fetch_sentinel2_indices(polygon_geometry: Dict[str, Any], token: str) -> Dic
         try:
             res = requests.post(
                 COPERNICUS_STATS_URL,
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
                 json=request_body,
                 timeout=20,
             )
         except requests.RequestException as exc:
+            logger.warning("Copernicus stats request failed (attempt %d): %s", attempt + 1, type(exc).__name__)
             if attempt == 0:
                 time.sleep(0.5)
                 continue
@@ -383,6 +560,8 @@ def fetch_sentinel2_indices(polygon_geometry: Dict[str, Any], token: str) -> Dic
         if res.status_code == 200:
             break
 
+        detail = _extract_provider_error_detail(res)
+
         if res.status_code == 429:
             retry_after = _parse_retry_after_seconds(res.headers, default_seconds=60.0)
             msg = (
@@ -390,7 +569,11 @@ def fetch_sentinel2_indices(polygon_geometry: Dict[str, Any], token: str) -> Dic
                 f"Please wait about {int(round(retry_after))} seconds before refreshing."
             )
             _set_copernicus_cooldown(retry_after, msg)
-            logger.warning("Copernicus stats API returned HTTP 429 (cooldown %ss)", int(round(retry_after)))
+            logger.warning(
+                "Copernicus stats API returned HTTP 429 (cooldown %ss)%s",
+                int(round(retry_after)),
+                f": {detail}" if detail else "",
+            )
             return {
                 "satellite_available": False,
                 "satellite_error_kind": "rate_limited",
@@ -399,17 +582,45 @@ def fetch_sentinel2_indices(polygon_geometry: Dict[str, Any], token: str) -> Dic
 
         if res.status_code in (401, 403):
             _invalidate_copernicus_token()
-            logger.warning("Copernicus stats API rejected token (HTTP %d)", res.status_code)
+            logger.warning(
+                "Copernicus stats API rejected token (HTTP %d)%s",
+                res.status_code,
+                f": {detail}" if detail else "",
+            )
             return {
                 "satellite_available": False,
                 "satellite_error_kind": "invalid_credentials",
                 "satellite_message": "Satellite imagery could not be authorized on the server right now.",
             }
 
+        if res.status_code in (400, 422):
+            logger.warning(
+                "Copernicus stats API rejected request (HTTP %d)%s",
+                res.status_code,
+                f": {detail}" if detail else "",
+            )
+            return {
+                "satellite_available": False,
+                "satellite_error_kind": "invalid_request",
+                "satellite_message": (
+                    "Satellite imagery request was rejected for this field boundary or query parameters."
+                ),
+            }
+
         if 500 <= res.status_code < 600 and attempt == 0:
+            logger.warning(
+                "Copernicus stats API server error (HTTP %d, retrying)%s",
+                res.status_code,
+                f": {detail}" if detail else "",
+            )
             time.sleep(0.5)
             continue
 
+        logger.warning(
+            "Copernicus stats API failed with HTTP %d%s",
+            res.status_code,
+            f": {detail}" if detail else "",
+        )
         return {
             "satellite_available": False,
             "satellite_error_kind": "provider_error",
@@ -497,10 +708,25 @@ def get_satellite_data(polygon_geojson: Optional[Dict[str, Any]], lat: float, ln
     if not token_result.get("ok"):
         return {
             "satellite_available": False,
+            "satellite_error_kind": token_result.get("error_kind") or "provider_error",
             "satellite_message": token_result.get("message") or "Satellite imagery is temporarily unavailable.",
         }
 
-    geometry = _extract_polygon_geometry(polygon_geojson) or _fallback_bbox_polygon(lat, lng)
+    extracted = _extract_polygon_geometry(polygon_geojson)
+    if extracted is not None:
+        geometry = _normalize_polygon_2d(extracted)
+        if geometry is None:
+            logger.warning("Copernicus satellite request aborted locally: invalid GeoJSON polygon")
+            return {
+                "satellite_available": False,
+                "satellite_error_kind": "invalid_request",
+                "satellite_message": (
+                    "Satellite imagery request was rejected for this field boundary or query parameters."
+                ),
+            }
+    else:
+        geometry = _fallback_bbox_polygon(lat, lng)
+
     try:
         result = fetch_sentinel2_indices(geometry, token_result["token"])
         # If the cached token just expired remotely, refresh once unless rate-limited
@@ -508,41 +734,60 @@ def get_satellite_data(polygon_geojson: Optional[Dict[str, Any]], lat: float, ln
             retry_token = _acquire_copernicus_token(force_refresh=True)
             if retry_token.get("ok"):
                 result = fetch_sentinel2_indices(geometry, retry_token["token"])
-        result.pop("satellite_error_kind", None)
         return result
     except (TypeError, ValueError, KeyError, AttributeError, OverflowError) as exc:
         logger.warning("Invalid satellite provider response: %s", type(exc).__name__)
-        return {"satellite_available": False, "satellite_message": "Satellite observations are temporarily unavailable."}
+        return {
+            "satellite_available": False,
+            "satellite_error_kind": "parse_error",
+            "satellite_message": "Satellite observations are temporarily unavailable.",
+        }
 
 
-WEATHER_MAX_ATTEMPTS = 3  # 1 initial attempt + 2 retries
+WEATHER_MAX_ATTEMPTS = 3  # 1 initial attempt + 2 retries for 5xx server errors only
 WEATHER_BACKOFF_SECONDS = [1, 2]  # wait before retry 1, then before retry 2
 
 
 def _is_retryable_weather_status(status_code: int) -> bool:
-    return status_code == 429 or 500 <= status_code < 600
+    # Never retry HTTP 429 rate-limit responses; retrying multiplies quota pressure.
+    return 500 <= status_code < 600
 
 
 def _fetch_open_meteo(lat: float, lng: float) -> Dict[str, Any]:
-    """Primary weather provider. Daily max temperature, mean humidity, and total
-    precipitation for the selected coordinates, with short retry-on-429/5xx handling."""
-    weather_url = (
-        f"https://api.open-meteo.com/v1/forecast?"
-        f"latitude={lat}&longitude={lng}&"
-        f"daily=temperature_2m_max,precipitation_sum,relative_humidity_2m_mean&"
-        f"timezone=auto&forecast_days=1&past_days=1"
-    )
+    """Primary weather provider. Uses Open-Meteo's free forecast API (no API key
+    required). Retries transient 5xx responses only and cools down on HTTP 429."""
+    cooldown_msg = _get_active_open_meteo_cooldown()
+    if cooldown_msg:
+        logger.info("[WEATHER-DIAG] Open-Meteo skipped: active 429 cooldown")
+        return {
+            "weather_available": False,
+            "weather_error_kind": "rate_limited",
+            "weather_message": cooldown_msg,
+        }
+
+    params = {
+        "latitude": lat,
+        "longitude": lng,
+        "daily": "temperature_2m_max,precipitation_sum,relative_humidity_2m_mean",
+        "timezone": "auto",
+        "forecast_days": 1,
+        "past_days": 1,
+    }
 
     logger.info("[WEATHER-DIAG] Attempting Open-Meteo")
 
     res = None
     for attempt in range(WEATHER_MAX_ATTEMPTS):
         try:
-            res = requests.get(weather_url, timeout=6)
+            res = requests.get(OPEN_METEO_FORECAST_URL, params=params, timeout=6)
         except requests.RequestException as exc:
-            logger.warning("Open-Meteo request failed: %s", exc)
+            logger.warning("Open-Meteo request failed: %s", type(exc).__name__)
             logger.info("[WEATHER-DIAG] Open-Meteo result: network failure")
-            return {"weather_available": False, "weather_message": f"Weather service request failed: {exc}"}
+            return {
+                "weather_available": False,
+                "weather_error_kind": "network_error",
+                "weather_message": "Weather service request failed. Please try again shortly.",
+            }
 
         if res.status_code == 200 or not _is_retryable_weather_status(res.status_code):
             break
@@ -567,14 +812,37 @@ def _fetch_open_meteo(lat: float, lng: float) -> Dict[str, Any]:
         time.sleep(wait_seconds)
 
     if res.status_code == 429:
-        logger.info("[WEATHER-DIAG] Open-Meteo result: failed with HTTP status code=429")
+        retry_after = _parse_retry_after_seconds(res.headers, default_seconds=60.0)
+        msg = (
+            f"Weather service is temporarily busy (rate limit reached). "
+            f"Please wait about {int(round(retry_after))} seconds before refreshing."
+        )
+        _set_open_meteo_cooldown(retry_after, msg)
+        detail = _extract_provider_error_detail(res)
+        logger.warning(
+            "Open-Meteo returned HTTP 429 (cooldown %ss, not retrying)%s",
+            int(round(retry_after)),
+            f": {detail}" if detail else "",
+        )
+        logger.info("[WEATHER-DIAG] Open-Meteo result: failed with HTTP status code=429 (no retry)")
         return {
             "weather_available": False,
-            "weather_message": "Weather service is temporarily busy (rate limit reached). Please try again shortly.",
+            "weather_error_kind": "rate_limited",
+            "weather_message": msg,
         }
     if res.status_code != 200:
+        detail = _extract_provider_error_detail(res)
+        logger.warning(
+            "Open-Meteo returned HTTP %d%s",
+            res.status_code,
+            f": {detail}" if detail else "",
+        )
         logger.info("[WEATHER-DIAG] Open-Meteo result: failed with HTTP status code=%d", res.status_code)
-        return {"weather_available": False, "weather_message": f"Weather service returned HTTP {res.status_code}."}
+        return {
+            "weather_available": False,
+            "weather_error_kind": "invalid_request" if res.status_code == 400 else "provider_error",
+            "weather_message": f"Weather service returned HTTP {res.status_code}.",
+        }
 
     try:
         daily = res.json().get("daily") or {}
@@ -584,23 +852,36 @@ def _fetch_open_meteo(lat: float, lng: float) -> Dict[str, Any]:
 
         if not temps or temps[-1] is None:
             logger.info("[WEATHER-DIAG] Open-Meteo result: failed with HTTP status code=200 (no usable data)")
-            return {"weather_available": False, "weather_message": "Weather service returned no usable data for this location."}
+            return {
+                "weather_available": False,
+                "weather_error_kind": "no_observation",
+                "weather_message": "Weather service returned no usable data for this location.",
+            }
 
         temperature = _safe_number(temps[-1], -100, 70)
         if temperature is None:
-            return {"weather_available": False, "weather_message": "Weather service returned invalid temperature data."}
+            return {
+                "weather_available": False,
+                "weather_error_kind": "parse_error",
+                "weather_message": "Weather service returned invalid temperature data.",
+            }
         humidity = _safe_number(hums[-1], 0, 100) if hums else None
         rainfall = _safe_number(rains[-1], 0, 2000) if rains else None
         logger.info("[WEATHER-DIAG] Open-Meteo result: success")
         return {
             "weather_available": True,
+            "weather_source": "open-meteo",
             "temperature_c": temperature,
             "humidity_percent": round(humidity) if humidity is not None else None,
             "recent_rainfall_mm": rainfall,
         }
     except (ValueError, KeyError, IndexError, TypeError, AttributeError):
         logger.info("[WEATHER-DIAG] Open-Meteo result: response parsing failure")
-        return {"weather_available": False, "weather_message": "Weather service returned an unreadable response."}
+        return {
+            "weather_available": False,
+            "weather_error_kind": "parse_error",
+            "weather_message": "Weather service returned an unreadable response.",
+        }
 
 
 OPENWEATHERMAP_FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast"
@@ -703,6 +984,7 @@ def _fetch_openweathermap_fallback(lat: float, lng: float) -> Dict[str, Any]:
         logger.info("[WEATHER-DIAG] OpenWeatherMap result: success")
         return {
             "weather_available": True,
+            "weather_source": "openweathermap",
             "temperature_c": round(max(todays_temps), 1),
             "humidity_percent": round(sum(todays_humidity) / len(todays_humidity)) if todays_humidity else None,
             "recent_rainfall_mm": round(todays_rain_mm, 1),
@@ -1004,6 +1286,11 @@ def _analysis_coord_key(lat: float, lng: float) -> str:
     return f"{round(float(lat), 5):.5f},{round(float(lng), 5):.5f}"
 
 
+def _weather_coord_key(lat: float, lng: float) -> str:
+    # Gridded weather forecast (~11 km cell); 3 decimals (~110 m) avoids duplicate calls on slight pin nudges.
+    return f"{round(float(lat), 3):.3f},{round(float(lng), 3):.3f}"
+
+
 def _analysis_satellite_key(lat: float, lng: float, polygon_geojson: Optional[Dict[str, Any]]) -> str:
     geom = _extract_polygon_geometry(polygon_geojson)
     geom_sig = hashlib.sha256(
@@ -1013,7 +1300,7 @@ def _analysis_satellite_key(lat: float, lng: float, polygon_geojson: Optional[Di
 
 
 def _cached_weather_for_analysis(lat: float, lng: float) -> Dict[str, Any]:
-    key = _analysis_coord_key(lat, lng)
+    key = _weather_coord_key(lat, lng)
     now = time.monotonic()
     with _provider_lock:
         entry = _analysis_weather_cache.get(key)
@@ -1130,8 +1417,11 @@ def process_farm_analysis(
         "satellite_observation_date": satellite.get("satellite_observation_date"),
         "cloud_cover_percent": satellite.get("cloud_cover_percent"),
         "satellite_message": satellite.get("satellite_message"),
+        "satellite_error_kind": satellite.get("satellite_error_kind"),
         "weather_available": weather.get("weather_available", False),
         "weather_message": weather.get("weather_message"),
+        "weather_source": weather.get("weather_source"),
+        "weather_error_kind": weather.get("weather_error_kind"),
         "ai_explanation": ai_result["ai_explanation"],
         "recommendations": ai_result["recommendations"],
     }

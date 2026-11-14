@@ -80,9 +80,12 @@ class FarmAnalyzeResponse(BaseModel):
     satellite_observation_date: Optional[str] = None
     cloud_cover_percent: Optional[float] = None
     satellite_message: Optional[str] = None
+    satellite_error_kind: Optional[str] = None
 
     weather_available: bool
     weather_message: Optional[str] = None
+    weather_source: Optional[str] = None
+    weather_error_kind: Optional[str] = None
 
     ai_explanation: str
     recommendations: List[str]

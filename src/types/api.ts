@@ -30,8 +30,11 @@ export interface FieldAnalyzeResponse {
   satellite_observation_date: string | null;
   cloud_cover_percent: number | null;
   satellite_message: string | null;
+  satellite_error_kind?: string | null;
   weather_available: boolean;
   weather_message: string | null;
+  weather_source?: string | null;
+  weather_error_kind?: string | null;
   ai_explanation: string;
   recommendations: string[];
 }

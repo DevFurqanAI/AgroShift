@@ -49,12 +49,14 @@ def test_satellite_malformed_payload_does_not_crash():
     assert out['satellite_available'] is False
 
 def test_weather_partial_nullable_data():
+    services.clear_provider_caches()
     payload={'daily':{'temperature_2m_max':[31], 'relative_humidity_2m_mean':None,'precipitation_sum':None}}
     with patch('app.services.requests.get',return_value=Fake(payload)):
         out=services._fetch_open_meteo(30,71)
     assert out['weather_available'] is True and out['humidity_percent'] is None and out['recent_rainfall_mm'] is None
 
 def test_weather_nan_rejected():
+    services.clear_provider_caches()
     with patch('app.services.requests.get',return_value=Fake({'daily':{'temperature_2m_max':['NaN']}})):
         out=services._fetch_open_meteo(30,71)
     assert out['weather_available'] is False
@@ -174,4 +176,140 @@ def test_process_farm_analysis_caches_successful_observations():
 
     assert first['satellite_available'] is True and second['ndvi'] == 0.52
     assert sat_calls == 1 and weather_calls == 1
+
+
+def test_copernicus_stats_payload_uses_degree_resolution_with_epsg4326():
+    services.clear_provider_caches()
+    captured_payloads = []
+
+    def fake_post(url, *args, **kwargs):
+        if 'openid-connect/token' in url:
+            return Fake({'access_token': 'tok-123', 'expires_in': 600})
+        captured_payloads.append(kwargs.get('json'))
+        return Fake({'data': []})
+
+    with patch('app.services.settings.COPERNICUS_CLIENT_ID', 'cid'), \
+         patch('app.services.settings.COPERNICUS_CLIENT_SECRET', 'csec'), \
+         patch('app.services.requests.post', side_effect=fake_post):
+        out = services.get_satellite_data(None, 31.2, 72.4)
+
+    assert out['satellite_available'] is False
+    assert out['satellite_error_kind'] == 'no_clear_scene'
+    assert len(captured_payloads) == 1
+    agg = captured_payloads[0]['aggregation']
+    # Must be in EPSG:4326 degrees (~0.00009 deg for 10m), never 10 degrees
+    assert 0.00001 < agg['resx'] < 0.001
+    assert 0.00001 < agg['resy'] < 0.001
+    assert captured_payloads[0]['input']['bounds']['properties']['crs'].endswith('4326')
+
+
+def test_copernicus_400_logs_sanitized_reason_and_distinguishes_invalid_request(caplog):
+    services.clear_provider_caches()
+    calls = {'token': 0, 'stats': 0}
+
+    def fake_post(url, *args, **kwargs):
+        if 'openid-connect/token' in url:
+            calls['token'] += 1
+            return Fake({'access_token': 'tok-secret-value', 'expires_in': 600})
+        calls['stats'] += 1
+        bad = Fake({
+            'error': {
+                'status': 400,
+                'reason': 'Bad Request',
+                'message': 'Invalid geometry self-intersection near Bearer tok-secret-value',
+                'code': 'COMMON_BAD_PAYLOAD',
+            }
+        })
+        bad.status_code = 400
+        return bad
+
+    with caplog.at_level('WARNING', logger='agroshift.services'), \
+         patch('app.services.settings.COPERNICUS_CLIENT_ID', 'cid'), \
+         patch('app.services.settings.COPERNICUS_CLIENT_SECRET', 'csec'), \
+         patch('app.services.requests.post', side_effect=fake_post):
+        out = services.get_satellite_data(None, 31.2, 72.4)
+
+    assert out['satellite_available'] is False
+    assert out['satellite_error_kind'] == 'invalid_request'
+    assert 'boundary or query parameters' in out['satellite_message'].lower()
+    assert 'not configured' not in out['satellite_message'].lower()
+    assert 'rate limit' not in out['satellite_message'].lower()
+    assert 'cloud-free' not in out['satellite_message'].lower()
+    # 400 must not retry or clear token cache unnecessarily
+    assert calls['token'] == 1 and calls['stats'] == 1
+    log_text = ' '.join(r.getMessage() for r in caplog.records)
+    assert 'HTTP 400' in log_text and 'COMMON_BAD_PAYLOAD' in log_text
+    assert 'tok-secret-value' not in log_text
+
+
+def test_analyze_preserves_independent_weather_when_copernicus_returns_400():
+    services.clear_provider_caches()
+
+    def fake_post(url, *args, **kwargs):
+        if 'openid-connect/token' in url:
+            return Fake({'access_token': 'tok-123', 'expires_in': 600})
+        bad = Fake({'error': {'status': 400, 'reason': 'Bad Request', 'message': 'Invalid bounds'}})
+        bad.status_code = 400
+        return bad
+
+    weather_ok = Fake({
+        'daily': {
+            'temperature_2m_max': [28.4],
+            'relative_humidity_2m_mean': [54],
+            'precipitation_sum': [0.5],
+        }
+    })
+
+    with patch('app.services.settings.COPERNICUS_CLIENT_ID', 'cid'), \
+         patch('app.services.settings.COPERNICUS_CLIENT_SECRET', 'csec'), \
+         patch('app.services.requests.post', side_effect=fake_post), \
+         patch('app.services.requests.get', return_value=weather_ok):
+        r = client.post('/api/v1/analyze', json={'latitude': 31.2, 'longitude': 72.4, 'language': 'en'})
+
+    assert r.status_code == 200
+    body = r.json()
+    assert body['satellite_available'] is False
+    assert body['satellite_error_kind'] == 'invalid_request'
+    assert body['weather_available'] is True
+    assert body['weather_source'] == 'open-meteo'
+    assert body['temperature_c'] == 28.4
+    assert body['analysis_confidence'] == 'LOW'
+
+
+def test_analyze_preserves_independent_satellite_when_open_meteo_returns_429():
+    services.clear_provider_caches()
+
+    def fake_post(url, *args, **kwargs):
+        if 'openid-connect/token' in url:
+            return Fake({'access_token': 'tok-123', 'expires_in': 600})
+        return Fake({
+            'data': [{
+                'interval': {'from': '2026-04-01T00:00:00Z'},
+                'outputs': {
+                    'ndvi': {'bands': {'B0': {'stats': {'sampleCount': 100, 'noDataCount': 10, 'mean': 0.58}}}},
+                    'ndmi': {'bands': {'B0': {'stats': {'sampleCount': 100, 'noDataCount': 10, 'mean': 0.21}}}},
+                },
+            }]
+        })
+
+    om_429 = Fake({})
+    om_429.status_code = 429
+    om_429.headers = {'Retry-After': '60'}
+
+    with patch('app.services.settings.COPERNICUS_CLIENT_ID', 'cid'), \
+         patch('app.services.settings.COPERNICUS_CLIENT_SECRET', 'csec'), \
+         patch('app.services.settings.OPENWEATHER_API_KEY', ''), \
+         patch('app.services.requests.post', side_effect=fake_post), \
+         patch('app.services.requests.get', return_value=om_429) as mock_get:
+        r = client.post('/api/v1/analyze', json={'latitude': 31.2, 'longitude': 72.4, 'language': 'en'})
+
+    assert r.status_code == 200
+    body = r.json()
+    assert body['satellite_available'] is True
+    assert body['ndvi'] == 0.58
+    assert body['weather_available'] is False
+    assert body['weather_error_kind'] == 'rate_limited'
+    assert '60 seconds' in body['weather_message']
+    assert mock_get.call_count == 1
+
 

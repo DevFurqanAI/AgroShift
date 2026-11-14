@@ -251,14 +251,30 @@ export function OverviewPage() {
               {fieldObs.weather_available &&
                 fieldObs.temperature_c !== null &&
                 fieldObs.temperature_c !== undefined && (
-                  <p className="tabular-nums">
-                    Observed weather:{' '}
-                    {formatTemperature(fieldObs.temperature_c, settings.temperatureUnit)}
-                    {fieldObs.humidity_percent !== null &&
-                    fieldObs.humidity_percent !== undefined
-                      ? ` · ${fieldObs.humidity_percent}% humidity`
-                      : ''}
-                  </p>
+                  <>
+                    <p className="tabular-nums">
+                      Observed weather:{' '}
+                      {formatTemperature(fieldObs.temperature_c, settings.temperatureUnit)}
+                      {fieldObs.humidity_percent !== null &&
+                      fieldObs.humidity_percent !== undefined
+                        ? ` · ${fieldObs.humidity_percent}% humidity`
+                        : ''}
+                    </p>
+                    <p className="text-[11px] text-[#64748B] dark:text-[#94A3B8]">
+                      {fieldObs.weather_source === 'openweathermap' ? (
+                        'Weather data via OpenWeatherMap fallback'
+                      ) : (
+                        <a
+                          href="https://open-meteo.com/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="as-text-accent underline hover:opacity-80"
+                        >
+                          Weather data by Open-Meteo.com
+                        </a>
+                      )}
+                    </p>
+                  </>
                 )}
             </div>
           ) : (

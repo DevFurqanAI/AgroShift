@@ -37,6 +37,7 @@ def _owm_payload(tz_offset_seconds, entries):
 
 
 def test_open_meteo_success_returns_primary_without_fallback():
+    services.clear_provider_caches()
     ok_response = FakeResponse(
         status_code=200,
         json_data={
@@ -58,6 +59,7 @@ def test_open_meteo_success_returns_primary_without_fallback():
 
 
 def test_open_meteo_failure_then_openwatermap_success():
+    services.clear_provider_caches()
     tz_offset = 5 * 3600
     now_local = datetime.now(timezone.utc) + timedelta(seconds=tz_offset)
     today_local = now_local.replace(hour=6, minute=0, second=0, microsecond=0)
@@ -87,6 +89,7 @@ def test_open_meteo_failure_then_openwatermap_success():
 
 
 def test_open_meteo_failure_then_openweathermap_failure():
+    services.clear_provider_caches()
     open_meteo_failure = FakeResponse(status_code=503, json_data={})
     owm_failure = FakeResponse(status_code=401, json_data={"message": "Invalid API key"})
 
@@ -105,6 +108,7 @@ def test_open_meteo_failure_then_openweathermap_failure():
 
 
 def test_openweathermap_no_fallback_configured_returns_primary_failure():
+    services.clear_provider_caches()
     open_meteo_failure = FakeResponse(status_code=503, json_data={})
 
     with patch("app.services.settings.OPENWEATHER_API_KEY", ""), \
@@ -169,3 +173,87 @@ def test_openweathermap_no_usable_entries_for_local_date_is_unavailable():
 
     assert result["weather_available"] is False
     assert result.get("weather_message")
+
+
+def test_open_meteo_uses_free_endpoint_without_api_key():
+    services.clear_provider_caches()
+    ok_response = FakeResponse(
+        status_code=200,
+        json_data={
+            "daily": {
+                "temperature_2m_max": [29.5],
+                "relative_humidity_2m_mean": [62],
+                "precipitation_sum": [0.4],
+            }
+        },
+    )
+    with patch("app.services.requests.get", return_value=ok_response) as mock_get:
+        result = services.get_weather_data(31.5, 74.3)
+
+    assert result["weather_available"] is True
+    assert result["weather_source"] == "open-meteo"
+    mock_get.assert_called_once()
+    called_url = mock_get.call_args.args[0]
+    called_params = mock_get.call_args.kwargs.get("params") or {}
+    assert called_url == services.OPEN_METEO_FORECAST_URL
+    assert "apikey" not in {k.lower() for k in called_params}
+    assert "appid" not in {k.lower() for k in called_params}
+
+
+def test_open_meteo_429_is_not_retried_and_triggers_cooldown_and_fallback():
+    services.clear_provider_caches()
+    calls = []
+    rate_limited = FakeResponse(
+        status_code=429,
+        json_data={"error": True, "reason": "Minutely API request limit exceeded."},
+        headers={"Retry-After": "90"},
+    )
+
+    def fake_get(url, *args, **kwargs):
+        calls.append(url)
+        return rate_limited
+
+    with patch("app.services.settings.OPENWEATHER_API_KEY", ""), \
+         patch("app.services.requests.get", side_effect=fake_get), \
+         patch("app.services.time.sleep") as mock_sleep:
+        first = services.get_weather_data(30.0, 70.0)
+        second = services.get_weather_data(30.2, 70.2)
+
+    assert first["weather_available"] is False
+    assert first["weather_error_kind"] == "rate_limited"
+    assert "90 seconds" in first["weather_message"]
+    assert second["weather_available"] is False
+    assert second["weather_error_kind"] == "rate_limited"
+    # Critical: HTTP 429 must NOT be retried, and the second call skips Open-Meteo during cooldown
+    assert len(calls) == 1
+    mock_sleep.assert_not_called()
+
+
+def test_open_meteo_429_still_uses_openweathermap_fallback_when_configured():
+    services.clear_provider_caches()
+    tz_offset = 0
+    now_local = datetime.now(timezone.utc)
+    today_local = now_local.replace(hour=9, minute=0, second=0, microsecond=0)
+    owm_response = FakeResponse(
+        status_code=200,
+        json_data=_owm_payload(tz_offset, [_owm_entry(today_local, temp=27.0, humidity=52, rain_3h=0.0)]),
+    )
+    rate_limited = FakeResponse(status_code=429, json_data={}, headers={"Retry-After": "60"})
+    calls = []
+
+    def fake_get(url, *args, **kwargs):
+        calls.append(url)
+        if "open-meteo.com" in url:
+            return rate_limited
+        return owm_response
+
+    with patch("app.services.settings.OPENWEATHER_API_KEY", "owm-test-key"), \
+         patch("app.services.requests.get", side_effect=fake_get):
+        result = services.get_weather_data(30.0, 70.0)
+
+    assert result["weather_available"] is True
+    assert result["weather_source"] == "openweathermap"
+    assert result["temperature_c"] == 27.0
+    assert sum(1 for u in calls if "open-meteo.com" in u) == 1
+    assert sum(1 for u in calls if "openweathermap.org" in u) == 1
+
