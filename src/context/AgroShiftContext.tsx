@@ -18,6 +18,7 @@ import type {
   ClimateHistoryResponse,
   FieldAnalyzeResponse,
   RotationPlanResponse,
+  WaterCompareResponse,
 } from '../types/api';
 import type {
   AppSettings,
@@ -30,12 +31,14 @@ export interface FarmObservationTimestamps {
   climateFetchedAt?: string;
   fieldHealthFetchedAt?: string;
   rotationScreenedAt?: string;
+  waterAnalyzedAt?: string;
 }
 
 export interface FarmObservationFreshFlags {
   climate?: boolean;
   fieldHealth?: boolean;
   rotation?: boolean;
+  water?: boolean;
 }
 
 interface AgroShiftContextValue {
@@ -49,6 +52,7 @@ interface AgroShiftContextValue {
   latestClimateByFarm: Record<string, ClimateHistoryResponse>;
   latestFieldHealthByFarm: Record<string, FieldAnalyzeResponse>;
   latestRotationByFarm: Record<string, RotationPlanResponse>;
+  latestWaterByFarm: Record<string, WaterCompareResponse>;
   observationTimestampsByFarm: Record<string, FarmObservationTimestamps>;
   observationFreshFlagsByFarm: Record<string, FarmObservationFreshFlags>;
   selectFarm: (farmId: string | null) => void;
@@ -61,6 +65,7 @@ interface AgroShiftContextValue {
   recordClimateObservation: (farmId: string, data: ClimateHistoryResponse) => void;
   recordFieldHealthObservation: (farmId: string, data: FieldAnalyzeResponse) => void;
   recordRotationResult: (farmId: string, data: RotationPlanResponse) => void;
+  recordWaterResult: (farmId: string, data: WaterCompareResponse) => void;
 }
 
 const AgroShiftContext = createContext<AgroShiftContextValue | null>(null);
@@ -70,6 +75,7 @@ function extractInitialObservations() {
   const climate: Record<string, ClimateHistoryResponse> = {};
   const fieldHealth: Record<string, FieldAnalyzeResponse> = {};
   const rotation: Record<string, RotationPlanResponse> = {};
+  const water: Record<string, WaterCompareResponse> = {};
   const timestamps: Record<string, FarmObservationTimestamps> = {};
 
   for (const [farmId, entry] of Object.entries(persisted)) {
@@ -77,15 +83,22 @@ function extractInitialObservations() {
     if (entry.climate) climate[farmId] = entry.climate;
     if (entry.fieldHealth) fieldHealth[farmId] = entry.fieldHealth;
     if (entry.rotation) rotation[farmId] = entry.rotation;
-    if (entry.climateFetchedAt || entry.fieldHealthFetchedAt || entry.rotationScreenedAt) {
+    if (entry.water) water[farmId] = entry.water;
+    if (
+      entry.climateFetchedAt ||
+      entry.fieldHealthFetchedAt ||
+      entry.rotationScreenedAt ||
+      entry.waterAnalyzedAt
+    ) {
       timestamps[farmId] = {
         climateFetchedAt: entry.climateFetchedAt,
         fieldHealthFetchedAt: entry.fieldHealthFetchedAt,
         rotationScreenedAt: entry.rotationScreenedAt,
+        waterAnalyzedAt: entry.waterAnalyzedAt,
       };
     }
   }
-  return { climate, fieldHealth, rotation, timestamps };
+  return { climate, fieldHealth, rotation, water, timestamps };
 }
 
 export function AgroShiftProvider({ children }: { children: React.ReactNode }) {
@@ -117,6 +130,9 @@ export function AgroShiftProvider({ children }: { children: React.ReactNode }) {
   const [latestRotationByFarm, setLatestRotationByFarm] = useState<
     Record<string, RotationPlanResponse>
   >(initialObs.rotation);
+  const [latestWaterByFarm, setLatestWaterByFarm] = useState<
+    Record<string, WaterCompareResponse>
+  >(initialObs.water);
   const [observationTimestampsByFarm, setObservationTimestampsByFarm] = useState<
     Record<string, FarmObservationTimestamps>
   >(initialObs.timestamps);
@@ -189,6 +205,11 @@ export function AgroShiftProvider({ children }: { children: React.ReactNode }) {
         delete copy[farmId];
         return copy;
       });
+      setLatestWaterByFarm((prev) => {
+        const copy = { ...prev };
+        delete copy[farmId];
+        return copy;
+      });
       setObservationTimestampsByFarm((prev) => {
         const copy = { ...prev };
         delete copy[farmId];
@@ -250,6 +271,7 @@ export function AgroShiftProvider({ children }: { children: React.ReactNode }) {
     setLatestClimateByFarm({});
     setLatestFieldHealthByFarm({});
     setLatestRotationByFarm({});
+    setLatestWaterByFarm({});
     setObservationTimestampsByFarm({});
     setObservationFreshFlagsByFarm({});
   }, []);
@@ -305,6 +327,23 @@ export function AgroShiftProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const recordWaterResult = useCallback(
+    (farmId: string, data: WaterCompareResponse) => {
+      const now = new Date().toISOString();
+      observationRepository.saveEntry(farmId, { water: data, waterAnalyzedAt: now });
+      setLatestWaterByFarm((prev) => ({ ...prev, [farmId]: data }));
+      setObservationTimestampsByFarm((prev) => ({
+        ...prev,
+        [farmId]: { ...prev[farmId], waterAnalyzedAt: now },
+      }));
+      setObservationFreshFlagsByFarm((prev) => ({
+        ...prev,
+        [farmId]: { ...prev[farmId], water: true },
+      }));
+    },
+    []
+  );
+
   const value: AgroShiftContextValue = {
     farms,
     activeFarm,
@@ -316,6 +355,7 @@ export function AgroShiftProvider({ children }: { children: React.ReactNode }) {
     latestClimateByFarm,
     latestFieldHealthByFarm,
     latestRotationByFarm,
+    latestWaterByFarm,
     observationTimestampsByFarm,
     observationFreshFlagsByFarm,
     selectFarm,
@@ -328,6 +368,7 @@ export function AgroShiftProvider({ children }: { children: React.ReactNode }) {
     recordClimateObservation,
     recordFieldHealthObservation,
     recordRotationResult,
+    recordWaterResult,
   };
 
   return (

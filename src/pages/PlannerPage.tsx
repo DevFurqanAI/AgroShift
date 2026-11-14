@@ -27,6 +27,7 @@ import { StatusBanner } from '../components/common/StatusBanner';
 import { CropIntelligencePanel } from '../components/rotation/CropIntelligencePanel';
 import { RotationComparisonCard } from '../components/rotation/RotationComparisonCard';
 import { ScreeningLimitationsDisclosure } from '../components/rotation/ScreeningLimitationsDisclosure';
+import { WaterIntelligencePanel } from '../components/rotation/WaterIntelligencePanel';
 import { useAgroShift } from '../context/AgroShiftContext';
 import {
   buildCropCatalog,
@@ -82,6 +83,7 @@ export function PlannerPage() {
     plans,
     settings,
     latestRotationByFarm,
+    latestWaterByFarm,
     saveRotationPlan,
     deleteRotationPlan,
   } = useAgroShift();
@@ -1143,6 +1145,17 @@ export function PlannerPage() {
                 </p>
               </div>
             )}
+
+            <WaterIntelligencePanel
+              farm={activeFarm}
+              rankedPlans={liveResult.plans}
+              baselineComparison={baselineComp}
+              startYear={startYear}
+              endYear={endYear}
+              waterLevel={backendWaterLevel}
+              areaUnit={settings.areaUnit}
+              persistedWater={latestWaterByFarm[activeFarm.id] ?? null}
+            />
 
             {/* Multi-Option Factor Comparison Chart */}
             {resultView !== 'cards' && chartData.length > 0 && (

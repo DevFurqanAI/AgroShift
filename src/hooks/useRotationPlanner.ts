@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useAgroShift } from '../context/AgroShiftContext';
 import {
+  compareRotationWater,
   fetchRotationCrops,
   fetchRotationPlan,
   fetchScenarioComparison,
@@ -12,6 +13,8 @@ import type {
   RotationPlanResponse,
   ScenarioComparisonResponse,
   ScenarioRotationRequest,
+  WaterCompareRequest,
+  WaterCompareResponse,
 } from '../types/api';
 
 export function useRotationCrops() {
@@ -42,5 +45,19 @@ export function useScenarioComparisonMutation() {
   return useMutation<ScenarioComparisonResponse, Error, ScenarioRotationRequest>({
     mutationFn: async (request) =>
       fetchScenarioComparison(request, undefined, resolveApiBaseUrl()),
+  });
+}
+
+export function useWaterComparisonMutation(farmId: string | undefined) {
+  const { recordWaterResult } = useAgroShift();
+
+  return useMutation<WaterCompareResponse, Error, WaterCompareRequest>({
+    mutationFn: async (request) => {
+      const result = await compareRotationWater(request, undefined, resolveApiBaseUrl());
+      if (farmId) {
+        recordWaterResult(farmId, result);
+      }
+      return result;
+    },
   });
 }

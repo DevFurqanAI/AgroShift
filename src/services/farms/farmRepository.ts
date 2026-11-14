@@ -3,6 +3,7 @@ import type {
   ClimateHistoryResponse,
   FieldAnalyzeResponse,
   RotationPlanResponse,
+  WaterCompareResponse,
 } from '../../types/api';
 import type {
   AppSettings,
@@ -28,6 +29,8 @@ export interface PersistedFarmObservations {
   fieldHealthFetchedAt?: string;
   rotation?: RotationPlanResponse;
   rotationScreenedAt?: string;
+  water?: WaterCompareResponse;
+  waterAnalyzedAt?: string;
 }
 
 export interface StorageResult<T> {

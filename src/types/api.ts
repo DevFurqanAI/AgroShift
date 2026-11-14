@@ -532,3 +532,206 @@ export interface EnvironmentalContextResponse {
   precedence_policy: string;
   limitations: string[];
 }
+
+export interface WaterSeasonInput {
+  crop_id: string;
+  planting_month: number;
+  duration_months?: number | null;
+}
+
+export interface WaterPlanInput {
+  plan_id: string;
+  label: string;
+  is_current_practice?: boolean;
+  seasons: WaterSeasonInput[];
+}
+
+export interface WaterCompareRequest {
+  latitude: number;
+  longitude: number;
+  start_year?: number | null;
+  end_year?: number | null;
+  plans: WaterPlanInput[];
+  cultivated_area_ha?: number | null;
+  irrigation_method?: string | null;
+  water_availability?: BackendWaterLevel | null;
+  elevation_m?: number | null;
+  apply_fao56_climate_kc_adjustment?: boolean;
+}
+
+export interface WaterTotalsMm {
+  et0_mm: number;
+  etc_mm: number;
+  precip_mm: number;
+  effective_rainfall_mm: number;
+  preliminary_deficit_mm: number;
+}
+
+export interface WaterVolumesM3 {
+  area_ha: number | null;
+  et0_m3: number | null;
+  etc_m3: number | null;
+  precip_m3: number | null;
+  effective_rainfall_m3: number | null;
+  preliminary_deficit_m3: number | null;
+}
+
+export interface WaterSeasonBreakdown {
+  season_index: number;
+  crop_id: string;
+  crop_name: string;
+  planting_month: number;
+  cycle_days: number;
+  duration_scaled_from_catalog_override: boolean;
+  gap_days_before: number;
+  evidence_status: 'verified' | 'preliminary' | string;
+  requires_paddy_water_adjustment: boolean;
+  kc_ini: number;
+  kc_mid_table: number;
+  kc_mid_mean_used: number;
+  kc_end_table: number;
+  kc_end_mean_used: number;
+  stage_days: {
+    initial: number;
+    development: number;
+    mid_season: number;
+    late_season: number;
+  };
+  fao_table12_reference: string;
+  fao_table11_reference: string;
+  limitations_note: string;
+  mean_et0_mm: number;
+  mean_etc_mm: number;
+  mean_precip_mm: number;
+  mean_effective_rainfall_mm: number;
+  mean_preliminary_deficit_mm: number;
+  deficit_range_mm: {
+    min: number;
+    max: number;
+  };
+  volume_m3: {
+    etc_m3: number | null;
+    effective_rainfall_m3: number | null;
+    preliminary_deficit_m3: number | null;
+  };
+}
+
+export interface WaterPlanComparison {
+  plan_id: string;
+  label: string;
+  is_current_practice: boolean;
+  available: boolean;
+  status: 'ok' | 'unavailable_crop_kc' | 'insufficient_comparable_data' | string;
+  evidence_status: 'verified' | 'preliminary' | 'unavailable' | string;
+  preliminary_kc_crops: string[];
+  missing_kc_crops: string[];
+  has_paddy_rice_caveat: boolean;
+  paddy_rice_note: string | null;
+  crop_ids: string[];
+  crop_names: string[];
+  comparable_years_used: number[];
+  comparable_years_count: number;
+  all_complete_years_count: number;
+  incomplete_years_skipped: number[];
+  total_crop_days: number | null;
+  total_turnaround_gap_days: number | null;
+  totals_mean_mm: WaterTotalsMm | null;
+  ranges_mm: {
+    etc_min: number;
+    etc_max: number;
+    precip_min: number;
+    precip_max: number;
+    deficit_min: number;
+    deficit_max: number;
+  } | null;
+  effective_rainfall_etc_share_percent: number | null;
+  volumes_mean_m3: WaterVolumesM3 | null;
+  seasons: WaterSeasonBreakdown[];
+  yearly_cycles: Array<{
+    cycle_start_year: number;
+    cycle_start_date: string;
+    cycle_end_date: string;
+    et0_mm: number;
+    etc_mm: number;
+    precip_mm: number;
+    effective_rainfall_mm: number;
+    preliminary_deficit_mm: number;
+  }>;
+  message?: string | null;
+}
+
+export interface WaterCompareResponse {
+  status: 'ok' | 'insufficient_comparable_data' | 'data_unavailable' | string;
+  data_available: boolean;
+  error_kind?: string | null;
+  message?: string | null;
+  historical_not_forecast: boolean;
+  meteorology?: {
+    source: string;
+    source_url: string | null;
+    api_version: string | null;
+    is_verified_nasa_observation: boolean;
+    start_year: number;
+    end_year: number;
+    includes_partial_current_year: boolean;
+    location: {
+      latitude: number;
+      longitude: number;
+      elevation_m: number | null;
+      elevation_source: string | null;
+    };
+    coverage: {
+      total_days_loaded: number;
+      valid_et0_days: number;
+      valid_precip_days: number;
+      pressure_sources: string[];
+      ea_methods: string[];
+    };
+  };
+  methods?: {
+    et0_method: string;
+    kc_method: string;
+    effective_rainfall_method_id: string;
+    effective_rainfall_method: string;
+    deficit_step: string;
+    representative_planting_day_assumption: string;
+  };
+  farm_water_context: {
+    cultivated_area_ha: number | null;
+    volume_unit: string | null;
+    volume_conversion_note?: string;
+    irrigation_method?: string | null;
+    reported_water_availability?: string | null;
+    water_availability_confirmed: boolean;
+    water_availability_note: string;
+  };
+  comparison: {
+    status: string;
+    comparable_plan_count: number;
+    common_comparable_years: number[];
+    common_comparable_years_count: number;
+    lowest_deficit_plan_id?: string | null;
+    lowest_deficit_plan_label?: string | null;
+    lowest_deficit_mm?: number | null;
+    lowest_etc_plan_id?: string | null;
+    lowest_etc_plan_label?: string | null;
+    lowest_etc_mm?: number | null;
+    baseline_comparison?: {
+      current_plan_id: string;
+      current_plan_label: string;
+      compared_plan_id: string;
+      compared_plan_label: string;
+      deficit_delta_mm: number;
+      deficit_delta_percent: number | null;
+      etc_delta_mm: number;
+      deficit_delta_m3: number | null;
+      note: string;
+    } | null;
+    message?: string | null;
+  };
+  plans: WaterPlanComparison[];
+  paddy_rice_caveat?: string | null;
+  limitations: string[];
+  sources?: AgronomicSourceItem[];
+}
+

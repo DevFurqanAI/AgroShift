@@ -9,6 +9,8 @@ import type {
   RotationPlanResponse,
   ScenarioComparisonResponse,
   ScenarioRotationRequest,
+  WaterCompareRequest,
+  WaterCompareResponse,
 } from '../../types/api';
 import { normalizeBaseUrl } from '../../utils/validation';
 
@@ -27,6 +29,8 @@ export const FARMER_ERROR_MESSAGES = {
     'Live crop catalog could not be loaded. Showing standard crop options.',
   environmentalContext:
     'Public location climate and soil estimates could not be loaded right now. You can continue setting up your farm normally.',
+  water:
+    "We couldn't calculate FAO-56 water requirements from daily NASA POWER data right now. Your farm details are safe. Please try again.",
 } as const;
 
 export function resolveApiBaseUrl(overrideUrl?: string): string {
@@ -374,6 +378,44 @@ export async function fetchScenarioComparison(
       'INVALID_RESPONSE',
       undefined,
       'Invalid /api/v1/rotation/scenario payload'
+    );
+  }
+
+  return data;
+}
+
+export async function compareRotationWater(
+  payload: WaterCompareRequest,
+  signal?: AbortSignal,
+  baseUrlOverride?: string
+): Promise<WaterCompareResponse> {
+  const baseUrl = resolveApiBaseUrl(baseUrlOverride);
+  const data = await fetchJsonWithTimeout<WaterCompareResponse>(
+    `${baseUrl}/api/v1/water/compare`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      timeoutMs: 45000,
+      farmerErrorMessage: FARMER_ERROR_MESSAGES.water,
+      signal,
+    }
+  );
+
+  if (
+    !data ||
+    typeof data !== 'object' ||
+    typeof data.status !== 'string' ||
+    !Array.isArray(data.plans)
+  ) {
+    console.error('[AgroShift API] Invalid water comparison payload:', data);
+    throw new ApiClientError(
+      FARMER_ERROR_MESSAGES.water,
+      'INVALID_RESPONSE',
+      undefined,
+      'Invalid /api/v1/water/compare payload'
     );
   }
 

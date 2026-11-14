@@ -9,6 +9,7 @@ from app.models import FarmAnalyzeRequest, FarmAnalyzeResponse
 from app.services import process_farm_analysis
 from app.nasa_power import fetch_climate_summary, NASAClimateError
 from app.rotation.routes import router as rotation_router
+from app.water.routes import router as water_router
 from fastapi import Query, HTTPException
 import logging
 import math
@@ -31,6 +32,7 @@ app.add_middleware(
 
 
 app.include_router(rotation_router)
+app.include_router(water_router)
 
 @app.exception_handler(RequestValidationError)
 def validation_exception_handler(request: Request, exc: RequestValidationError):

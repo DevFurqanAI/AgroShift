@@ -31,6 +31,7 @@ export function ReportsPage() {
     latestClimateByFarm,
     latestFieldHealthByFarm,
     latestRotationByFarm,
+    latestWaterByFarm,
     observationTimestampsByFarm,
     observationFreshFlagsByFarm,
   } = useAgroShift();
@@ -58,6 +59,7 @@ export function ReportsPage() {
   const climateObs = latestClimateByFarm[activeFarm.id] ?? null;
   const fieldObs = latestFieldHealthByFarm[activeFarm.id] ?? null;
   const rotationObs = latestRotationByFarm[activeFarm.id] ?? null;
+  const waterObs = latestWaterByFarm[activeFarm.id] ?? null;
   const obsTimestamps = observationTimestampsByFarm[activeFarm.id] ?? {};
   const obsFreshFlags = observationFreshFlagsByFarm[activeFarm.id] ?? {};
 
@@ -108,6 +110,14 @@ export function ReportsPage() {
               retrievedInCurrentSession: Boolean(obsFreshFlags.fieldHealth),
               source: 'Copernicus Sentinel-2 + Weather Provider',
               data: fieldObs,
+            }
+          : null,
+        fao56WaterComparison: waterObs
+          ? {
+              analyzedAt: obsTimestamps.waterAnalyzedAt ?? null,
+              retrievedInCurrentSession: Boolean(obsFreshFlags.water),
+              source: waterObs.meteorology?.source || 'NASA POWER Daily + FAO-56',
+              data: waterObs,
             }
           : null,
       },
@@ -447,6 +457,46 @@ export function ReportsPage() {
             {fieldAgeHours !== null && fieldAgeHours > 24 && !obsFreshFlags.fieldHealth && (
               <p className="text-[11px] as-text-warning">
                 Cached weather/satellite snapshot is {Math.floor(fieldAgeHours)}h old — refresh in Field Health for current conditions.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3 space-y-1">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-semibold text-[var(--as-text-primary)]">
+                NASA POWER Daily Water Balance &amp; Crop ETc (FAO-56)
+              </span>
+              {waterObs && (
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--as-text-muted)]">
+                  <span className="px-1.5 py-0.5 rounded border border-[var(--as-border)] bg-[var(--as-bg-surface)] font-medium">
+                    {obsFreshFlags.water ? 'Fresh in session' : 'Cached on device'}
+                  </span>
+                  <span className="font-mono tabular-nums">
+                    Analyzed: {formatTimestamp(obsTimestamps.waterAnalyzedAt)}
+                  </span>
+                </div>
+              )}
+            </div>
+            {waterObs && waterObs.status === 'ok' ? (
+              <div className="space-y-1 text-[var(--as-text-muted)]">
+                <p className="font-mono tabular-nums">
+                  Aligned years: {waterObs.comparison.common_comparable_years.join(', ')} ·{' '}
+                  Lowest preliminary deficit:{' '}
+                  {waterObs.comparison.lowest_deficit_plan_label || 'N/A'} (
+                  {waterObs.comparison.lowest_deficit_mm != null
+                    ? `${Math.round(waterObs.comparison.lowest_deficit_mm)} mm`
+                    : 'Unavailable'}
+                  )
+                </p>
+                <p className="text-[11px]">
+                  {waterObs.farm_water_context.water_availability_note}
+                </p>
+              </div>
+            ) : (
+              <p className="text-[var(--as-text-muted)]">
+                {waterObs
+                  ? `Water analysis status: ${waterObs.status}. ${waterObs.message || waterObs.comparison?.message || ''}`
+                  : 'Not yet run in Rotation Planner (open Planner → Compare Crop Water Balance).'}
               </p>
             )}
           </div>

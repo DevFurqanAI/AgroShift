@@ -149,6 +149,58 @@ AGRONOMIC_SOURCES: dict[str, AgronomicSource] = {
         ),
         last_reviewed='2026-11-14',
     ),
+    'nasa_power_daily': AgronomicSource(
+        id='nasa_power_daily',
+        title='NASA POWER Daily Agroclimatology API (T2M, T2M_MAX, T2M_MIN, RH2M, T2MDEW, WS2M, ALLSKY_SFC_SW_DWN, PRECTOTCORR, PS)',
+        organization='NASA Langley Research Center',
+        url='https://power.larc.nasa.gov/docs/services/api/temporal/daily/',
+        geographic_applicability='Global gridded (~0.5° × 0.625° / ~0.5° × 0.5°) daily historical meteorological archive',
+        crop_applicability='Daily inputs for FAO-56 Penman-Monteith ET0 and historical daily precipitation totals across all crops',
+        limitations=(
+            'Gridded historical satellite/reanalysis archive (~50 km scale); does not capture microclimate storms, '
+            'local rain-gauge spikes, or future weather forecasts.'
+        ),
+        last_reviewed='2026-11-14',
+    ),
+    'fao_56_penman_monteith': AgronomicSource(
+        id='fao_56_penman_monteith',
+        title='FAO Irrigation & Drainage Paper No. 56, Chapter 3 — Daily Penman-Monteith Reference Evapotranspiration (ET0)',
+        organization='Food and Agriculture Organization of the United Nations (FAO)',
+        url='https://www.fao.org/4/X0490E/x0490e06.htm',
+        geographic_applicability='Global standardized reference grass surface (height 0.12 m, albedo 0.23, rs 70 s/m)',
+        crop_applicability='Atmospheric evaporative demand (ET0, mm/day) independent of crop canopy and soil water limits',
+        limitations=(
+            'Uses daily 24-hour soil heat flux G ≈ 0 and gridded NASA weather; assumes an active, well-watered grass '
+            'reference rather than dry bare soil.'
+        ),
+        last_reviewed='2026-11-14',
+    ),
+    'fao_56_crop_coefficients': AgronomicSource(
+        id='fao_56_crop_coefficients',
+        title='FAO Irrigation & Drainage Paper No. 56, Chapter 6 (Tables 11 & 12) — Single Crop Coefficients (Kc) & Stage Lengths',
+        organization='Food and Agriculture Organization of the United Nations (FAO)',
+        url='https://www.fao.org/4/X0490E/x0490e0b.htm',
+        geographic_applicability='Global standardized non-stressed crop curves (climate-adjusted via Eq. 62/65 where documented)',
+        crop_applicability='12 verified catalog crops; 2 preliminary proxy crops (chickpea Pulses proxy, canola spring-oilseed proxy)',
+        limitations=(
+            'Represents standard non-stressed field management; omits cultivar maturity differences, paddy rice '
+            'land-preparation/seepage losses, and actual soil water stress coefficients (Ks).'
+        ),
+        last_reviewed='2026-11-14',
+    ),
+    'usda_scs_effective_rainfall': AgronomicSource(
+        id='usda_scs_effective_rainfall',
+        title='USDA Soil Conservation Service (USDA-SCS) Monthly Effective Rainfall Method (FAO CROPWAT / Paper 25)',
+        organization='USDA SCS / FAO',
+        url='https://www.fao.org/4/X0490E/x0490e00.htm',
+        geographic_applicability='Global generalized medium-soil monthly rainfall effectiveness screening equation',
+        crop_applicability='Preliminary monthly effective rainfall (Peff) and monthly-step net irrigation deficit screening',
+        limitations=(
+            'Does not simulate daily root-zone soil water balance, storm runoff intensity, soil texture water-holding '
+            'capacity, shallow water-table capillary rise, or irrigation delivery efficiency.'
+        ),
+        last_reviewed='2026-11-14',
+    ),
 }
 
 
@@ -169,6 +221,19 @@ def get_sources_for_context(
             ordered.append(default_sid)
     if include_soilgrids and 'isric_soilgrids' not in ordered:
         ordered.append('isric_soilgrids')
+    return [AGRONOMIC_SOURCES[sid].public() for sid in ordered if sid in AGRONOMIC_SOURCES]
+
+
+def get_water_sources(uses_nasa_daily: bool = True) -> list[dict[str, str]]:
+    """Return scientific source disclosures for Phase 4W FAO-56 water intelligence."""
+    ordered: list[str] = []
+    if uses_nasa_daily:
+        ordered.append('nasa_power_daily')
+    ordered.extend([
+        'fao_56_penman_monteith',
+        'fao_56_crop_coefficients',
+        'usda_scs_effective_rainfall',
+    ])
     return [AGRONOMIC_SOURCES[sid].public() for sid in ordered if sid in AGRONOMIC_SOURCES]
 
 

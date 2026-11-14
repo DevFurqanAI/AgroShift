@@ -2994,8 +2994,289 @@ test('49. ScenariosPage contains a single scenario-planting-month control withou
   assert.equal(forMatches.length, 1);
 });
 
+test('50. Phase 4W WaterIntelligencePanel helpers format units honestly and respect area confirmation', async () => {
+  const {
+    buildWaterCompareRequest,
+    buildWaterChartData,
+    formatEvidenceLabel,
+    formatWaterDepthMm,
+    formatWaterVolumeM3,
+  } = await import('../src/components/rotation/WaterIntelligencePanel.tsx');
 
+  const sampleFarm = {
+    id: 'farm-w1',
+    location: {
+      country: 'Pakistan',
+      countryCode: 'PK',
+      region: 'Punjab',
+      locality: 'Faisalabad',
+      latitude: 31.45,
+      longitude: 73.135,
+      geometryType: 'point' as const,
+      polygonGeoJSON: null,
+      polygonEstimatedHectares: null,
+    },
+    details: {
+      name: 'Faisalabad Field',
+      areaHectares: 2.5,
+      areaSource: 'manual' as const,
+      preferredAreaUnit: 'hectares' as const,
+      farmType: 'irrigated' as const,
+      irrigationMethod: 'furrow_surface' as const,
+      waterAvailability: 'seasonal_adequate' as const,
+      rainfallReliability: 'variable' as const,
+      managedFieldsCount: 1,
+    },
+    soil: {
+      knowledgeLevel: 'some_details' as const,
+      texture: 'loam' as const,
+      textureProvenance: 'farmer_observation' as const,
+      ph: 7.4,
+      phProvenance: 'farmer_observation' as const,
+      drainage: 'well_drained' as const,
+      drainageProvenance: 'farmer_observation' as const,
+      organicMatterPercent: null,
+      organicMatterProvenance: 'unknown' as const,
+      salinityConcern: 'none' as const,
+      hasLabSoilTest: false,
+      observations: '',
+    },
+    history: {
+      previousCropId: 'wheat',
+      previousCropName: 'Wheat',
+      earlierCrops: [],
+      typicalPlantingWindow: '',
+      typicalHarvestWindow: '',
+      rotationChallenges: '',
+    },
+    priorities: ['reduce_water_demand' as const],
+    createdAt: '2026-11-14T00:00:00Z',
+    updatedAt: '2026-11-14T00:00:00Z',
+  };
 
+  const sampleRankedPlans = [
+    {
+      crop_ids: ['sorghum', 'chickpea'],
+      score: 84.5,
+      seasons: [
+        {
+          crop_id: 'sorghum',
+          name: 'Sorghum',
+          planting_month: 6,
+          duration_months: 4,
+          avg_historical_temperature_c: 32,
+          temperature_fit_score: 85,
+          water_category: 'low' as const,
+          water_compatibility_score: 90,
+          soil_ph_compatibility_score: 85,
+          family_diversity_score: 95,
+          screening_score: 88,
+        },
+        {
+          crop_id: 'chickpea',
+          name: 'Chickpea',
+          planting_month: 11,
+          duration_months: 4,
+          avg_historical_temperature_c: 19,
+          temperature_fit_score: 88,
+          water_category: 'low' as const,
+          water_compatibility_score: 92,
+          soil_ph_compatibility_score: 84,
+          family_diversity_score: 95,
+          screening_score: 89,
+        },
+      ],
+      explanation: 'Good match',
+    },
+  ];
 
+  const reqWithArea = buildWaterCompareRequest({
+    farm: sampleFarm,
+    rankedPlans: sampleRankedPlans,
+    startYear: 2020,
+    endYear: 2024,
+    waterLevel: 'medium',
+    includeCultivatedArea: true,
+  });
+  assert.equal(reqWithArea.cultivated_area_ha, 2.5);
+  assert.equal(reqWithArea.plans.length, 1);
+  assert.equal(reqWithArea.plans[0].seasons[0].crop_id, 'sorghum');
 
+  const reqWithoutArea = buildWaterCompareRequest({
+    farm: sampleFarm,
+    rankedPlans: sampleRankedPlans,
+    startYear: 2020,
+    endYear: 2024,
+    waterLevel: 'medium',
+    includeCultivatedArea: false,
+  });
+  assert.equal(reqWithoutArea.cultivated_area_ha, null);
 
+  assert.equal(formatWaterDepthMm(797.8), '798 mm');
+  assert.equal(formatWaterDepthMm(null), 'Unavailable');
+  assert.equal(formatWaterVolumeM3(15956.2), '15,956 m³');
+  assert.equal(formatWaterVolumeM3(null), 'Omitted (area unconfirmed)');
+  assert.equal(formatEvidenceLabel('verified'), 'Verified FAO-56');
+  assert.equal(formatEvidenceLabel('preliminary'), 'Preliminary Kc');
+
+  const chart = buildWaterChartData([
+    {
+      plan_id: 'p1',
+      label: '#1 Sorghum → Chickpea',
+      is_current_practice: false,
+      available: true,
+      status: 'ok',
+      evidence_status: 'preliminary',
+      preliminary_kc_crops: ['chickpea'],
+      missing_kc_crops: [],
+      has_paddy_rice_caveat: false,
+      paddy_rice_note: null,
+      crop_ids: ['sorghum', 'chickpea'],
+      crop_names: ['Sorghum', 'Chickpea'],
+      comparable_years_used: [2020, 2021, 2022, 2023],
+      comparable_years_count: 4,
+      all_complete_years_count: 4,
+      incomplete_years_skipped: [],
+      total_crop_days: 245,
+      total_turnaround_gap_days: 29,
+      totals_mean_mm: {
+        et0_mm: 1013.2,
+        etc_mm: 728.8,
+        precip_mm: 563.7,
+        effective_rainfall_mm: 429.9,
+        preliminary_deficit_mm: 352.4,
+      },
+      ranges_mm: null,
+      effective_rainfall_etc_share_percent: 59,
+      volumes_mean_m3: null,
+      seasons: [],
+      yearly_cycles: [],
+    },
+  ]);
+  assert.equal(chart.length, 1);
+  assert.equal(chart[0].ETc, 728.8);
+  assert.equal(chart[0].EffectiveRain, 429.9);
+  assert.equal(chart[0].Deficit, 352.4);
+});
+
+test('51. compareRotationWater API client handles valid payloads and upstream errors safely', async () => {
+  const { compareRotationWater } = await import('../src/services/api/agroshiftApi.ts');
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        status: 'ok',
+        data_available: true,
+        historical_not_forecast: true,
+        farm_water_context: {
+          cultivated_area_ha: null,
+          volume_unit: null,
+          water_availability_confirmed: false,
+          water_availability_note:
+            'Estimated crop water demand is available, but actual irrigation sufficiency cannot be determined from the information provided.',
+        },
+        comparison: {
+          status: 'ok',
+          comparable_plan_count: 1,
+          common_comparable_years: [2020, 2021, 2022, 2023],
+          common_comparable_years_count: 4,
+        },
+        plans: [],
+        limitations: [],
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    )) as typeof fetch;
+
+  try {
+    const res = await compareRotationWater(
+      {
+        latitude: 31.45,
+        longitude: 73.135,
+        start_year: 2020,
+        end_year: 2024,
+        plans: [
+          {
+            plan_id: 'p1',
+            label: 'Wheat',
+            seasons: [{ crop_id: 'wheat', planting_month: 11 }],
+          },
+        ],
+      },
+      undefined,
+      'https://api.example.com'
+    );
+    assert.equal(res.status, 'ok');
+    assert.equal(res.farm_water_context.water_availability_confirmed, false);
+
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ detail: 'Service busy' }), {
+        status: 503,
+        headers: { 'content-type': 'application/json' },
+      })) as typeof fetch;
+
+    await assert.rejects(
+      () =>
+        compareRotationWater(
+          {
+            latitude: 31.45,
+            longitude: 73.135,
+            plans: [
+              {
+                plan_id: 'p1',
+                label: 'Wheat',
+                seasons: [{ crop_id: 'wheat', planting_month: 11 }],
+              },
+            ],
+          },
+          undefined,
+          'https://api.example.com'
+        ),
+      (err: unknown) => {
+        assert.ok(err instanceof ApiClientError);
+        assert.equal(err.message, FARMER_ERROR_MESSAGES.water);
+        return true;
+      }
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('52. PlannerPage and ReportsPage wire Phase 4W WaterIntelligence cleanly without altering scores', () => {
+  const plannerSrc = fs.readFileSync(path.resolve('src/pages/PlannerPage.tsx'), 'utf8');
+  const reportsSrc = fs.readFileSync(path.resolve('src/pages/ReportsPage.tsx'), 'utf8');
+  const panelSrc = fs.readFileSync(
+    path.resolve('src/components/rotation/WaterIntelligencePanel.tsx'),
+    'utf8'
+  );
+
+  assert.match(plannerSrc, /<WaterIntelligencePanel/);
+  assert.match(reportsSrc, /fao56WaterComparison/);
+  assert.match(reportsSrc, /NASA POWER Daily Water Balance/);
+  assert.match(panelSrc, /Compare Crop Water Balance/);
+  assert.match(panelSrc, /Paddy Rice Water Caveat/);
+  assert.match(panelSrc, /1\. Atmospheric Demand \(ET₀\)/);
+  assert.match(panelSrc, /5\. Prelim\. Net Deficit/);
+});
+
+test('53. observationRepository remains backward-compatible with pre-Phase 4W records lacking water fields', () => {
+  withMockBrowser(() => {
+    (window.localStorage as Storage).setItem(
+      'agroshift.observations.v1',
+      JSON.stringify({
+        version: 1,
+        byFarm: {
+          'farm-legacy': {
+            schemaVersion: 1,
+            climateFetchedAt: '2026-10-01T00:00:00.000Z',
+          },
+        },
+      })
+    );
+    const loaded = observationRepository.loadByFarm();
+    assert.equal(loaded.storageError, null);
+    assert.equal(loaded.data['farm-legacy']?.climateFetchedAt, '2026-10-01T00:00:00.000Z');
+    assert.equal(loaded.data['farm-legacy']?.water, undefined);
+  });
+});
