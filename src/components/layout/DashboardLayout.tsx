@@ -69,7 +69,7 @@ export function DashboardLayout() {
       <div className="px-5 py-4 border-b border-[#E2E8F0] dark:border-[#1E2E26] flex items-center justify-between">
         <Link
           to="/"
-          className="inline-flex items-center gap-2.5 font-display text-lg font-bold tracking-tight text-[#14532D] dark:text-[#E8F1EC] whitespace-nowrap"
+          className="inline-flex items-center gap-2.5 min-h-[44px] font-display text-xl font-bold tracking-tight text-[#14532D] dark:text-[#E8F1EC] whitespace-nowrap rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--as-focus-ring)]"
         >
           <LogoMark className="w-7 h-7 shrink-0" />
           <span>AgroShift</span>
@@ -77,14 +77,14 @@ export function DashboardLayout() {
         <button
           type="button"
           onClick={() => setMobileOpen(false)}
-          className="lg:hidden p-1.5 rounded-lg text-[#64748B] hover:text-[#172B22] dark:hover:text-[#E8F1EC]"
+          className="lg:hidden min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-lg text-[var(--as-text-muted)] hover:text-[#172B22] dark:hover:text-[#E8F1EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--as-focus-ring)]"
           aria-label="Close navigation menu"
         >
           <X className="w-5 h-5" />
         </button>
       </div>
 
-      <nav aria-label="Dashboard navigation" className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+      <nav aria-label="Dashboard navigation" className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5">
         {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
@@ -92,7 +92,7 @@ export function DashboardLayout() {
             end={end}
             onClick={() => setMobileOpen(false)}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+              `flex items-center gap-3 min-h-[44px] px-3.5 py-2.5 rounded-lg text-[15px] font-semibold transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--as-focus-ring)] ${
                 isActive
                   ? 'as-nav-active shadow-xs'
                   : 'text-[var(--as-text-muted)] hover:bg-[#14532D]/8 dark:hover:bg-[#182821] hover:text-[#172B22] dark:hover:text-[#E8F1EC]'
@@ -110,19 +110,19 @@ export function DashboardLayout() {
   return (
     <div className="min-h-screen flex bg-[#F8FAF7] dark:bg-[#0B1310] text-[#172B22] dark:text-[#E8F1EC]">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-[260px] lg:shrink-0 border-r border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] sticky top-0 h-screen">
+      <aside className="hidden lg:flex lg:flex-col lg:w-[264px] lg:shrink-0 border-r border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] sticky top-0 h-screen print:hidden">
         {SidebarContent}
       </aside>
 
       {/* Mobile Drawer */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden flex">
+        <div className="fixed inset-0 z-50 lg:hidden flex print:hidden">
           <div
             className="fixed inset-0 bg-black/40"
             onClick={() => setMobileOpen(false)}
             aria-hidden="true"
           />
-          <aside className="relative z-10 w-[272px] max-w-[85vw] h-full bg-white dark:bg-[#111D18] border-r border-[#E2E8F0] dark:border-[#1E2E26]">
+          <aside className="relative z-10 w-[280px] max-w-[85vw] h-full bg-white dark:bg-[#111D18] border-r border-[#E2E8F0] dark:border-[#1E2E26]">
             {SidebarContent}
           </aside>
         </div>
@@ -130,30 +130,30 @@ export function DashboardLayout() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-30 h-14 px-4 sm:px-6 border-b border-[#E2E8F0] dark:border-[#1E2E26] bg-white/95 dark:bg-[#111D18]/95 backdrop-blur-sm flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
+        <header className="sticky top-0 z-30 min-h-[60px] px-4 sm:px-6 py-2 border-b border-[#E2E8F0] dark:border-[#1E2E26] bg-white/95 dark:bg-[#111D18]/95 backdrop-blur-sm flex items-center justify-between gap-3 print:hidden">
+          <div className="flex items-center gap-2.5 min-w-0">
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden p-2 -ml-2 rounded-lg text-[#172B22] dark:text-[#E8F1EC] hover:bg-[#F8FAF7] dark:hover:bg-[#182821]"
+              className="lg:hidden min-w-[44px] min-h-[44px] inline-flex items-center justify-center -ml-2 rounded-lg text-[#172B22] dark:text-[#E8F1EC] hover:bg-[#F8FAF7] dark:hover:bg-[#182821] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--as-focus-ring)]"
               aria-label="Open navigation menu"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="flex items-center gap-2 min-w-0 text-sm">
-              <span className="hidden sm:inline text-[#64748B] dark:text-[#94A3B8]">
+            <div className="flex items-center gap-2 min-w-0 text-[15px]">
+              <span className="hidden sm:inline text-[var(--as-text-muted)] font-medium">
                 AgroShift
               </span>
-              <span className="hidden sm:inline text-[#64748B] dark:text-[#94A3B8]" aria-hidden="true">
+              <span className="hidden sm:inline text-[var(--as-text-muted)]" aria-hidden="true">
                 /
               </span>
-              <h1 className="font-display font-semibold text-[#172B22] dark:text-[#E8F1EC] truncate">
+              <h1 className="font-display text-base sm:text-[17px] font-semibold text-[#172B22] dark:text-[#E8F1EC] truncate">
                 {pageTitle}
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
             {farms.length > 0 && (
               <div className="flex items-center gap-2">
                 <label htmlFor="active-farm-select" className="sr-only">
@@ -163,7 +163,7 @@ export function DashboardLayout() {
                   id="active-farm-select"
                   value={activeFarm?.id || ''}
                   onChange={(e) => selectFarm(e.target.value)}
-                  className="max-w-[160px] sm:max-w-[220px] px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] text-[#172B22] dark:text-[#E8F1EC] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
+                  className="min-h-[42px] max-w-[140px] sm:max-w-[230px] px-3 py-2 text-sm font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] text-[#172B22] dark:text-[#E8F1EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--as-focus-ring)]"
                 >
                   {farms.map((farm) => (
                     <option key={farm.id} value={farm.id}>
@@ -181,7 +181,7 @@ export function DashboardLayout() {
               aria-label={
                 settings.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'
               }
-              className="p-2 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] text-[#64748B] dark:text-[#94A3B8] hover:text-[#172B22] dark:hover:text-[#E8F1EC] transition-colors"
+              className="min-w-[42px] min-h-[42px] inline-flex items-center justify-center rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] text-[var(--as-text-muted)] hover:text-[#172B22] dark:hover:text-[#E8F1EC] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--as-focus-ring)]"
             >
               {settings.theme === 'dark' ? (
                 <Sun className="w-4 h-4" />
@@ -192,26 +192,26 @@ export function DashboardLayout() {
 
             <Link
               to="/dashboard/farms/new"
-              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap shrink-0"
+              className="hidden sm:inline-flex items-center gap-1.5 min-h-[42px] px-4 py-2 text-sm font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap shrink-0"
             >
-              <PlusCircle className="w-3.5 h-3.5" />
+              <PlusCircle className="w-4 h-4" />
               Add Farm
             </Link>
           </div>
         </header>
 
         {storageError && (
-          <div className="px-4 sm:px-6 pt-4">
+          <div className="px-4 sm:px-6 pt-4 print:hidden">
             <div
               role="alert"
-              className="rounded-lg border border-[#D97706]/40 bg-[#D97706]/10 px-4 py-2.5 text-xs text-[#172B22] dark:text-[#E8F1EC]"
+              className="rounded-lg border border-[#D97706]/40 bg-[#D97706]/10 px-4 py-3 text-sm text-[#172B22] dark:text-[#E8F1EC]"
             >
               Browser storage notice: {storageError}
             </div>
           </div>
         )}
 
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 max-w-[1240px] w-full mx-auto">
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-[1240px] w-full mx-auto">
           <Outlet />
         </main>
       </div>

@@ -156,13 +156,13 @@ export function CropIntelligencePanel({
   return (
     <section
       aria-label="Crop Intelligence Guide"
-      className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 sm:p-6 space-y-5"
+      className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 sm:p-6 space-y-5 text-sm"
     >
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--as-border)] pb-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs text-[var(--as-text-muted)]">
-            <BookOpen className="w-3.5 h-3.5 as-text-accent shrink-0" />
-            <span>Crop Intelligence Guide</span>
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2 text-[13px] text-[var(--as-text-muted)]">
+            <BookOpen className="w-4 h-4 as-text-accent shrink-0" />
+            <span>Crop Guide</span>
             <span aria-hidden="true">·</span>
             <span>
               {isLiveCatalogLoaded
@@ -170,7 +170,7 @@ export function CropIntelligencePanel({
                 : 'Showing bundled screening metadata'}
             </span>
           </div>
-          <h3 className="font-display text-lg font-bold text-[var(--as-text-primary)]">
+          <h3 className="font-display text-lg sm:text-xl font-bold text-[var(--as-text-primary)]">
             {selectedCrop.name}
             {selectedCrop.scientificName ? (
               <span className="ml-2 text-sm font-normal italic text-[var(--as-text-muted)]">
@@ -178,7 +178,7 @@ export function CropIntelligencePanel({
               </span>
             ) : null}
           </h3>
-          <p className="text-xs text-[var(--as-text-muted)]">
+          <p className="text-[13px] sm:text-sm text-[var(--as-text-muted)]">
             {selectedCrop.botanicalFamily} · {selectedCrop.category} · Water profile:{' '}
             {selectedCrop.typicalWaterProfile}
             {selectedCrop.nitrogenFixing ? ' · Nitrogen-fixing legume' : ''}
@@ -192,9 +192,9 @@ export function CropIntelligencePanel({
           <button
             type="button"
             onClick={() => setShowGlossary((prev) => !prev)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)] hover:border-[var(--as-accent-text)] whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-sm font-semibold rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)] hover:border-[var(--as-accent-text)] whitespace-nowrap"
           >
-            <HelpCircle className="w-3.5 h-3.5 as-text-accent" />
+            <HelpCircle className="w-4 h-4 as-text-accent" />
             {showGlossary ? 'Hide Term Glossary' : 'Explain Terms'}
           </button>
           {onClose && (
@@ -202,7 +202,7 @@ export function CropIntelligencePanel({
               type="button"
               onClick={onClose}
               aria-label="Close crop guide"
-              className="p-1.5 rounded-lg border border-[var(--as-border)] text-[var(--as-text-muted)] hover:text-[var(--as-text-primary)]"
+              className="min-w-[40px] min-h-[40px] inline-flex items-center justify-center rounded-lg border border-[var(--as-border)] text-[var(--as-text-muted)] hover:text-[var(--as-text-primary)]"
             >
               <X className="w-4 h-4" />
             </button>
@@ -211,7 +211,7 @@ export function CropIntelligencePanel({
       </div>
 
       {/* Crop Switcher Strip */}
-      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Select crop to inspect">
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Select crop to inspect">
         {crops.map((crop) => {
           const active = crop.id === selectedCrop.id;
           return (
@@ -221,7 +221,7 @@ export function CropIntelligencePanel({
               role="tab"
               aria-selected={active}
               onClick={() => onSelectCrop(crop.id)}
-              className={`px-2.5 py-1.5 text-xs font-medium rounded-md border transition-colors whitespace-nowrap shrink-0 ${
+              className={`min-h-[40px] px-3 py-1.5 text-sm font-medium rounded-md border transition-colors whitespace-nowrap shrink-0 ${
                 active
                   ? 'as-chip-selected'
                   : 'border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)] hover:border-[var(--as-accent-text)]'
@@ -234,15 +234,15 @@ export function CropIntelligencePanel({
       </div>
 
       {showGlossary && (
-        <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4 space-y-2.5 text-xs">
+        <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4 space-y-3 text-sm">
           <p className="font-semibold text-[var(--as-text-primary)]">
-            Plain-Language Agronomic Glossary
+            Plain-Language Farming Terms
           </p>
-          <dl className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <dl className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             {TERM_GLOSSARY.map((item) => (
-              <div key={item.term} className="space-y-0.5">
+              <div key={item.term} className="space-y-1">
                 <dt className="font-semibold text-[var(--as-text-primary)]">{item.term}</dt>
-                <dd className="text-[var(--as-text-muted)] leading-relaxed">{item.meaning}</dd>
+                <dd className="text-[13px] text-[var(--as-text-muted)] leading-[1.55]">{item.meaning}</dd>
               </div>
             ))}
           </dl>
@@ -250,26 +250,26 @@ export function CropIntelligencePanel({
       )}
 
       {/* Key Numeric Reference Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-        <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3.5 space-y-1">
-          <span className="text-[var(--as-text-muted)]">Typical Cycle Length</span>
-          <p className="font-mono tabular-nums font-semibold text-sm text-[var(--as-text-primary)]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 text-sm">
+        <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4 space-y-1.5">
+          <span className="text-[13px] font-medium text-[var(--as-text-muted)]">Typical Growing Time</span>
+          <p className="tabular-nums font-bold text-base text-[var(--as-text-primary)]">
             {selectedCrop.cycleDaysMin && selectedCrop.cycleDaysMax
               ? `${selectedCrop.cycleDaysMin}–${selectedCrop.cycleDaysMax} days`
               : 'Unknown'}
             {selectedCrop.durationMonths ? ` (${selectedCrop.durationMonths} mo slot)` : ''}
           </p>
-          <p className="text-[11px] text-[var(--as-text-muted)] leading-relaxed">
+          <p className="text-[13px] text-[var(--as-text-muted)] leading-[1.5]">
             {selectedCrop.cycleVariabilityNote || 'Cultivar maturity varies by local variety and sowing date.'}
           </p>
         </div>
 
-        <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3.5 space-y-1">
-          <span className="text-[var(--as-text-muted)]">Temperature Screening Band</span>
-          <p className="font-mono tabular-nums font-semibold text-sm text-[var(--as-text-primary)]">
+        <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4 space-y-1.5">
+          <span className="text-[13px] font-medium text-[var(--as-text-muted)]">Preferred Temperature Range</span>
+          <p className="tabular-nums font-bold text-base text-[var(--as-text-primary)]">
             {formatTempBand(selectedCrop.tempMinC, selectedCrop.tempMaxC, temperatureUnit)}
           </p>
-          <p className="text-[11px] text-[var(--as-text-muted)] leading-relaxed">
+          <p className="text-[13px] text-[var(--as-text-muted)] leading-[1.5]">
             {selectedCrop.tempTolMinC !== undefined && selectedCrop.tempTolMaxC !== undefined
               ? `Broader tolerance: ${formatTempBand(selectedCrop.tempTolMinC, selectedCrop.tempTolMaxC, temperatureUnit)}`
               : 'Broader survival bounds not listed.'}
@@ -282,47 +282,47 @@ export function CropIntelligencePanel({
           </p>
         </div>
 
-        <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3.5 space-y-1">
-          <span className="text-[var(--as-text-muted)]">Water &amp; Rainfall Reference</span>
-          <p className="font-mono tabular-nums font-semibold text-sm text-[var(--as-text-primary)]">
+        <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4 space-y-1.5">
+          <span className="text-[13px] font-medium text-[var(--as-text-muted)]">Seasonal Rain Guide</span>
+          <p className="tabular-nums font-bold text-base text-[var(--as-text-primary)]">
             {selectedCrop.seasonalRainMinMm && selectedCrop.seasonalRainMaxMm
               ? `${selectedCrop.seasonalRainMinMm}–${selectedCrop.seasonalRainMaxMm} mm/cycle`
               : 'Unverified range'}
           </p>
-          <p className="text-[11px] text-[var(--as-text-muted)] leading-relaxed">
-            Waterlogging sensitivity:{' '}
+          <p className="text-[13px] text-[var(--as-text-muted)] leading-[1.5]">
+            Standing water sensitivity:{' '}
             <strong className="text-[var(--as-text-primary)]">
               {(selectedCrop.waterloggingSensitivity || 'unknown').replace(/_/g, ' ')}
             </strong>{' '}
-            · Coarse seasonal rain range only (not FAO-56 ETc).
+            · Broad seasonal rain guide only (check NASA Water Comparison for crop ETc).
           </p>
         </div>
 
-        <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3.5 space-y-1">
-          <span className="text-[var(--as-text-muted)]">Soil pH &amp; Salinity</span>
-          <p className="font-mono tabular-nums font-semibold text-sm text-[var(--as-text-primary)]">
+        <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4 space-y-1.5">
+          <span className="text-[13px] font-medium text-[var(--as-text-muted)]">Soil pH &amp; Salt Tolerance</span>
+          <p className="tabular-nums font-bold text-base text-[var(--as-text-primary)]">
             {selectedCrop.phMin !== undefined && selectedCrop.phMax !== undefined
               ? `pH ${selectedCrop.phMin}–${selectedCrop.phMax}`
               : 'pH range unknown'}
           </p>
-          <p className="text-[11px] text-[var(--as-text-muted)] leading-relaxed">
+          <p className="text-[13px] text-[var(--as-text-muted)] leading-[1.5]">
             Salinity class:{' '}
             <strong className="text-[var(--as-text-primary)]">
               {selectedCrop.salinityTolerance || 'unknown'}
             </strong>
             {selectedCrop.salinityEcThresholdDsm != null
-              ? ` (Maas-Hoffman ECe threshold ~${selectedCrop.salinityEcThresholdDsm} dS/m)`
-              : ' (no single global ECe threshold specified)'}
+              ? ` (ECe threshold ~${selectedCrop.salinityEcThresholdDsm} dS/m)`
+              : ' (no single global salt threshold specified)'}
           </p>
         </div>
       </div>
 
       {/* Fit Against Active Farm Context */}
-      <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4 space-y-2 text-xs">
+      <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4 space-y-2 text-sm leading-[1.55]">
         <p className="font-semibold text-[var(--as-text-primary)]">
           How {selectedCrop.name} Compares to {farm.details.name}
         </p>
-        <ul className="space-y-1.5 text-[var(--as-text-muted)] list-disc pl-4">
+        <ul className="space-y-1.5 text-[var(--as-text-muted)] list-disc pl-5">
           <li>{phAssessment}</li>
           <li>{textureAssessment}</li>
           {drainageFlag && (
@@ -339,12 +339,12 @@ export function CropIntelligencePanel({
           )}
           {matchedSeasonFromPlan ? (
             <li>
-              In your active screening ({matchedSeasonFromPlan.window_label || `Month ${matchedSeasonFromPlan.planting_month}`}),
+              In your active plan ({matchedSeasonFromPlan.window_label || `Month ${matchedSeasonFromPlan.planting_month}`}),
               historical NASA temperature averaged{' '}
-              <span className="font-mono tabular-nums font-semibold text-[var(--as-text-primary)]">
+              <span className="tabular-nums font-semibold text-[var(--as-text-primary)]">
                 {formatTemperature(matchedSeasonFromPlan.avg_historical_temperature_c, temperatureUnit)}
               </span>{' '}
-              (thermal fit {matchedSeasonFromPlan.temperature_fit_score}/100)
+              (temperature fit {matchedSeasonFromPlan.temperature_fit_score}/100)
               {matchedSeasonFromPlan.local_season_name
                 ? ` · ${matchedSeasonFromPlan.local_season_name}`
                 : ''}.
@@ -353,36 +353,36 @@ export function CropIntelligencePanel({
           ) : farmAnnualMeanTemp !== null ? (
             <li>
               Your saved NASA annual mean air temperature is{' '}
-              <span className="font-mono tabular-nums font-semibold text-[var(--as-text-primary)]">
+              <span className="tabular-nums font-semibold text-[var(--as-text-primary)]">
                 {formatTemperature(farmAnnualMeanTemp, temperatureUnit)}
               </span>{' '}
-              — run screening above to evaluate exact seasonal planting months.
+              — run rotation screening above to evaluate exact seasonal planting months.
             </li>
           ) : (
-            <li>Run screening above to check seasonal NASA POWER climate fit for your planting month.</li>
+            <li>Run rotation screening above to check seasonal NASA POWER climate fit for your planting month.</li>
           )}
           {regionalContext && (
             <li>
-              Regional calendar status ({regionalContext.country_name || 'your location'}):{' '}
+              Planting calendar status ({regionalContext.country_name || 'your location'}):{' '}
               {regionalContext.verified
                 ? matchedSeasonFromPlan?.calendar_status === 'crop_not_in_regional_calendar'
-                  ? `Unverified for ${selectedCrop.name} in this country — confirm local sowing dates before planting.`
+                  ? `Planting season needs local confirmation for ${selectedCrop.name} in this country.`
                   : 'Regional cropping calendar coverage checked during screening.'
-                : 'Location outside verified regional calendars; confirm sowing windows locally.'}
+                : 'Planting season needs local confirmation (location outside verified regional calendars).'}
             </li>
           )}
         </ul>
       </div>
 
       {/* Advantages, Cautions, Legume/Residue Traits & Explicit Unknowns */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-        <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm leading-[1.55]">
+        <div className="space-y-3.5">
           <div>
             <p className="font-semibold text-[var(--as-text-primary)] mb-1">
               Rotation Advantages
             </p>
             {selectedCrop.rotationAdvantages && selectedCrop.rotationAdvantages.length > 0 ? (
-              <ul className="space-y-1 text-[var(--as-text-muted)] list-disc pl-4">
+              <ul className="space-y-1 text-[var(--as-text-muted)] list-disc pl-5">
                 {selectedCrop.rotationAdvantages.map((adv, idx) => (
                   <li key={idx}>{adv}</li>
                 ))}
@@ -400,7 +400,7 @@ export function CropIntelligencePanel({
               <p className="font-semibold text-[var(--as-text-primary)] mb-1">
                 Legume &amp; Nitrogen Fixation Notes
               </p>
-              <p className="text-[var(--as-text-muted)] leading-relaxed">
+              <p className="text-[var(--as-text-muted)]">
                 {selectedCrop.legumeBnfNotes}
               </p>
             </div>
@@ -411,20 +411,20 @@ export function CropIntelligencePanel({
               <p className="font-semibold text-[var(--as-text-primary)] mb-1">
                 Residue &amp; Soil-Cover Considerations
               </p>
-              <p className="text-[var(--as-text-muted)] leading-relaxed">
+              <p className="text-[var(--as-text-muted)]">
                 {selectedCrop.residueManagementNotes}
               </p>
             </div>
           )}
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3.5">
           {selectedCrop.successionCautions && selectedCrop.successionCautions.length > 0 && (
             <div>
               <p className="font-semibold as-text-warning mb-1">
                 Succession &amp; Disease Cautions
               </p>
-              <ul className="space-y-1 text-[var(--as-text-muted)] list-disc pl-4">
+              <ul className="space-y-1 text-[var(--as-text-muted)] list-disc pl-5">
                 {selectedCrop.successionCautions.map((caut, idx) => (
                   <li key={idx}>{caut}</li>
                 ))}
@@ -436,7 +436,7 @@ export function CropIntelligencePanel({
             <p className="font-semibold text-[var(--as-text-primary)] mb-1">
               What Cannot Be Confirmed Globally (Verify Locally)
             </p>
-            <ul className="space-y-1 text-[var(--as-text-muted)] list-disc pl-4">
+            <ul className="space-y-1 text-[var(--as-text-muted)] list-disc pl-5">
               {(selectedCrop.knownUnknowns && selectedCrop.knownUnknowns.length > 0
                 ? selectedCrop.knownUnknowns
                 : [
@@ -450,21 +450,21 @@ export function CropIntelligencePanel({
           </div>
 
           {resolvedSources.length > 0 && (
-            <div className="pt-1 border-t border-[var(--as-border)]">
-              <p className="font-semibold text-[var(--as-text-primary)] mb-1">
-                Parameter Reference Sources
+            <div className="pt-2 border-t border-[var(--as-border)]">
+              <p className="font-semibold text-[var(--as-text-primary)] mb-1.5">
+                Reference Sources
               </p>
-              <ul className="space-y-1 text-[11px] text-[var(--as-text-muted)]">
+              <ul className="space-y-1.5 text-[13px] text-[var(--as-text-muted)]">
                 {resolvedSources.map((src) => (
                   <li key={src.id}>
                     <a
                       href={src.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 as-text-accent hover:underline font-medium"
+                      className="inline-flex items-center gap-1.5 as-text-accent hover:underline font-medium"
                     >
                       <span>{src.title}</span>
-                      <ExternalLink className="w-3 h-3 shrink-0" />
+                      <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                     </a>
                   </li>
                 ))}

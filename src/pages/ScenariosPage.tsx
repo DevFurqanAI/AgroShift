@@ -242,11 +242,11 @@ export function ScenariosPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-display text-xl font-bold">
+          <h2 className="font-display text-[26px] sm:text-[28px] font-bold tracking-tight">
             Compare Climate Scenarios — {activeFarm.details.name}
           </h2>
-          <p className="text-sm text-[var(--as-text-muted)] mt-1">
-            Compare how your top crop sequences respond under warmer, drier, or wetter hypothetical shifts against NASA POWER historical climate averages.
+          <p className="text-[15px] text-[var(--as-text-muted)] mt-1 leading-[1.55]">
+            Test how your top crop sequences respond under warmer, drier, or wetter hypothetical shifts against NASA POWER historical climate averages.
           </p>
         </div>
 
@@ -254,7 +254,7 @@ export function ScenariosPage() {
           type="button"
           onClick={() => runComparison()}
           disabled={scenarioMutation.isPending}
-          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors disabled:opacity-60 whitespace-nowrap self-start"
+          className="inline-flex items-center gap-2 min-h-[44px] px-5 py-2.5 text-[15px] font-semibold rounded-lg as-btn-primary transition-colors disabled:opacity-60 whitespace-nowrap self-start"
         >
           {scenarioMutation.isPending ? (
             <>
@@ -277,7 +277,7 @@ export function ScenariosPage() {
       />
 
       {!isEngineSupportedCropId(activeFarm.history.previousCropId) && (
-        <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[14px]">
           <span className="text-[var(--as-text-muted)]">
             Saved previous crop &ldquo;{activeFarm.history.previousCropName}&rdquo; is outside the 14-crop screening catalog; choose a reference crop for sensitivity comparisons:
           </span>
@@ -285,7 +285,7 @@ export function ScenariosPage() {
             aria-label="Reference previous crop for scenario comparison"
             value={referencePrevCropId}
             onChange={(e) => setReferencePrevCropId(e.target.value)}
-            className="px-3 py-1.5 text-xs rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)]"
+            className="min-h-[44px] px-3.5 py-2 text-[15px] rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)]"
           >
             {(cropsQuery.data?.crops ?? []).map((c) => (
               <option key={c.id} value={c.id}>
@@ -321,19 +321,19 @@ export function ScenariosPage() {
               key={preset.id}
               type="button"
               onClick={() => handleSelectScenario(preset)}
-              className={`text-left rounded-xl border p-5 space-y-2.5 transition-colors ${
+              className={`text-left rounded-xl border p-5 space-y-2.5 transition-colors min-h-[44px] ${
                 active
                   ? 'border-[var(--as-primary)] bg-[var(--as-accent-surface)]'
                   : 'border-[var(--as-border)] bg-[var(--as-bg-surface)] hover:border-[var(--as-accent-text)]'
               }`}
             >
-              <div className="w-9 h-9 rounded-lg as-icon-badge flex items-center justify-center">
-                <Icon className="w-4 h-4" />
+              <div className="w-10 h-10 rounded-lg as-icon-badge flex items-center justify-center">
+                <Icon className="w-5 h-5" />
               </div>
-              <h3 className="text-sm font-semibold text-[var(--as-text-primary)]">
+              <h3 className="text-[16px] font-semibold text-[var(--as-text-primary)]">
                 {preset.label}
               </h3>
-              <p className="text-xs text-[var(--as-text-muted)] leading-relaxed">
+              <p className="text-[14px] text-[var(--as-text-muted)] leading-[1.5]">
                 {presetDescription}
               </p>
             </button>
@@ -344,13 +344,13 @@ export function ScenariosPage() {
       {/* Interactive Scenario Assumption Controls */}
       <section className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 sm:p-6 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <h3 className="text-base font-semibold">Custom Sensitivity Parameters</h3>
-          <span className="text-xs as-text-accent font-medium">
+          <h3 className="text-[18px] font-semibold">Custom Sensitivity Parameters</h3>
+          <span className="text-[14px] as-text-accent font-medium">
             Active: {selectedLabel} · {MONTH_NAMES[plantingMonth - 1]} · {seasons} Seasons · {BACKEND_GOAL_LABELS[effectiveGoal]}
           </span>
         </div>
 
-        <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] px-3.5 py-2.5 text-xs text-[var(--as-text-muted)] flex flex-wrap items-center justify-between gap-2">
+        <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] px-4 py-3 text-[14px] text-[var(--as-text-muted)] flex flex-wrap items-center justify-between gap-2">
           <span>
             <strong className="text-[var(--as-text-primary)]">Soil &amp; Provenance:</strong>{' '}
             {activeFarm.soil.texture.replace(/_/g, ' ')}
@@ -364,7 +364,7 @@ export function ScenariosPage() {
             {socReferenceGKg !== null ? ` · SoilGrids SOC ${socReferenceGKg} g/kg (context only)` : ''}
           </span>
           {goalOverride === 'saved' && priorityMapping.unsupportedTopNotice && (
-            <span className="text-[11px] as-text-accent">
+            <span className="text-[13px] as-text-accent">
               Saved priority fallback active: {BACKEND_GOAL_LABELS[effectiveGoal]}
             </span>
           )}
@@ -372,14 +372,14 @@ export function ScenariosPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="space-y-1.5">
-            <label htmlFor="scenario-planting-month" className="block text-xs font-semibold">
+            <label htmlFor="scenario-planting-month" className="block text-[14px] font-semibold">
               Planting Month
             </label>
             <select
               id="scenario-planting-month"
               value={plantingMonth}
               onChange={(e) => setPlantingMonth(Number(e.target.value))}
-              className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)]"
+              className="w-full min-h-[44px] px-3.5 py-2.5 text-[15px] rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)]"
             >
               {MONTH_NAMES.map((name, idx) => (
                 <option key={name} value={idx + 1}>
@@ -390,14 +390,14 @@ export function ScenariosPage() {
           </div>
 
           <div className="space-y-1.5">
-            <span className="block text-xs font-semibold">Planning Horizon</span>
+            <span className="block text-[14px] font-semibold">Planning Horizon</span>
             <div className="grid grid-cols-2 gap-2.5">
               {([2, 3] as const).map((count) => (
                 <button
                   key={count}
                   type="button"
                   onClick={() => setSeasons(count)}
-                  className={`px-3.5 py-2.5 text-sm font-medium rounded-lg border transition-colors ${
+                  className={`min-h-[44px] px-3.5 py-2.5 text-[15px] font-medium rounded-lg border transition-colors ${
                     seasons === count
                       ? 'border-[var(--as-primary)] bg-[var(--as-accent-surface)] as-text-accent'
                       : 'border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-muted)]'
@@ -410,7 +410,7 @@ export function ScenariosPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="scenario-priority-focus" className="block text-xs font-semibold">
+            <label htmlFor="scenario-priority-focus" className="block text-[14px] font-semibold">
               Screening Priority Focus
             </label>
             <select
@@ -420,7 +420,7 @@ export function ScenariosPage() {
                 const nextGoal = e.target.value as 'saved' | BackendRotationGoal;
                 setGoalOverride(nextGoal);
               }}
-              className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)]"
+              className="w-full min-h-[44px] px-3.5 py-2.5 text-[15px] rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)]"
             >
               <option value="saved">
                 Follow Saved Order ({BACKEND_GOAL_LABELS[priorityMapping.activeGoal]})
@@ -435,14 +435,14 @@ export function ScenariosPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <div className="flex justify-between text-xs">
+            <div className="flex justify-between text-[14px]">
               <label htmlFor="temp-delta" className="font-semibold">
                 Seasonal Temperature Shift Assumption
               </label>
-              <span className="font-mono tabular-nums font-semibold as-text-accent">
+              <span className="tabular-nums font-semibold as-text-accent">
                 {formatTemperatureDelta(customTempDelta, settings.temperatureUnit)}
                 {settings.temperatureUnit === 'fahrenheit' && (
-                  <span className="text-[11px] font-normal text-[var(--as-text-muted)] ml-1.5">
+                  <span className="text-[13px] font-normal text-[var(--as-text-muted)] ml-1.5">
                     ({customTempDelta > 0 ? `+${customTempDelta.toFixed(1)}` : customTempDelta.toFixed(1)} °C)
                   </span>
                 )}
@@ -456,9 +456,9 @@ export function ScenariosPage() {
               step={0.5}
               value={customTempDelta}
               onChange={(e) => setCustomTempDelta(Number(e.target.value))}
-              className="w-full accent-[var(--as-primary)]"
+              className="w-full min-h-[36px] accent-[var(--as-primary)]"
             />
-            <div className="flex justify-between text-[11px] text-[var(--as-text-muted)]">
+            <div className="flex justify-between text-[13px] text-[var(--as-text-muted)]">
               <span>{formatTemperatureDelta(-2, settings.temperatureUnit)}</span>
               <span>
                 Baseline ({settings.temperatureUnit === 'fahrenheit' ? `${celsiusDeltaToFahrenheit(0).toFixed(1)} °F` : '0.0 °C'})
@@ -468,11 +468,11 @@ export function ScenariosPage() {
           </div>
 
           <div className="space-y-2">
-            <div className="flex justify-between text-xs">
+            <div className="flex justify-between text-[14px]">
               <label htmlFor="precip-shift" className="font-semibold">
                 Seasonal Precipitation Shift Assumption
               </label>
-              <span className="font-mono tabular-nums font-semibold as-text-accent">
+              <span className="tabular-nums font-semibold as-text-accent">
                 {customPrecipShift > 0 ? `+${customPrecipShift}` : customPrecipShift}%
               </span>
             </div>
@@ -484,9 +484,9 @@ export function ScenariosPage() {
               step={5}
               value={customPrecipShift}
               onChange={(e) => setCustomPrecipShift(Number(e.target.value))}
-              className="w-full accent-[var(--as-primary)]"
+              className="w-full min-h-[36px] accent-[var(--as-primary)]"
             />
-            <div className="flex justify-between text-[11px] text-[var(--as-text-muted)]">
+            <div className="flex justify-between text-[13px] text-[var(--as-text-muted)]">
               <span>-40% (Drier)</span>
               <span>Baseline (0%)</span>
               <span>+40% (Wetter)</span>
@@ -504,9 +504,9 @@ export function ScenariosPage() {
             <button
               type="button"
               onClick={() => runComparison()}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg as-btn-primary"
+              className="inline-flex items-center gap-1.5 min-h-[40px] px-4 py-2 text-sm font-semibold rounded-lg as-btn-primary"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
+              <RefreshCw className="w-4 h-4" />
               Retry
             </button>
           }
@@ -549,21 +549,21 @@ export function ScenariosPage() {
             {/* Causal Linkage Summary: Climate Assumption -> Mean Shift -> Water Tier */}
             <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 sm:p-5 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold text-[var(--as-text-primary)]">
+                <h3 className="text-[17px] font-semibold text-[var(--as-text-primary)]">
                   Scenario Shift Chain: {comparisonResult.scenario_label} ({tempShiftStr}, {rainShiftStr} rainfall)
                 </h3>
-                <span className="text-xs font-mono tabular-nums text-[var(--as-text-muted)]">
+                <span className="text-[13px] tabular-nums text-[var(--as-text-muted)]">
                   {comparisonResult.climate_source || 'NASA POWER historical baseline'}
                 </span>
               </div>
 
               {comparisonResult.climate_metrics && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4 space-y-1">
-                    <p className="text-xs text-[var(--as-text-muted)]">
+                  <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4 space-y-1.5">
+                    <p className="text-[13px] text-[var(--as-text-muted)]">
                       1. Temperature Assumption ({tempShiftStr})
                     </p>
-                    <p className="text-base font-mono font-semibold tabular-nums text-[var(--as-text-primary)]">
+                    <p className="text-[17px] font-semibold tabular-nums text-[var(--as-text-primary)]">
                       {comparisonResult.climate_metrics.baseline_avg_temp_c !== null
                         ? formatTemperature(
                             comparisonResult.climate_metrics.baseline_avg_temp_c,
@@ -578,16 +578,16 @@ export function ScenariosPage() {
                           )
                         : 'N/A'}
                     </p>
-                    <p className="text-[11px] text-[var(--as-text-muted)]">
-                      Shifts seasonal crop thermal fit across all seasons
+                    <p className="text-[13px] text-[var(--as-text-muted)]">
+                      Shifts seasonal crop temperature fit across all seasons
                     </p>
                   </div>
 
-                  <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4 space-y-1">
-                    <p className="text-xs text-[var(--as-text-muted)]">
+                  <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4 space-y-1.5">
+                    <p className="text-[13px] text-[var(--as-text-muted)]">
                       2. Monthly Precip Shift ({rainShiftStr})
                     </p>
-                    <p className="text-base font-mono font-semibold tabular-nums text-[var(--as-text-primary)]">
+                    <p className="text-[17px] font-semibold tabular-nums text-[var(--as-text-primary)]">
                       {comparisonResult.climate_metrics.baseline_avg_monthly_precip_mm !== null
                         ? `${comparisonResult.climate_metrics.baseline_avg_monthly_precip_mm} mm`
                         : 'N/A'}{' '}
@@ -596,18 +596,18 @@ export function ScenariosPage() {
                         ? `${comparisonResult.climate_metrics.scenario_avg_monthly_precip_mm} mm`
                         : 'N/A'}
                     </p>
-                    <p className="text-[11px] text-[var(--as-text-muted)]">
+                    <p className="text-[13px] text-[var(--as-text-muted)]">
                       Adjusts seasonal rain screening where records exist
                     </p>
                   </div>
 
-                  <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4 space-y-1">
-                    <p className="text-xs text-[var(--as-text-muted)]">3. Qualitative Water Tier</p>
-                    <p className="text-base font-semibold capitalize text-[var(--as-text-primary)]">
+                  <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4 space-y-1.5">
+                    <p className="text-[13px] text-[var(--as-text-muted)]">3. Qualitative Water Tier</p>
+                    <p className="text-[17px] font-semibold capitalize text-[var(--as-text-primary)]">
                       {comparisonResult.assumptions.baseline_water_availability} →{' '}
                       {comparisonResult.assumptions.scenario_water_availability}
                     </p>
-                    <p className="text-[11px] text-[var(--as-text-muted)]">
+                    <p className="text-[13px] text-[var(--as-text-muted)]">
                       {comparisonResult.assumptions.water_shift_note}
                     </p>
                   </div>
@@ -619,19 +619,19 @@ export function ScenariosPage() {
             {comparisonResult.baseline_plans?.[0]?.historical_resilience && (() => {
               const hr = comparisonResult.baseline_plans[0].historical_resilience!;
               return (
-                <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 sm:p-5 space-y-2 text-xs">
+                <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 sm:p-5 space-y-2 text-[14px]">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold text-[var(--as-text-primary)]">
-                      Observed Past Climate Variability ({comparisonResult.baseline_plans[0].seasons.map((s) => s.name).join(' → ')})
+                    <h3 className="text-[16px] font-semibold text-[var(--as-text-primary)]">
+                      How This Crop Plan Handled Past Weather Patterns ({comparisonResult.baseline_plans[0].seasons.map((s) => s.name).join(' → ')})
                     </h3>
-                    <span className="px-2 py-0.5 rounded font-semibold border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)]">
+                    <span className="px-2.5 py-1 rounded text-[13px] font-semibold border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)]">
                       Historical baseline ({hr.resilience_class.replace(/_/g, ' ')})
                     </span>
                   </div>
-                  <p className="text-[var(--as-text-muted)]">
+                  <p className="text-[var(--as-text-muted)] leading-[1.55]">
                     {hr.summary}
                   </p>
-                  <div className="flex flex-wrap gap-4 font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
+                  <div className="flex flex-wrap gap-4 tabular-nums text-[13px] text-[var(--as-text-muted)]">
                     {hr.driest_cycle_mm !== null && hr.driest_cycle_year && (
                       <span>
                         Driest historical cycle: {hr.driest_cycle_year} ({hr.driest_cycle_mm} mm)
@@ -646,7 +646,7 @@ export function ScenariosPage() {
                       Complete cycles: {hr.years_evaluated} ({hr.warm_stress_seasons_count} warm, {hr.dry_deficit_seasons_count} dry-deficit seasons)
                     </span>
                   </div>
-                  <p className="text-[11px] text-[var(--as-text-muted)]">
+                  <p className="text-[13px] text-[var(--as-text-muted)]">
                     {hr.caveat} Distinct from the hypothetical {comparisonResult.scenario_label} sensitivity test above.
                   </p>
                 </div>
@@ -657,25 +657,29 @@ export function ScenariosPage() {
             {scenarioChartData.length > 0 && (
               <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 space-y-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-[var(--as-text-primary)]">
+                  <h3 className="text-[17px] font-semibold text-[var(--as-text-primary)]">
                     Baseline vs. {comparisonResult.scenario_label} Compatibility Scores (0–100)
                   </h3>
-                  <p className="text-xs text-[var(--as-text-muted)]">
+                  <p className="text-sm text-[var(--as-text-muted)]">
                     Direct comparison of crop sequence scores before and after applying {tempShiftStr} and {rainShiftStr} rainfall.
                   </p>
                 </div>
-                <div className="h-[240px] w-full">
+                <div
+                  role="img"
+                  aria-label={`Grouped bar chart comparing baseline and ${comparisonResult.scenario_label} scores across ${scenarioChartData.length} crop sequences.`}
+                  className="h-[240px] w-full"
+                >
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={scenarioChartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--as-chart-grid)" opacity={0.7} />
                       <XAxis
                         dataKey="name"
-                        tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                        tick={{ fontSize: 12, fill: 'var(--as-chart-axis)' }}
                         stroke="var(--as-chart-grid)"
                       />
                       <YAxis
                         domain={[0, 100]}
-                        tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                        tick={{ fontSize: 12, fill: 'var(--as-chart-axis)' }}
                         stroke="var(--as-chart-grid)"
                         width={36}
                       />
@@ -685,21 +689,26 @@ export function ScenariosPage() {
                           borderColor: '#23362D',
                           borderRadius: '8px',
                           color: '#E8F1EC',
-                          fontSize: '12px',
+                          fontSize: '13px',
                         }}
                       />
-                      <Legend wrapperStyle={{ fontSize: '11px', color: 'var(--as-text-primary)' }} />
+                      <Legend wrapperStyle={{ fontSize: '13px', color: 'var(--as-text-primary)' }} />
                       <Bar dataKey="Baseline" name="Baseline Score" fill="var(--as-chart-rain)" radius={[4, 4, 0, 0]} />
                       <Bar dataKey="Scenario" name={comparisonResult.scenario_label} fill="var(--as-chart-temp)" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
+                <p className="sr-only">
+                  {scenarioChartData
+                    .map((d) => `${d.name}: baseline ${d.Baseline ?? 'N/A'}, scenario ${d.Scenario ?? 'N/A'}`)
+                    .join('; ')}
+                </p>
               </div>
             )}
 
             {/* Side-by-Side Comparison Table */}
             <div className="overflow-x-auto rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)]">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-[14px]">
                 <thead className="border-b border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
                   <tr>
                     <th className="px-4 py-3 font-semibold">Crop Sequence</th>
@@ -717,17 +726,17 @@ export function ScenariosPage() {
                       <td className="px-4 py-3 font-semibold text-[var(--as-text-primary)]">
                         {row.crop_names.join(' → ')}
                       </td>
-                      <td className="px-4 py-3 font-mono tabular-nums text-[var(--as-text-muted)] text-right whitespace-nowrap">
+                      <td className="px-4 py-3 tabular-nums text-[var(--as-text-muted)] text-right whitespace-nowrap">
                         {row.baseline_score !== null
                           ? `${row.baseline_score.toFixed(1)} (#${row.baseline_rank})`
                           : 'Outside top list'}
                       </td>
-                      <td className="px-4 py-3 font-mono tabular-nums font-semibold text-[var(--as-text-primary)] text-right whitespace-nowrap">
+                      <td className="px-4 py-3 tabular-nums font-semibold text-[var(--as-text-primary)] text-right whitespace-nowrap">
                         {row.scenario_score !== null
                           ? `${row.scenario_score.toFixed(1)} (#${row.scenario_rank})`
                           : 'Outside top list'}
                       </td>
-                      <td className="px-4 py-3 font-mono tabular-nums text-right whitespace-nowrap">
+                      <td className="px-4 py-3 tabular-nums text-right whitespace-nowrap">
                         {row.score_delta !== null ? (
                           <span
                             className={
@@ -755,17 +764,17 @@ export function ScenariosPage() {
                         {row.rank_change !== null ? (
                           row.rank_change > 0 ? (
                             <span className="inline-flex items-center gap-1 as-text-accent font-semibold">
-                              <ArrowUpRight className="w-3.5 h-3.5" />
+                              <ArrowUpRight className="w-4 h-4" />
                               Up {row.rank_change}
                             </span>
                           ) : row.rank_change < 0 ? (
                             <span className="inline-flex items-center gap-1 as-text-danger font-semibold">
-                              <ArrowDownRight className="w-3.5 h-3.5" />
+                              <ArrowDownRight className="w-4 h-4" />
                               Down {Math.abs(row.rank_change)}
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-[var(--as-text-muted)]">
-                              <Minus className="w-3.5 h-3.5" />
+                              <Minus className="w-4 h-4" />
                               Unchanged
                             </span>
                           )
@@ -784,8 +793,8 @@ export function ScenariosPage() {
 
             {/* Expandable Baseline vs Scenario Component Breakdown */}
             {(comparisonResult.baseline_plans?.length > 0 || comparisonResult.scenario_plans?.length > 0) && (
-              <details className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 text-xs">
-                <summary className="cursor-pointer font-semibold text-[var(--as-text-primary)]">
+              <details className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 text-[14px]">
+                <summary className="cursor-pointer font-semibold text-[var(--as-text-primary)] min-h-[36px] flex items-center">
                   Technical Factor Breakdown: Baseline vs. {comparisonResult.scenario_label}
                 </summary>
                 <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -800,10 +809,10 @@ export function ScenariosPage() {
                       >
                         <div className="flex justify-between gap-2 font-semibold text-[var(--as-text-primary)]">
                           <span>#{idx + 1} {bp.seasons.map((s) => s.name).join(' → ')}</span>
-                          <span className="font-mono tabular-nums">{bp.score.toFixed(1)}/100</span>
+                          <span className="tabular-nums">{bp.score.toFixed(1)}/100</span>
                         </div>
                         {bp.diagnostics && (
-                          <p className="font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
+                          <p className="tabular-nums text-[13px] text-[var(--as-text-muted)]">
                             Climate {bp.diagnostics.climate_compatibility.toFixed(1)} · Water {bp.diagnostics.water_compatibility.toFixed(1)} · Soil {bp.diagnostics.soil_health_score?.toFixed(1) ?? '—'} · Diversity {bp.diagnostics.family_rotation.toFixed(1)}
                           </p>
                         )}
@@ -821,10 +830,10 @@ export function ScenariosPage() {
                       >
                         <div className="flex justify-between gap-2 font-semibold text-[var(--as-text-primary)]">
                           <span>#{idx + 1} {sp.seasons.map((s) => s.name).join(' → ')}</span>
-                          <span className="font-mono tabular-nums">{sp.score.toFixed(1)}/100</span>
+                          <span className="tabular-nums">{sp.score.toFixed(1)}/100</span>
                         </div>
                         {sp.diagnostics && (
-                          <p className="font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
+                          <p className="tabular-nums text-[13px] text-[var(--as-text-muted)]">
                             Climate {sp.diagnostics.climate_compatibility.toFixed(1)} · Water {sp.diagnostics.water_compatibility.toFixed(1)} · Soil {sp.diagnostics.soil_health_score?.toFixed(1) ?? '—'} · Diversity {sp.diagnostics.family_rotation.toFixed(1)}
                           </p>
                         )}

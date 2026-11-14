@@ -52,8 +52,8 @@ export function StatusBanner({ tone, title, description, action }: StatusBannerP
         <div className="flex items-start gap-3 min-w-0">
           <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${iconColor}`} />
           <div className="space-y-1 min-w-0">
-            <h3 className="text-sm font-semibold">{title}</h3>
-            <p className="text-sm text-[var(--as-text-muted)] leading-relaxed">
+            <h3 className="text-base font-semibold">{title}</h3>
+            <p className="text-[15px] text-[var(--as-text-muted)] leading-[1.55]">
               {description}
             </p>
           </div>

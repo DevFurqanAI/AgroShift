@@ -176,8 +176,8 @@ export function AssistantPage() {
     <div className="space-y-5 max-w-4xl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="font-display text-xl font-bold">Ask AgroShift</h2>
-          <p className="text-sm text-[var(--as-text-muted)] mt-0.5">
+          <h2 className="font-display text-[26px] sm:text-[28px] font-bold tracking-tight">Ask AgroShift</h2>
+          <p className="text-[15px] text-[var(--as-text-muted)] mt-1">
             {activeFarm
               ? `Agricultural & AgroShift assistant · References ${activeFarm.details.name} only when your question asks about your farm`
               : 'Agricultural, Earth observation, and AgroShift guidance (select a farm for farm-specific questions)'}
@@ -187,9 +187,9 @@ export function AssistantPage() {
           <button
             type="button"
             onClick={() => setMessages([])}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--as-border)] text-[var(--as-text-muted)] hover:as-text-danger self-start"
+            className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-sm font-medium rounded-lg border border-[var(--as-border)] text-[var(--as-text-muted)] hover:as-text-danger self-start"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Trash2 className="w-4 h-4" />
             Clear Conversation
           </button>
         )}
@@ -213,21 +213,21 @@ export function AssistantPage() {
           {messages.length === 0 ? (
             <div className="space-y-5 py-4">
               <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-lg as-icon-badge flex items-center justify-center shrink-0">
-                  <MessageSquare className="w-4 h-4" />
+                <div className="w-10 h-10 rounded-lg as-icon-badge flex items-center justify-center shrink-0">
+                  <MessageSquare className="w-5 h-5" />
                 </div>
                 <div className="space-y-1.5">
-                  <h3 className="text-sm font-semibold">
+                  <h3 className="text-[17px] font-semibold">
                     Focused agricultural, Earth observation, and AgroShift support
                   </h3>
-                  <p className="text-xs text-[var(--as-text-muted)] leading-relaxed max-w-xl">
-                    Ask AgroShift assists strictly with farming, crop rotations, soil/water planning, NASA POWER historical climate, Sentinel-2 NDVI/NDMI indicators, agricultural calculations, and using AgroShift. Farm profile details are included only when relevant to your question.
+                  <p className="text-[14px] text-[var(--as-text-muted)] leading-[1.55] max-w-xl">
+                    Ask AgroShift assists strictly with farming, crop rotations, soil/water planning, NASA POWER historical climate, Sentinel-2 vegetation greenness and moisture indicators, agricultural calculations, and using AgroShift. Farm profile details are included only when relevant to your question.
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-[var(--as-text-muted)]">
+              <div className="space-y-2.5">
+                <p className="text-[13px] font-semibold text-[var(--as-text-muted)]">
                   Suggested questions
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -237,7 +237,7 @@ export function AssistantPage() {
                       type="button"
                       disabled={!status?.available || sending}
                       onClick={() => handleSend(q)}
-                      className="text-left p-3 rounded-lg border border-[var(--as-border)] bg-[var(--as-surface-alt)] text-xs text-[var(--as-text)] hover:border-[var(--as-accent-text)] transition-colors disabled:opacity-50"
+                      className="text-left min-h-[44px] p-3.5 rounded-lg border border-[var(--as-border)] bg-[var(--as-surface-alt)] text-[14px] text-[var(--as-text)] hover:border-[var(--as-accent-text)] transition-colors disabled:opacity-50"
                     >
                       {q}
                     </button>
@@ -254,7 +254,7 @@ export function AssistantPage() {
                 }`}
               >
                 <div
-                  className={`max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
+                  className={`max-w-[85%] rounded-xl px-4 py-3 text-[15px] leading-[1.55] ${
                     msg.role === 'user'
                       ? 'bg-[var(--as-primary)] text-[var(--as-primary-foreground)] whitespace-pre-wrap'
                       : 'bg-[var(--as-surface-alt)] border border-[var(--as-border)] text-[var(--as-text)]'
@@ -272,15 +272,15 @@ export function AssistantPage() {
 
           {sending && (
             <div className="flex justify-start">
-              <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--as-surface-alt)] border border-[var(--as-border)] text-xs text-[var(--as-text-muted)]">
-                <Loader2 className="w-3.5 h-3.5 animate-spin as-text-accent" />
+              <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--as-surface-alt)] border border-[var(--as-border)] text-[14px] text-[var(--as-text-muted)]">
+                <Loader2 className="w-4 h-4 animate-spin as-text-accent" />
                 Preparing plain-language guidance...
               </div>
             </div>
           )}
 
           {errorMsg && (
-            <div className="flex items-center gap-2 text-xs as-text-danger pt-1">
+            <div className="flex items-center gap-2 text-[14px] as-text-danger pt-1">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMsg}</span>
             </div>
@@ -301,16 +301,16 @@ export function AssistantPage() {
             disabled={!status?.available || sending}
             placeholder={
               status?.available
-                ? 'Ask about your farm climate, crop sequence, or NDVI/NDMI...'
+                ? 'Ask about your farm climate, crop sequence, or field moisture...'
                 : 'Assistant service is unavailable'
             }
             aria-label="Ask AgroShift a question"
-            className="flex-1 px-3.5 py-2.5 text-sm rounded-lg border border-[var(--as-border)] bg-[var(--as-surface-alt)] text-[var(--as-text)] focus:outline-none focus:ring-2 focus:ring-[var(--as-focus-ring)] disabled:opacity-50"
+            className="flex-1 min-h-[44px] px-3.5 py-2.5 text-[15px] rounded-lg border border-[var(--as-border)] bg-[var(--as-surface-alt)] text-[var(--as-text)] focus:outline-none focus:ring-2 focus:ring-[var(--as-focus-ring)] disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={!status?.available || sending || !input.trim()}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 min-h-[44px] px-4 py-2.5 text-[15px] font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap"
           >
             <Send className="w-4 h-4" />
             Send

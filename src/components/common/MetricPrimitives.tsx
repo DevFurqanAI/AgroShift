@@ -30,20 +30,20 @@ export function ScoreProgressBar({
 
   return (
     <div className="space-y-1.5">
-      <div className="flex items-baseline justify-between gap-2 text-xs">
-        <span className="font-medium text-[var(--as-text-primary)]">{label}</span>
+      <div className="flex items-baseline justify-between gap-2 text-sm">
+        <span className="font-semibold text-[var(--as-text-primary)]">{label}</span>
         {valid ? (
-          <span className="font-mono tabular-nums font-semibold text-[var(--as-text-primary)] shrink-0">
+          <span className="tabular-nums font-semibold text-[var(--as-text-primary)] shrink-0">
             {score.toFixed(1)}/{max}
             {interpretation ? (
-              <span className="font-sans font-normal text-[var(--as-text-muted)]">
+              <span className="font-normal text-[var(--as-text-muted)]">
                 {' '}
                 — {interpretation}
               </span>
             ) : null}
           </span>
         ) : (
-          <span className="font-mono text-[11px] text-[var(--as-text-muted)] shrink-0">
+          <span className="text-[13px] font-medium text-[var(--as-text-muted)] shrink-0">
             {unavailableLabel}
           </span>
         )}
@@ -55,7 +55,7 @@ export function ScoreProgressBar({
         aria-valuenow={valid ? Number(score.toFixed(1)) : undefined}
         aria-valuemin={0}
         aria-valuemax={max}
-        className="h-1.5 w-full rounded-full bg-[var(--as-border)] overflow-hidden"
+        className="h-2 w-full rounded-full bg-[var(--as-border)] overflow-hidden"
       >
         {valid && (
           <div
@@ -68,7 +68,7 @@ export function ScoreProgressBar({
       </div>
 
       {driverHint && (
-        <p className="text-[11px] text-[var(--as-text-muted)] leading-snug">{driverHint}</p>
+        <p className="text-[13px] text-[var(--as-text-muted)] leading-[1.5]">{driverHint}</p>
       )}
     </div>
   );
@@ -109,7 +109,7 @@ export function IndexRangeMeter({
 
   return (
     <div className="space-y-1.5 pt-1">
-      <div className="relative h-2 w-full rounded-full bg-[var(--as-bg-subtle)] border border-[var(--as-border)]">
+      <div className="relative h-2.5 w-full rounded-full bg-[var(--as-bg-subtle)] border border-[var(--as-border)]">
         {thresholdPct !== null && (
           <div
             title={thresholdLabel}
@@ -124,17 +124,17 @@ export function IndexRangeMeter({
             aria-valuenow={Number(numericValue.toFixed(3))}
             aria-valuemin={min}
             aria-valuemax={max}
-            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-[var(--as-primary)] ring-2 ring-[var(--as-bg-surface)]"
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-[var(--as-primary)] ring-2 ring-[var(--as-bg-surface)]"
             style={{ left: `${pct}%` }}
           />
         )}
       </div>
-      <div className="flex items-center justify-between text-[10px] font-mono tabular-nums text-[var(--as-text-muted)]">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] tabular-nums text-[var(--as-text-muted)]">
         <span>
           {min.toFixed(1)} ({lowLabel})
         </span>
         {thresholdLabel && (
-          <span className="text-[var(--as-warning-text)]">{thresholdLabel}</span>
+          <span className="font-medium text-[var(--as-warning-text)]">{thresholdLabel}</span>
         )}
         <span>
           +{max.toFixed(1)} ({highLabel})
@@ -160,13 +160,13 @@ export function InfoTooltipHint({ label, explanation }: InfoTooltipHintProps) {
         aria-expanded={open}
         aria-label={label}
         title={explanation}
-        className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--as-accent-text)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--as-focus-ring)] rounded"
+        className="inline-flex items-center gap-1.5 min-h-[36px] py-1 px-1.5 -ml-1.5 text-[13px] font-semibold text-[var(--as-accent-text)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--as-focus-ring)] rounded"
       >
-        <HelpCircle className="w-3.5 h-3.5 shrink-0" />
+        <HelpCircle className="w-4 h-4 shrink-0" />
         <span>{open ? 'Hide context' : 'Why this matters'}</span>
       </button>
       {open && (
-        <span className="mt-1.5 block rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-2.5 text-[11px] leading-relaxed text-[var(--as-text-muted)]">
+        <span className="mt-1.5 block rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3 text-[13px] leading-[1.55] text-[var(--as-text-muted)]">
           {explanation}
         </span>
       )}

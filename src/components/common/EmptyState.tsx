@@ -20,10 +20,10 @@ export function EmptyState({
       <div className="mx-auto w-12 h-12 rounded-xl as-icon-badge flex items-center justify-center mb-4">
         {icon}
       </div>
-      <h2 className="text-xl font-semibold text-[#172B22] dark:text-[#E8F1EC] text-balance">
+      <h2 className="text-xl sm:text-[22px] font-semibold text-[#172B22] dark:text-[#E8F1EC] text-balance">
         {title}
       </h2>
-      <p className="mt-2 max-w-md mx-auto text-sm text-[var(--as-text-muted)] leading-relaxed">
+      <p className="mt-2 max-w-lg mx-auto text-[15px] text-[var(--as-text-muted)] leading-[1.55]">
         {description}
       </p>
       {(primaryAction || secondaryAction) && (

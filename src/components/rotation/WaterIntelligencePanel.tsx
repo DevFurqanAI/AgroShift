@@ -257,18 +257,18 @@ export function WaterIntelligencePanel({
   return (
     <section
       aria-label="NASA Water Intelligence and Crop Water Requirements"
-      className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 sm:p-5 space-y-4 text-xs"
+      className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 sm:p-6 space-y-4 text-sm"
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <Droplets className="w-4 h-4 as-text-accent shrink-0" />
-            <h4 className="text-sm font-semibold text-[var(--as-text-primary)]">
-              NASA Water Intelligence (FAO-56 ET₀, Crop ETc &amp; Effective Rainfall)
+            <Droplets className="w-5 h-5 as-text-accent shrink-0" />
+            <h4 className="text-[17px] sm:text-lg font-semibold text-[var(--as-text-primary)]">
+              NASA Water Comparison (Crop Water Use &amp; Rain Balance)
             </h4>
           </div>
-          <p className="text-[11px] text-[var(--as-text-muted)]">
-            Compares daily NASA POWER atmospheric demand, FAO-56 crop water requirement, USDA-SCS effective rainfall, and monthly-step preliminary irrigation deficit across these plans (historical baseline only; existing rotation ranking unchanged).
+          <p className="text-sm text-[var(--as-text-muted)] leading-[1.55]">
+            Compares daily NASA weather drying power (ET₀), estimated crop water use (ETc), and past rainfall across these crop plans. This historical check sits alongside your plans and does not change rotation scores.
           </p>
         </div>
 
@@ -278,10 +278,10 @@ export function WaterIntelligencePanel({
               type="button"
               onClick={runAnalysis}
               disabled={waterMutation.isPending}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)] hover:border-[var(--as-accent-text)] disabled:opacity-60 whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-sm font-medium rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)] hover:border-[var(--as-accent-text)] disabled:opacity-60 whitespace-nowrap"
             >
               <RefreshCw
-                className={`w-3.5 h-3.5 ${waterMutation.isPending ? 'animate-spin' : ''}`}
+                className={`w-4 h-4 ${waterMutation.isPending ? 'animate-spin' : ''}`}
               />
               Refresh
             </button>
@@ -290,16 +290,16 @@ export function WaterIntelligencePanel({
             type="button"
             onClick={() => setIsExpanded((prev) => !prev)}
             aria-expanded={isExpanded}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 min-h-[42px] px-4 py-2 text-sm font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap"
           >
             {isExpanded ? (
               <>
-                <ChevronUp className="w-3.5 h-3.5" />
+                <ChevronUp className="w-4 h-4" />
                 Hide Water Analysis
               </>
             ) : (
               <>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <ChevronDown className="w-4 h-4" />
                 Compare Crop Water Balance
               </>
             )}
@@ -308,33 +308,33 @@ export function WaterIntelligencePanel({
       </div>
 
       {isExpanded && (
-        <div className="space-y-4 pt-2 border-t border-[var(--as-border)]">
+        <div className="space-y-5 pt-3 border-t border-[var(--as-border)]">
           {/* Cultivated Area & Volume Toggle */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-[var(--as-bg-subtle)] border border-[var(--as-border)]">
-            <div className="space-y-0.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg bg-[var(--as-bg-subtle)] border border-[var(--as-border)]">
+            <div className="space-y-1">
               <span className="font-semibold text-[var(--as-text-primary)]">
-                Volume Conversion Basis (1 mm = 10 m³/ha)
+                Field Volume Conversion (1 mm = 10 m³/ha)
               </span>
-              <p className="text-[11px] text-[var(--as-text-muted)]">
+              <p className="text-[13px] text-[var(--as-text-muted)] leading-[1.5]">
                 {hasFarmArea
                   ? `Saved area: ${formatArea(farm.details.areaHectares, areaUnit)} (${
                       isBoundaryArea
-                        ? 'estimated from farm boundary polygon — uncheck if cultivated area differs'
+                        ? 'estimated from farm boundary polygon — uncheck if planted area differs'
                         : 'farmer-entered area'
                     }).`
-                  : 'Cultivated farm area is missing or zero; depths remain in mm and m³ volumes are omitted.'}
+                  : 'Farm area is missing or zero; water depths stay in mm and total m³ volumes are omitted.'}
               </p>
             </div>
 
             {hasFarmArea && (
-              <label className="inline-flex items-center gap-2 cursor-pointer font-medium text-[var(--as-text-primary)] shrink-0">
+              <label className="inline-flex items-center gap-2.5 min-h-[40px] cursor-pointer font-medium text-[var(--as-text-primary)] shrink-0">
                 <input
                   type="checkbox"
                   checked={includeAreaVolume}
                   onChange={(e) => setIncludeAreaVolume(e.target.checked)}
-                  className="rounded border-[var(--as-border)] accent-[#14532D]"
+                  className="w-4 h-4 rounded border-[var(--as-border)] accent-[#14532D]"
                 />
-                <span>Convert mm to field volume (m³)</span>
+                <span>Show volume for my field size (m³)</span>
               </label>
             )}
           </div>
@@ -344,7 +344,7 @@ export function WaterIntelligencePanel({
             <div className="flex items-center gap-2.5 p-4 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-muted)]">
               <Loader2 className="w-4 h-4 animate-spin as-text-accent shrink-0" />
               <span>
-                Retrieving NASA POWER daily meteorology ({startYear}–{endYear}) and computing FAO-56 Penman-Monteith water balances...
+                Loading daily NASA weather records ({startYear}–{endYear}) and calculating FAO-56 water balances...
               </span>
             </div>
           )}
@@ -359,9 +359,9 @@ export function WaterIntelligencePanel({
                 <button
                   type="button"
                   onClick={runAnalysis}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#B91C1C] text-white whitespace-nowrap"
+                  className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-sm font-semibold rounded-lg bg-[#B91C1C] text-white whitespace-nowrap"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" />
+                  <RefreshCw className="w-4 h-4" />
                   Retry
                 </button>
               }
@@ -377,8 +377,8 @@ export function WaterIntelligencePanel({
                 tone="warning"
                 title={
                   activeData.status === 'data_unavailable'
-                    ? 'NASA Daily Meteorology Temporarily Unavailable'
-                    : 'Insufficient Comparable Historical Water Years'
+                    ? 'NASA Daily Weather Records Temporarily Unavailable'
+                    : 'Not Enough Comparable Past Years for Water Comparison'
                 }
                 description={
                   activeData.message ||
@@ -389,9 +389,9 @@ export function WaterIntelligencePanel({
                   <button
                     type="button"
                     onClick={runAnalysis}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--as-warning-border)] as-text-warning whitespace-nowrap"
+                    className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-sm font-semibold rounded-lg border border-[var(--as-warning-border)] as-text-warning whitespace-nowrap"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
+                    <RefreshCw className="w-4 h-4" />
                     Retry
                   </button>
                 }
@@ -407,19 +407,19 @@ export function WaterIntelligencePanel({
                 {/* Explicit Water Availability Distinction */}
                 <StatusBanner
                   tone="info"
-                  title="Historical Water Demand vs. Actual Farm Water Supply"
+                  title="Crop Water Need vs. Your Actual Water Supply"
                   description={activeData.farm_water_context.water_availability_note}
                 />
 
                 {/* Headline Lowest-Deficit Snapshot Distinguishing All 5 Quantitative Metrics */}
                 {lowestDeficitPlan?.totals_mean_mm && (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <p className="font-semibold text-[var(--as-text-primary)]">
-                        Lowest Historical Net Irrigation Deficit Option:{' '}
+                      <p className="text-[15px] font-semibold text-[var(--as-text-primary)]">
+                        Lowest Historical Water Shortfall Option:{' '}
                         <span className="as-text-accent">{lowestDeficitPlan.label}</span>
                       </p>
-                      <span className="font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
+                      <span className="tabular-nums text-[13px] text-[var(--as-text-muted)]">
                         Aligned cycles: {activeData.comparison.common_comparable_years_count} yrs (
                         {activeData.comparison.common_comparable_years[0]}–
                         {
@@ -434,57 +434,57 @@ export function WaterIntelligencePanel({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
-                      <div className="p-3 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
-                        <span className="block text-[11px] text-[var(--as-text-muted)]">
-                          1. Atmospheric Demand (ET₀)
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                      <div className="p-3.5 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] space-y-1">
+                        <span className="block text-[13px] font-medium text-[var(--as-text-muted)]">
+                          Reference water demand (ET₀)
                         </span>
-                        <span className="font-mono tabular-nums text-sm font-semibold text-[var(--as-text-primary)]">
+                        <span className="block tabular-nums text-[22px] leading-tight font-bold text-[var(--as-text-primary)]">
                           {formatWaterDepthMm(lowestDeficitPlan.totals_mean_mm.et0_mm)}
                         </span>
                       </div>
-                      <div className="p-3 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
-                        <span className="block text-[11px] text-[var(--as-text-muted)]">
-                          2. Crop Demand (ETc)
+                      <div className="p-3.5 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] space-y-1">
+                        <span className="block text-[13px] font-medium text-[var(--as-text-muted)]">
+                          Estimated crop water use (ETc)
                         </span>
-                        <span className="font-mono tabular-nums text-sm font-semibold text-[var(--as-text-primary)]">
+                        <span className="block tabular-nums text-[22px] leading-tight font-bold text-[var(--as-text-primary)]">
                           {formatWaterDepthMm(lowestDeficitPlan.totals_mean_mm.etc_mm)}
                         </span>
                         {lowestDeficitPlan.volumes_mean_m3?.etc_m3 != null && (
-                          <span className="block font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
+                          <span className="block tabular-nums text-[13px] text-[var(--as-text-muted)]">
                             {formatWaterVolumeM3(lowestDeficitPlan.volumes_mean_m3.etc_m3)}
                           </span>
                         )}
                       </div>
-                      <div className="p-3 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
-                        <span className="block text-[11px] text-[var(--as-text-muted)]">
-                          3. Hist. Rainfall (PRECTOTCORR)
+                      <div className="p-3.5 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] space-y-1">
+                        <span className="block text-[13px] font-medium text-[var(--as-text-muted)]">
+                          Past rainfall (NASA)
                         </span>
-                        <span className="font-mono tabular-nums text-sm font-semibold text-[var(--as-text-primary)]">
+                        <span className="block tabular-nums text-[22px] leading-tight font-bold text-[var(--as-text-primary)]">
                           {formatWaterDepthMm(lowestDeficitPlan.totals_mean_mm.precip_mm)}
                         </span>
                       </div>
-                      <div className="p-3 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
-                        <span className="block text-[11px] text-[var(--as-text-muted)]">
-                          4. Est. Effective Rain (Peff)
+                      <div className="p-3.5 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] space-y-1">
+                        <span className="block text-[13px] font-medium text-[var(--as-text-muted)]">
+                          Estimated effective rainfall
                         </span>
-                        <span className="font-mono tabular-nums text-sm font-semibold as-text-accent">
+                        <span className="block tabular-nums text-[22px] leading-tight font-bold as-text-accent">
                           {formatWaterDepthMm(
                             lowestDeficitPlan.totals_mean_mm.effective_rainfall_mm
                           )}
                         </span>
                       </div>
-                      <div className="col-span-2 lg:col-span-1 p-3 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
-                        <span className="block text-[11px] text-[var(--as-text-muted)]">
-                          5. Prelim. Net Deficit
+                      <div className="sm:col-span-2 lg:col-span-1 p-3.5 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] space-y-1">
+                        <span className="block text-[13px] font-medium text-[var(--as-text-muted)]">
+                          Estimated water shortfall (preliminary)
                         </span>
-                        <span className="font-mono tabular-nums text-sm font-semibold as-text-warning">
+                        <span className="block tabular-nums text-[22px] leading-tight font-bold as-text-warning">
                           {formatWaterDepthMm(
                             lowestDeficitPlan.totals_mean_mm.preliminary_deficit_mm
                           )}
                         </span>
                         {lowestDeficitPlan.volumes_mean_m3?.preliminary_deficit_m3 != null && (
-                          <span className="block font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
+                          <span className="block tabular-nums text-[13px] text-[var(--as-text-muted)]">
                             {formatWaterVolumeM3(
                               lowestDeficitPlan.volumes_mean_m3.preliminary_deficit_m3
                             )}
@@ -497,10 +497,10 @@ export function WaterIntelligencePanel({
 
                 {/* Baseline Difference Note */}
                 {activeData.comparison.baseline_comparison && (
-                  <p className="text-xs text-[var(--as-text-primary)] p-3 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
+                  <p className="text-sm text-[var(--as-text-primary)] p-3.5 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] leading-[1.55]">
                     <strong>Vs. Your Current Rotation ({activeData.comparison.baseline_comparison.current_plan_label}):</strong>{' '}
                     {activeData.comparison.baseline_comparison.compared_plan_label} shows{' '}
-                    <span className="font-mono tabular-nums font-semibold">
+                    <span className="tabular-nums font-semibold">
                       {activeData.comparison.baseline_comparison.deficit_delta_mm > 0 ? '+' : ''}
                       {activeData.comparison.baseline_comparison.deficit_delta_mm} mm
                       {activeData.comparison.baseline_comparison.deficit_delta_percent != null
@@ -511,7 +511,7 @@ export function WaterIntelligencePanel({
                           }${activeData.comparison.baseline_comparison.deficit_delta_percent}%)`
                         : ''}
                     </span>{' '}
-                    historical preliminary deficit
+                    preliminary historical water shortfall
                     {activeData.comparison.baseline_comparison.deficit_delta_m3 != null
                       ? ` (${
                           activeData.comparison.baseline_comparison.deficit_delta_m3 > 0
@@ -527,9 +527,9 @@ export function WaterIntelligencePanel({
 
                 {/* Paddy Rice Explicit Caveat */}
                 {activeData.paddy_rice_caveat && (
-                  <div className="flex items-start gap-2.5 p-3 rounded-lg border border-[var(--as-warning-border)] bg-[var(--as-warning-surface)]">
+                  <div className="flex items-start gap-2.5 p-3.5 rounded-lg border border-[var(--as-warning-border)] bg-[var(--as-warning-surface)]">
                     <AlertTriangle className="w-4 h-4 as-text-warning shrink-0 mt-0.5" />
-                    <p className="text-[11px] text-[var(--as-text-primary)] leading-relaxed">
+                    <p className="text-[13px] text-[var(--as-text-primary)] leading-[1.55]">
                       <strong>Paddy Rice Water Caveat:</strong> {activeData.paddy_rice_caveat}
                     </p>
                   </div>
@@ -538,10 +538,22 @@ export function WaterIntelligencePanel({
                 {/* Recharts Comparison Bar Chart */}
                 {chartData.length > 0 && (
                   <div className="space-y-2">
-                    <p className="font-semibold text-[var(--as-text-primary)]">
-                      Cycle Mean Crop Water Demand vs. Effective Rainfall &amp; Preliminary Deficit (mm)
+                    <p className="text-[15px] font-semibold text-[var(--as-text-primary)]">
+                      Estimated Crop Water Use vs. Effective Rainfall &amp; Water Shortfall (mm)
                     </p>
-                    <div className="h-[235px] w-full">
+                    <div
+                      role="img"
+                      aria-label={`Bar chart comparing estimated crop water use (ETc), estimated effective rainfall, and preliminary water shortfall across ${chartData.length} rotation plans`}
+                      className="h-[250px] w-full"
+                    >
+                      <p className="sr-only">
+                        {chartData
+                          .map(
+                            (d) =>
+                              `${d.plan}: crop water use ${Math.round(d.ETc)} mm, effective rainfall ${Math.round(d.EffectiveRain)} mm, preliminary shortfall ${Math.round(d.Deficit)} mm`
+                          )
+                          .join('; ')}
+                      </p>
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
                           data={chartData}
@@ -557,15 +569,15 @@ export function WaterIntelligencePanel({
                             interval={0}
                             angle={chartData.length > 2 ? -8 : 0}
                             textAnchor={chartData.length > 2 ? 'end' : 'middle'}
-                            height={48}
-                            tick={{ fontSize: 10.5, fill: 'var(--as-chart-axis)' }}
+                            height={52}
+                            tick={{ fontSize: 12, fill: 'var(--as-chart-axis)' }}
                             stroke="var(--as-chart-grid)"
                           />
                           <YAxis
                             unit=" mm"
-                            tick={{ fontSize: 10.5, fill: 'var(--as-chart-axis)' }}
+                            tick={{ fontSize: 12, fill: 'var(--as-chart-axis)' }}
                             stroke="var(--as-chart-grid)"
-                            width={56}
+                            width={62}
                           />
                           <Tooltip
                             contentStyle={{
@@ -573,27 +585,27 @@ export function WaterIntelligencePanel({
                               borderColor: '#23362D',
                               borderRadius: '8px',
                               color: '#E8F1EC',
-                              fontSize: '12px',
+                              fontSize: '13px',
                             }}
                           />
                           <Legend
-                            wrapperStyle={{ fontSize: '11px', color: 'var(--as-text-primary)' }}
+                            wrapperStyle={{ fontSize: '13px', color: 'var(--as-text-primary)' }}
                           />
                           <Bar
                             dataKey="ETc"
-                            name="Crop Demand (ETc)"
+                            name="Estimated crop water use (ETc)"
                             fill="var(--as-chart-temp)"
                             radius={[4, 4, 0, 0]}
                           />
                           <Bar
                             dataKey="EffectiveRain"
-                            name="Est. Effective Rain (Peff)"
+                            name="Estimated effective rain (Peff)"
                             fill="var(--as-chart-rain)"
                             radius={[4, 4, 0, 0]}
                           />
                           <Bar
                             dataKey="Deficit"
-                            name="Prelim. Net Deficit"
+                            name="Estimated water shortfall (preliminary)"
                             fill="#D97706"
                             radius={[4, 4, 0, 0]}
                           />
@@ -605,17 +617,17 @@ export function WaterIntelligencePanel({
 
                 {/* Plan Comparison Table */}
                 <div className="overflow-x-auto rounded-lg border border-[var(--as-border)]">
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full text-left text-[13px]">
                     <thead className="border-b border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
                       <tr>
-                        <th className="px-3 py-2 font-semibold">Rotation Plan</th>
-                        <th className="px-3 py-2 font-semibold">Kc Evidence</th>
-                        <th className="px-3 py-2 font-semibold text-right">ET₀</th>
-                        <th className="px-3 py-2 font-semibold text-right">Crop ETc</th>
-                        <th className="px-3 py-2 font-semibold text-right">Hist. Rain</th>
-                        <th className="px-3 py-2 font-semibold text-right">Eff. Rain</th>
-                        <th className="px-3 py-2 font-semibold text-right">Prelim. Deficit</th>
-                        <th className="px-3 py-2 font-semibold text-right">Deficit Vol.</th>
+                        <th className="px-3 py-2.5 font-semibold">Rotation Plan</th>
+                        <th className="px-3 py-2.5 font-semibold">Crop Coefficient Data</th>
+                        <th className="px-3 py-2.5 font-semibold text-right">Ref. Demand (ET₀)</th>
+                        <th className="px-3 py-2.5 font-semibold text-right">Crop Use (ETc)</th>
+                        <th className="px-3 py-2.5 font-semibold text-right">Past Rain</th>
+                        <th className="px-3 py-2.5 font-semibold text-right">Eff. Rain</th>
+                        <th className="px-3 py-2.5 font-semibold text-right">Water Shortfall</th>
+                        <th className="px-3 py-2.5 font-semibold text-right">Shortfall Vol.</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--as-border)]">
@@ -628,40 +640,40 @@ export function WaterIntelligencePanel({
                               selected ? 'bg-[var(--as-accent-surface)]' : 'hover:bg-[var(--as-bg-subtle)]/60'
                             }`}
                           >
-                            <td className="px-3 py-2 font-medium">
+                            <td className="px-3 py-2.5 font-semibold">
                               <button
                                 type="button"
                                 onClick={() => setSelectedPlanId(p.plan_id)}
                                 disabled={!p.available}
-                                className="text-left hover:underline disabled:no-underline"
+                                className="min-h-[36px] text-left hover:underline disabled:no-underline"
                               >
                                 {p.label}
                                 {p.has_paddy_rice_caveat ? ' *' : ''}
                               </button>
                             </td>
-                            <td className="px-3 py-2 text-[var(--as-text-muted)] whitespace-nowrap">
+                            <td className="px-3 py-2.5 text-[var(--as-text-muted)] whitespace-nowrap">
                               {formatEvidenceLabel(p.evidence_status)}
                             </td>
-                            <td className="px-3 py-2 font-mono tabular-nums text-right whitespace-nowrap">
+                            <td className="px-3 py-2.5 tabular-nums text-right whitespace-nowrap">
                               {p.totals_mean_mm ? formatWaterDepthMm(p.totals_mean_mm.et0_mm) : '—'}
                             </td>
-                            <td className="px-3 py-2 font-mono tabular-nums text-right whitespace-nowrap">
+                            <td className="px-3 py-2.5 tabular-nums text-right whitespace-nowrap">
                               {p.totals_mean_mm ? formatWaterDepthMm(p.totals_mean_mm.etc_mm) : '—'}
                             </td>
-                            <td className="px-3 py-2 font-mono tabular-nums text-right whitespace-nowrap">
+                            <td className="px-3 py-2.5 tabular-nums text-right whitespace-nowrap">
                               {p.totals_mean_mm ? formatWaterDepthMm(p.totals_mean_mm.precip_mm) : '—'}
                             </td>
-                            <td className="px-3 py-2 font-mono tabular-nums text-right whitespace-nowrap">
+                            <td className="px-3 py-2.5 tabular-nums text-right whitespace-nowrap">
                               {p.totals_mean_mm
                                 ? formatWaterDepthMm(p.totals_mean_mm.effective_rainfall_mm)
                                 : '—'}
                             </td>
-                            <td className="px-3 py-2 font-mono tabular-nums font-semibold text-right whitespace-nowrap">
+                            <td className="px-3 py-2.5 tabular-nums font-semibold text-right whitespace-nowrap">
                               {p.totals_mean_mm
                                 ? formatWaterDepthMm(p.totals_mean_mm.preliminary_deficit_mm)
                                 : 'Unavailable'}
                             </td>
-                            <td className="px-3 py-2 font-mono tabular-nums text-right text-[var(--as-text-muted)] whitespace-nowrap">
+                            <td className="px-3 py-2.5 tabular-nums text-right text-[var(--as-text-muted)] whitespace-nowrap">
                               {p.volumes_mean_m3?.preliminary_deficit_m3 != null
                                 ? formatWaterVolumeM3(p.volumes_mean_m3.preliminary_deficit_m3)
                                 : '—'}
@@ -675,60 +687,60 @@ export function WaterIntelligencePanel({
 
                 {/* Selected Plan Season-by-Season Crop Water Breakdown */}
                 {inspectedPlan && inspectedPlan.seasons.length > 0 && (
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-semibold text-[var(--as-text-primary)]">
+                      <p className="text-[15px] font-semibold text-[var(--as-text-primary)]">
                         Season-by-Season Crop Breakdown: {inspectedPlan.label}
                       </p>
-                      <span className="text-[11px] font-mono tabular-nums text-[var(--as-text-muted)]">
-                        Cycle range across aligned years: Deficit{' '}
+                      <span className="text-[13px] tabular-nums text-[var(--as-text-muted)]">
+                        Shortfall range across past years:{' '}
                         {inspectedPlan.ranges_mm?.deficit_min}–
                         {inspectedPlan.ranges_mm?.deficit_max} mm
                       </span>
                     </div>
                     <div className="overflow-x-auto rounded-lg border border-[var(--as-border)]">
-                      <table className="w-full text-left text-xs">
+                      <table className="w-full text-left text-[13px]">
                         <thead className="border-b border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
                           <tr>
-                            <th className="px-3 py-2 font-semibold">Season &amp; Crop</th>
-                            <th className="px-3 py-2 font-semibold">Cycle</th>
-                            <th className="px-3 py-2 font-semibold">Kc (Ini/Mid/End)</th>
-                            <th className="px-3 py-2 font-semibold text-right">ET₀</th>
-                            <th className="px-3 py-2 font-semibold text-right">ETc</th>
-                            <th className="px-3 py-2 font-semibold text-right">Eff. Rain</th>
-                            <th className="px-3 py-2 font-semibold text-right">Prelim. Deficit</th>
+                            <th className="px-3 py-2.5 font-semibold">Season &amp; Crop</th>
+                            <th className="px-3 py-2.5 font-semibold">Cycle</th>
+                            <th className="px-3 py-2.5 font-semibold">Crop Factors (Kc)</th>
+                            <th className="px-3 py-2.5 font-semibold text-right">Ref. Demand (ET₀)</th>
+                            <th className="px-3 py-2.5 font-semibold text-right">Crop Use (ETc)</th>
+                            <th className="px-3 py-2.5 font-semibold text-right">Eff. Rain</th>
+                            <th className="px-3 py-2.5 font-semibold text-right">Water Shortfall</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[var(--as-border)]">
                           {inspectedPlan.seasons.map((s) => (
                             <tr key={`ws-${s.season_index}-${s.crop_id}`}>
-                              <td className="px-3 py-2 font-medium">
-                                S{s.season_index}: {s.crop_name}
+                              <td className="px-3 py-2.5 font-medium">
+                                Season {s.season_index}: {s.crop_name}
                                 {s.evidence_status === 'preliminary' && (
-                                  <span className="block text-[11px] as-text-warning">
+                                  <span className="block text-[13px] as-text-warning">
                                     Preliminary stage proxy ({s.crop_id})
                                   </span>
                                 )}
                               </td>
-                              <td className="px-3 py-2 font-mono tabular-nums text-[var(--as-text-muted)]">
-                                {s.cycle_days} d
+                              <td className="px-3 py-2.5 tabular-nums text-[var(--as-text-muted)]">
+                                {s.cycle_days} days
                               </td>
-                              <td className="px-3 py-2 font-mono tabular-nums text-[var(--as-text-muted)]">
+                              <td className="px-3 py-2.5 tabular-nums text-[var(--as-text-muted)]">
                                 {s.kc_ini.toFixed(2)} / {s.kc_mid_mean_used.toFixed(2)} /{' '}
                                 {s.kc_end_mean_used.toFixed(2)}
                               </td>
-                              <td className="px-3 py-2 font-mono tabular-nums text-right">
+                              <td className="px-3 py-2.5 tabular-nums text-right">
                                 {formatWaterDepthMm(s.mean_et0_mm)}
                               </td>
-                              <td className="px-3 py-2 font-mono tabular-nums text-right">
+                              <td className="px-3 py-2.5 tabular-nums text-right">
                                 {formatWaterDepthMm(s.mean_etc_mm)}
                               </td>
-                              <td className="px-3 py-2 font-mono tabular-nums text-right">
+                              <td className="px-3 py-2.5 tabular-nums text-right">
                                 {formatWaterDepthMm(s.mean_effective_rainfall_mm)}
                               </td>
-                              <td className="px-3 py-2 font-mono tabular-nums font-semibold text-right">
+                              <td className="px-3 py-2.5 tabular-nums font-semibold text-right">
                                 {formatWaterDepthMm(s.mean_preliminary_deficit_mm)}
-                                <span className="block text-[10px] font-normal text-[var(--as-text-muted)]">
+                                <span className="block text-[13px] font-normal text-[var(--as-text-muted)]">
                                   ({s.deficit_range_mm.min}–{s.deficit_range_mm.max} mm)
                                 </span>
                               </td>
@@ -741,26 +753,33 @@ export function WaterIntelligencePanel({
                 )}
 
                 {/* Collapsible Methodology, Plain-Language Definitions & Sources */}
-                <details className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3">
-                  <summary className="cursor-pointer font-semibold text-[var(--as-text-primary)] inline-flex items-center gap-1.5">
-                    <Info className="w-3.5 h-3.5 as-text-accent" />
+                <details className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4">
+                  <summary className="cursor-pointer font-semibold text-sm text-[var(--as-text-primary)] inline-flex items-center gap-2 min-h-[36px]">
+                    <Info className="w-4 h-4 as-text-accent" />
                     Plain-Language Definitions, Equations &amp; Limitations
                   </summary>
-                  <div className="mt-2.5 space-y-2 text-[11px] text-[var(--as-text-muted)] leading-relaxed">
+                  <div className="mt-3 space-y-2.5 text-[13px] text-[var(--as-text-muted)] leading-[1.55]">
                     <p>
-                      <strong className="text-[var(--as-text-primary)]">ET₀ (Atmospheric Water Demand):</strong>{' '}
-                      How strongly sun, temperature, humidity, and wind pull moisture from a well-watered grass surface (FAO-56 Penman-Monteith daily Eq. 6).
+                      <strong className="text-[var(--as-text-primary)]">
+                        1. Atmospheric Demand (ET₀) — Reference water demand (ET₀):
+                      </strong>{' '}
+                      How strongly sun, temperature, humidity, and wind pull moisture from a well-watered reference field (FAO-56 Penman-Monteith daily method).
                     </p>
                     <p>
-                      <strong className="text-[var(--as-text-primary)]">ETc (Crop Water Demand):</strong>{' '}
-                      Estimated crop evapotranspiration (Kc × ET₀) across FAO-56 Initial, Development, Mid, and Late canopy stages under standard non-stressed field management.
+                      <strong className="text-[var(--as-text-primary)]">
+                        2. Estimated crop water use (ETc):
+                      </strong>{' '}
+                      Estimated crop evapotranspiration (Kc × ET₀) across early, mid-season, and late canopy stages under standard well-managed field conditions.
                     </p>
                     <p>
-                      <strong className="text-[var(--as-text-primary)]">Effective Rainfall (USDA-SCS):</strong>{' '}
-                      Share of historical NASA POWER rainfall estimated to infiltrate for crop use after deep percolation and runoff. Monthly net deficit sums <span className="font-mono">max(0, ETc − Peff)</span> month by month so wet-season floods never mask dry-month irrigation shortfalls.
+                      <strong className="text-[var(--as-text-primary)]">
+                        5. Prelim. Net Deficit — Estimated water shortfall (preliminary):
+                      </strong>{' '}
+                      Monthly crop water use minus estimated USDA-SCS effective rainfall (summed month by month as{' '}
+                      <span className="font-semibold text-[var(--as-text-primary)]">max(0, ETc − Peff)</span>), so heavy monsoon rain does not hide dry-month water needs. This does not confirm your farm&apos;s irrigation supply or guarantee water savings.
                     </p>
                     {activeData.limitations.length > 0 && (
-                      <ul className="list-disc pl-4 space-y-1">
+                      <ul className="list-disc pl-5 space-y-1">
                         {activeData.limitations.map((lim, idx) => (
                           <li key={`w-lim-${idx}`}>{lim}</li>
                         ))}

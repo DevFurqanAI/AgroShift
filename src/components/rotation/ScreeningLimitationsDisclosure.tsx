@@ -33,9 +33,9 @@ export function ScreeningLimitationsDisclosure({
       className="rounded-xl border border-[#D9E2EC] dark:border-[#23362D] bg-[var(--as-bg-surface)] p-4 sm:p-5 space-y-3"
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-start gap-2.5 text-xs sm:text-sm text-[#172B22] dark:text-[#E8F1EC]">
-          <Info className="w-4 h-4 as-text-accent shrink-0 mt-0.5" />
-          <p className="leading-relaxed">
+        <div className="flex items-start gap-2.5 text-sm sm:text-[15px] text-[#172B22] dark:text-[#E8F1EC]">
+          <Info className="w-5 h-5 as-text-accent shrink-0 mt-0.5" />
+          <p className="leading-[1.55]">
             These crop plans are preliminary comparisons based on available climate information and your farm details. Check local growing seasons and conditions before planting.
           </p>
         </div>
@@ -45,20 +45,20 @@ export function ScreeningLimitationsDisclosure({
             type="button"
             aria-expanded={expanded}
             onClick={() => setExpanded((prev) => !prev)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#D9E2EC] dark:border-[#23362D] bg-[#F8FAF7] dark:bg-[#0B1310] text-[#172B22] dark:text-[#E8F1EC] hover:border-[var(--as-accent-text)] transition-colors whitespace-nowrap shrink-0 self-start sm:self-center"
+            className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-sm font-semibold rounded-lg border border-[#D9E2EC] dark:border-[#23362D] bg-[#F8FAF7] dark:bg-[#0B1310] text-[#172B22] dark:text-[#E8F1EC] hover:border-[var(--as-accent-text)] transition-colors whitespace-nowrap shrink-0 self-start sm:self-center"
           >
             <span>How were these plans compared?</span>
             {expanded ? (
-              <ChevronUp className="w-3.5 h-3.5" />
+              <ChevronUp className="w-4 h-4" />
             ) : (
-              <ChevronDown className="w-3.5 h-3.5" />
+              <ChevronDown className="w-4 h-4" />
             )}
           </button>
         )}
       </div>
 
       {expanded && hasDetails && (
-        <div className="pt-3 border-t border-[#D9E2EC] dark:border-[#23362D] space-y-3 text-xs text-[var(--as-text-muted)] leading-relaxed">
+        <div className="pt-3 border-t border-[#D9E2EC] dark:border-[#23362D] space-y-3 text-sm text-[var(--as-text-muted)] leading-[1.55]">
           {method && (
             <p>
               <strong className="text-[#172B22] dark:text-[#E8F1EC]">Comparison method: </strong>
@@ -75,7 +75,7 @@ export function ScreeningLimitationsDisclosure({
             <p key={`extra-${idx}`}>{note}</p>
           ))}
           {limitations.length > 0 && (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <p className="font-semibold text-[#172B22] dark:text-[#E8F1EC]">
                 Key limitations to keep in mind:
               </p>
@@ -87,28 +87,28 @@ export function ScreeningLimitationsDisclosure({
             </div>
           )}
           {sources.length > 0 && (
-            <div className="space-y-2 pt-1">
+            <div className="space-y-2.5 pt-1">
               <p className="font-semibold text-[#172B22] dark:text-[#E8F1EC]">
                 Agronomic &amp; Earth Observation References:
               </p>
-              <ul className="space-y-2">
+              <ul className="space-y-2.5">
                 {sources.map((src) => (
                   <li
                     key={src.id}
-                    className="p-2.5 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] space-y-1"
+                    className="p-3 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] space-y-1 text-[13px]"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-semibold text-[#172B22] dark:text-[#E8F1EC]">
+                      <span className="font-semibold text-sm text-[#172B22] dark:text-[#E8F1EC]">
                         {src.title}
                       </span>
                       <a
                         href={src.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 as-text-accent underline hover:opacity-80"
+                        className="inline-flex items-center gap-1 as-text-accent underline hover:opacity-80 font-medium"
                       >
                         {src.organization}
-                        <ExternalLink className="w-3 h-3" />
+                        <ExternalLink className="w-3.5 h-3.5" />
                       </a>
                     </div>
                     <p>

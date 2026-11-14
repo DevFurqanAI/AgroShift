@@ -5,8 +5,8 @@
 
 @layer base {
   :root {
-    --font-display: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
+    --font-display: 'Nunito Sans', system-ui, -apple-system, sans-serif;
+    --font-sans: 'Nunito Sans', system-ui, -apple-system, sans-serif;
     --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
 
     /* Semantic AgroShift Accessibility & Contrast Tokens (Light Theme) */
@@ -86,7 +86,12 @@
 
   html {
     font-family: var(--font-sans);
+    font-size: 16px;
     scroll-behavior: smooth;
+  }
+
+  body {
+    line-height: 1.55;
   }
 
   h1, h2, h3, h4, .font-display {
@@ -95,6 +100,16 @@
 
   .font-mono {
     font-family: var(--font-mono);
+  }
+
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid var(--as-focus-ring);
+    outline-offset: 2px;
   }
 }
 
@@ -109,7 +124,7 @@
   }
 
   .as-btn-primary:focus-visible {
-    outline: 2px solid var(--as-accent-text);
+    outline: 2px solid var(--as-focus-ring);
     outline-offset: 2px;
   }
 
@@ -194,6 +209,24 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #172b22 !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+  }
+
+  main {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  section, article, table, details {
+    break-inside: avoid;
   }
 }
 

@@ -163,10 +163,10 @@ export function ClimatePage() {
       {/* Header & Coordinates */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="font-display text-xl font-bold">
+          <h2 className="font-display text-[26px] sm:text-[28px] font-bold tracking-tight">
             Historical Climate Intelligence — {activeFarm.details.name}
           </h2>
-          <p className="text-xs font-mono tabular-nums text-[#64748B] dark:text-[#94A3B8] mt-1">
+          <p className="text-[14px] tabular-nums text-[#64748B] dark:text-[#94A3B8] mt-1">
             Source: NASA POWER Historical Observations ·{' '}
             {formatCoordinate(activeFarm.location.latitude, 'lat')} ·{' '}
             {formatCoordinate(activeFarm.location.longitude, 'lon')}
@@ -176,7 +176,7 @@ export function ClimatePage() {
         {/* Year Range Controls */}
         <form onSubmit={handleApplyRange} className="flex flex-wrap items-end gap-2.5">
           <div>
-            <label htmlFor="climate-start" className="block text-[11px] text-[#64748B] mb-1">
+            <label htmlFor="climate-start" className="block text-[13px] font-medium text-[#64748B] dark:text-[#94A3B8] mb-1">
               Start Year
             </label>
             <input
@@ -186,11 +186,11 @@ export function ClimatePage() {
               max={CURRENT_YEAR}
               value={startYear}
               onChange={(e) => setStartYear(Number(e.target.value))}
-              className="w-24 px-2.5 py-1.5 text-sm font-mono tabular-nums rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+              className="w-24 min-h-[44px] px-3 py-2 text-[15px] tabular-nums rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
             />
           </div>
           <div>
-            <label htmlFor="climate-end" className="block text-[11px] text-[#64748B] mb-1">
+            <label htmlFor="climate-end" className="block text-[13px] font-medium text-[#64748B] dark:text-[#94A3B8] mb-1">
               End Year
             </label>
             <input
@@ -200,18 +200,18 @@ export function ClimatePage() {
               max={CURRENT_YEAR}
               value={endYear}
               onChange={(e) => setEndYear(Number(e.target.value))}
-              className="w-24 px-2.5 py-1.5 text-sm font-mono tabular-nums rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+              className="w-24 min-h-[44px] px-3 py-2 text-[15px] tabular-nums rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
             />
           </div>
           <button
             type="submit"
             disabled={climateQuery.isFetching}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg as-btn-primary disabled:opacity-50 whitespace-nowrap"
+            className="inline-flex items-center gap-2 min-h-[44px] px-4 py-2 text-[15px] font-semibold rounded-lg as-btn-primary disabled:opacity-50 whitespace-nowrap"
           >
             {climateQuery.isFetching ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <RefreshCw className="w-3.5 h-3.5" />
+              <RefreshCw className="w-4 h-4" />
             )}
             Load Period
           </button>
@@ -219,19 +219,19 @@ export function ClimatePage() {
       </div>
 
       {rangeError && (
-        <p role="alert" className="text-xs text-[#DC2626]">
+        <p role="alert" className="text-[14px] text-[#DC2626] dark:text-[#FCA5A5]">
           {rangeError}
         </p>
       )}
 
       {/* Scientific Context Note */}
-      <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-4 flex items-start gap-3 text-xs text-[#64748B] dark:text-[#94A3B8]">
+      <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-4 flex items-start gap-3 text-[14px] text-[#64748B] dark:text-[#94A3B8]">
         <Info className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
-        <p className="leading-relaxed">
+        <p className="leading-[1.55]">
           <strong className="text-[#172B22] dark:text-[#E8F1EC]">
-            Historical Observations vs. Forecasts:
+            Past Records vs. Future Forecasts:
           </strong>{' '}
-          NASA POWER records show historical climate behavior at your coordinates—they are not future weather forecasts.{' '}
+          NASA POWER records show historical climate behavior at your farm coordinates—never future weather forecasts—so you can see how heat and rain patterns fit each crop.{' '}
           {data?.note ? data.note : 'Monthly rainfall estimates are computed from historical satellite and gridded records.'}
         </p>
       </div>
@@ -257,9 +257,9 @@ export function ClimatePage() {
             <button
               type="button"
               onClick={() => climateQuery.refetch()}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg as-btn-primary whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 min-h-[40px] px-4 py-2 text-sm font-semibold rounded-lg as-btn-primary whitespace-nowrap"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
+              <RefreshCw className="w-4 h-4" />
               Retry
             </button>
           }
@@ -279,9 +279,9 @@ export function ClimatePage() {
             <button
               type="button"
               onClick={() => climateQuery.refetch()}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+              className="inline-flex items-center gap-1.5 min-h-[40px] px-4 py-2 text-sm font-semibold rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
+              <RefreshCw className="w-4 h-4" />
               Retry
             </button>
           }
@@ -292,25 +292,25 @@ export function ClimatePage() {
       {data && data.data_available && monthlyRecords.length > 0 && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-4 space-y-1">
-              <p className="text-xs text-[var(--as-text-muted)]">Source &amp; Window</p>
-              <p className="text-sm font-semibold text-[var(--as-text-primary)]">
+            <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-4 space-y-1.5">
+              <p className="text-[13px] font-medium text-[var(--as-text-muted)]">Source &amp; Window</p>
+              <p className="text-[17px] font-semibold text-[var(--as-text-primary)]">
                 {data.source || 'NASA POWER'}
               </p>
-              <p className="text-xs font-mono tabular-nums text-[var(--as-text-muted)]">
+              <p className="text-[13px] tabular-nums text-[var(--as-text-muted)]">
                 {data.start_year ?? appliedRange.startYear}–{data.end_year ?? appliedRange.endYear} (
                 {monthlyRecords.length} records)
               </p>
             </div>
 
-            <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-4 space-y-1">
-              <p className="text-xs text-[var(--as-text-muted)]">Period Mean Temperature</p>
-              <p className="text-lg font-mono font-bold tabular-nums text-[var(--as-text-primary)]">
+            <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-4 space-y-1.5">
+              <p className="text-[13px] font-medium text-[var(--as-text-muted)]">Period Mean Temperature</p>
+              <p className="text-[22px] sm:text-2xl font-bold tabular-nums text-[var(--as-text-primary)]">
                 {periodStats?.meanTempC !== null && periodStats?.meanTempC !== undefined
                   ? formatTemperature(periodStats.meanTempC, settings.temperatureUnit)
                   : 'Unavailable'}
               </p>
-              <p className="text-[11px] font-mono tabular-nums text-[var(--as-text-muted)]">
+              <p className="text-[13px] tabular-nums text-[var(--as-text-muted)]">
                 {periodStats?.minTempC !== null &&
                 periodStats?.maxTempC !== null &&
                 periodStats?.minTempC !== undefined &&
@@ -323,9 +323,9 @@ export function ClimatePage() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-4 space-y-1">
-              <p className="text-xs text-[var(--as-text-muted)]">Historical Precipitation</p>
-              <p className="text-lg font-mono font-bold tabular-nums text-[var(--as-text-primary)]">
+            <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-4 space-y-1.5">
+              <p className="text-[13px] font-medium text-[var(--as-text-muted)]">Historical Precipitation</p>
+              <p className="text-[22px] sm:text-2xl font-bold tabular-nums text-[var(--as-text-primary)]">
                 {periodStats?.meanAnnualRainMm !== null &&
                 periodStats?.meanAnnualRainMm !== undefined
                   ? `~${periodStats.meanAnnualRainMm.toFixed(0)} mm/yr`
@@ -336,7 +336,7 @@ export function ClimatePage() {
                       ? `${periodStats.meanDailyRate.toFixed(2)} mm/day`
                       : 'Unavailable'}
               </p>
-              <p className="text-[11px] font-mono tabular-nums text-[var(--as-text-muted)]">
+              <p className="text-[13px] tabular-nums text-[var(--as-text-muted)]">
                 {periodStats?.completeYearsCount && periodStats.completeYearsTotalRainMm !== null
                   ? `Mean over ${periodStats.completeYearsCount} complete yr (${periodStats.completeYearsTotalRainMm.toFixed(0)} mm)`
                   : periodStats?.climatologicalAnnualMeanMm !== null &&
@@ -348,7 +348,7 @@ export function ClimatePage() {
                       : 'Monthly rainfall totals unavailable'}
               </p>
               {periodStats && periodStats.incompleteYears.length > 0 && (
-                <p className="text-[11px] as-text-warning leading-snug">
+                <p className="text-[13px] as-text-warning leading-snug">
                   Incomplete year{periodStats.incompleteYears.length > 1 ? 's' : ''} excluded from annual mean:{' '}
                   {periodStats.incompleteYears
                     .map((iy) => `${iy.year} (${iy.validMonths}/12 mo)`)
@@ -357,15 +357,15 @@ export function ClimatePage() {
               )}
             </div>
 
-            <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-4 space-y-1">
-              <p className="text-xs text-[var(--as-text-muted)]">Observation Completeness</p>
-              <p className="text-sm font-mono font-semibold tabular-nums text-[var(--as-text-primary)]">
+            <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-4 space-y-1.5">
+              <p className="text-[13px] font-medium text-[var(--as-text-muted)]">Observation Completeness</p>
+              <p className="text-[17px] font-semibold tabular-nums text-[var(--as-text-primary)]">
                 {periodStats?.validTempCount ?? 0}/{periodStats?.totalRecords ?? monthlyRecords.length} temp ·{' '}
                 {periodStats?.validPrecipCount ?? 0}/{periodStats?.totalRecords ?? monthlyRecords.length} rain
               </p>
               <Link
                 to="/dashboard/planner"
-                className="inline-block text-[11px] font-medium as-text-accent hover:underline"
+                className="inline-flex items-center min-h-[36px] text-sm font-medium as-text-accent hover:underline"
               >
                 Use in Rotation Planner →
               </Link>
@@ -374,8 +374,8 @@ export function ClimatePage() {
 
           {/* Chart Focus Tabs */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-[var(--as-text-muted)]">
-              NASA temperature shapes thermal suitability while monthly precipitation patterns drive seasonal water screening.
+            <p className="text-[14px] text-[var(--as-text-muted)]">
+              NASA temperature patterns check crop heat and frost fit, while monthly precipitation informs seasonal water screening.
             </p>
             <div
               role="tablist"
@@ -395,7 +395,7 @@ export function ClimatePage() {
                     role="tab"
                     aria-selected={active}
                     onClick={() => setChartView(tab.id as 'all' | 'trends' | 'cycle')}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                    className={`min-h-[40px] px-3.5 py-2 text-[14px] font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
                       active
                         ? 'bg-[var(--as-bg-surface)] text-[var(--as-text-primary)] shadow-sm'
                         : 'text-[var(--as-text-muted)] hover:text-[var(--as-text-primary)]'
@@ -416,32 +416,32 @@ export function ClimatePage() {
 
           {seasonalSummary.length > 0 && (
             <section className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 space-y-3">
-              <h3 className="text-base font-semibold">Quarter-Year Historical Averages</h3>
+              <h3 className="text-[19px] font-semibold">Quarter-Year Historical Averages</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {seasonalSummary.map((s) => (
                   <div
                     key={s.season}
-                    className="p-3.5 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] space-y-1 text-xs"
+                    className="p-3.5 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] space-y-1 text-[14px]"
                   >
                     <p className="font-semibold text-[#172B22] dark:text-[#E8F1EC]">
                       {s.season}
                     </p>
-                    <p className="font-mono tabular-nums text-[#64748B] dark:text-[#94A3B8]">
+                    <p className="tabular-nums text-[#64748B] dark:text-[#94A3B8]">
                       Avg Temp:{' '}
                       {s.avgTempC !== null
                         ? formatTemperature(s.avgTempC, settings.temperatureUnit)
                         : 'Unavailable'}
                     </p>
                     {s.avgMonthlyMm !== null ? (
-                      <p className="font-mono tabular-nums text-[#64748B] dark:text-[#94A3B8]">
+                      <p className="tabular-nums text-[#64748B] dark:text-[#94A3B8]">
                         Avg Monthly Rain: {s.avgMonthlyMm.toFixed(1)} mm/mo
                       </p>
                     ) : s.avgRateMmDay !== null ? (
-                      <p className="font-mono tabular-nums text-[#64748B] dark:text-[#94A3B8]">
+                      <p className="tabular-nums text-[#64748B] dark:text-[#94A3B8]">
                         Rain Rate: {s.avgRateMmDay.toFixed(2)} mm/day
                       </p>
                     ) : (
-                      <p className="text-[#64748B]">Precipitation unavailable</p>
+                      <p className="text-[#64748B] dark:text-[#94A3B8]">Precipitation unavailable</p>
                     )}
                   </div>
                 ))}
@@ -450,43 +450,43 @@ export function ClimatePage() {
           )}
 
           {monthlyTable.length > 0 && (
-            <details className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-4 sm:p-5 text-xs">
-              <summary className="cursor-pointer font-semibold text-[#172B22] dark:text-[#E8F1EC]">
+            <details className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-4 sm:p-5 text-[14px]">
+              <summary className="cursor-pointer font-semibold text-[#172B22] dark:text-[#E8F1EC] min-h-[36px] flex items-center">
                 Monthly Climatology Table (Jan–Dec Averages &amp; Observed Min/Max)
               </summary>
               <div className="mt-3 overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <table className="w-full text-left text-[14px]">
                   <thead className="border-b border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
                     <tr>
-                      <th className="px-3 py-2 font-semibold">Month</th>
-                      <th className="px-3 py-2 font-semibold text-right">Mean Temp</th>
-                      <th className="px-3 py-2 font-semibold text-right">Observed Min / Max</th>
-                      <th className="px-3 py-2 font-semibold text-right">Mean Precip</th>
-                      <th className="px-3 py-2 font-semibold text-right">Samples</th>
+                      <th className="px-3 py-2.5 font-semibold">Month</th>
+                      <th className="px-3 py-2.5 font-semibold text-right">Mean Temp</th>
+                      <th className="px-3 py-2.5 font-semibold text-right">Observed Min / Max</th>
+                      <th className="px-3 py-2.5 font-semibold text-right">Mean Precip</th>
+                      <th className="px-3 py-2.5 font-semibold text-right">Samples</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--as-border)]">
                     {monthlyTable.map((row) => (
                       <tr key={row.month}>
-                        <td className="px-3 py-2 font-semibold">{row.month}</td>
-                        <td className="px-3 py-2 font-mono tabular-nums text-right">
+                        <td className="px-3 py-2.5 font-semibold">{row.month}</td>
+                        <td className="px-3 py-2.5 tabular-nums text-right">
                           {row.meanTempC !== null
                             ? formatTemperature(row.meanTempC, settings.temperatureUnit)
                             : 'Unavailable'}
                         </td>
-                        <td className="px-3 py-2 font-mono tabular-nums text-right text-[var(--as-text-muted)]">
+                        <td className="px-3 py-2.5 tabular-nums text-right text-[var(--as-text-muted)]">
                           {row.minTempC !== null && row.maxTempC !== null
                             ? `${formatTemperature(row.minTempC, settings.temperatureUnit)} – ${formatTemperature(row.maxTempC, settings.temperatureUnit)}`
                             : 'Unavailable'}
                         </td>
-                        <td className="px-3 py-2 font-mono tabular-nums text-right">
+                        <td className="px-3 py-2.5 tabular-nums text-right">
                           {row.meanMonthlyMm !== null
                             ? `${row.meanMonthlyMm.toFixed(1)} mm/mo`
                             : row.meanRateMmDay !== null
                               ? `${row.meanRateMmDay.toFixed(2)} mm/day`
                               : 'Unavailable'}
                         </td>
-                        <td className="px-3 py-2 font-mono tabular-nums text-right text-[var(--as-text-muted)]">
+                        <td className="px-3 py-2.5 tabular-nums text-right text-[var(--as-text-muted)]">
                           {row.samples}
                         </td>
                       </tr>

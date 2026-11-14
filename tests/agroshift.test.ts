@@ -3360,3 +3360,95 @@ test('55. Assistant context and honesty rules prevent inferring current standing
   assert.match(assistantServiceSrc, /Distinguish low optical canopy moisture indicators \(NDMI\) from confirmed drought/);
 });
 
+test('56. Farmer-facing UI uses Nunito Sans typography and removes font-mono from farmer pages and components', () => {
+  const indexHtml = fs.readFileSync(path.resolve('index.html'), 'utf8');
+  const indexCss = fs.readFileSync(path.resolve('src/index.css'), 'utf8');
+  assert.match(indexHtml, /Nunito\+Sans/);
+  assert.match(indexCss, /--font-sans:\s*'Nunito Sans'/);
+
+  const farmerUiFiles = [
+    'src/pages/LandingPage.tsx',
+    'src/pages/OverviewPage.tsx',
+    'src/pages/PlannerPage.tsx',
+    'src/pages/ClimatePage.tsx',
+    'src/pages/FieldHealthPage.tsx',
+    'src/pages/ScenariosPage.tsx',
+    'src/pages/ReportsPage.tsx',
+    'src/pages/FarmsPage.tsx',
+    'src/components/layout/DashboardLayout.tsx',
+    'src/components/common/MetricPrimitives.tsx',
+    'src/components/rotation/WaterIntelligencePanel.tsx',
+    'src/components/rotation/RotationComparisonCard.tsx',
+    'src/components/rotation/CropIntelligencePanel.tsx',
+    'src/components/farms/LocationContextPanel.tsx',
+    'src/components/farms/FarmWizard.tsx',
+    'src/components/maps/GlobalFarmMap.tsx',
+  ];
+
+  for (const relPath of farmerUiFiles) {
+    const content = fs.readFileSync(path.resolve(relPath), 'utf8');
+    assert.ok(
+      !/\bfont-mono\b/.test(content),
+      `Expected no font-mono class in farmer UI file: ${relPath}`
+    );
+  }
+});
+
+test('57. Farmer-facing UI uses plain-language-first labels while keeping scientific terms clear', () => {
+  const waterPanelSrc = fs.readFileSync(
+    path.resolve('src/components/rotation/WaterIntelligencePanel.tsx'),
+    'utf8'
+  );
+  const comparisonCardSrc = fs.readFileSync(
+    path.resolve('src/components/rotation/RotationComparisonCard.tsx'),
+    'utf8'
+  );
+  const fieldHealthSrc = fs.readFileSync(path.resolve('src/pages/FieldHealthPage.tsx'), 'utf8');
+  const overviewSrc = fs.readFileSync(path.resolve('src/pages/OverviewPage.tsx'), 'utf8');
+  const scenariosSrc = fs.readFileSync(path.resolve('src/pages/ScenariosPage.tsx'), 'utf8');
+
+  assert.match(waterPanelSrc, /Reference water demand \(ET₀\)/);
+  assert.match(waterPanelSrc, /Estimated crop water use \(ETc\)/);
+  assert.match(waterPanelSrc, /Estimated water shortfall \(preliminary\)/);
+  assert.match(comparisonCardSrc, /Planting season needs local confirmation/);
+  assert.match(comparisonCardSrc, /How This Crop Plan Handled Past Weather Patterns/);
+  assert.match(scenariosSrc, /How This Crop Plan Handled Past Weather Patterns/);
+  assert.match(fieldHealthSrc, /Vegetation greenness indicator \(NDVI\)/);
+  assert.match(fieldHealthSrc, /Vegetation moisture indicator \(NDMI\)/);
+  assert.match(overviewSrc, /How AgroShift Connects Your Data/);
+});
+
+test('58. PlannerPage "Why AgroShift suggests these crops" explanation stays grounded in backend flags', () => {
+  const plannerSrc = fs.readFileSync(path.resolve('src/pages/PlannerPage.tsx'), 'utf8');
+
+  assert.match(plannerSrc, /Why AgroShift suggests these crops/);
+  assert.match(plannerSrc, /topDiag\?\.regional_calendar_evaluated/);
+  assert.match(plannerSrc, /topDiag\?\.soil_evaluated/);
+  assert.match(plannerSrc, /topRes\?\.available/);
+  assert.match(plannerSrc, /Planting season needs local confirmation/);
+  assert.match(plannerSrc, /does not change rotation rankings/);
+});
+
+test('59. Data visualizations include screen-reader accessible role, aria-label, and sr-only summaries', () => {
+  const chartFiles = [
+    'src/components/charts/ClimateCharts.tsx',
+    'src/components/rotation/WaterIntelligencePanel.tsx',
+    'src/pages/PlannerPage.tsx',
+    'src/pages/ScenariosPage.tsx',
+  ];
+
+  for (const relPath of chartFiles) {
+    const content = fs.readFileSync(path.resolve(relPath), 'utf8');
+    assert.match(content, /role="img"/, `${relPath} missing role="img" chart container`);
+    assert.match(content, /aria-label=/, `${relPath} missing aria-label on chart container`);
+    assert.match(content, /className="sr-only"/, `${relPath} missing sr-only chart summary`);
+  }
+});
+
+test('60. Global stylesheet defines keyboard focus-visible ring and print styling rules', () => {
+  const indexCss = fs.readFileSync(path.resolve('src/index.css'), 'utf8');
+  assert.match(indexCss, /:focus-visible/);
+  assert.match(indexCss, /@media print/);
+});
+
+

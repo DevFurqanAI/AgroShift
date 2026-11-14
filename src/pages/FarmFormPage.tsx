@@ -19,7 +19,7 @@ export function FarmFormPage() {
           primaryAction={
             <Link
               to="/dashboard/farms"
-              className="px-4 py-2 text-sm font-semibold rounded-lg bg-[#14532D] text-white"
+              className="inline-flex items-center min-h-[44px] px-4 py-2 text-[15px] font-semibold rounded-lg bg-[#14532D] text-white"
             >
               Return to My Farms
             </Link>

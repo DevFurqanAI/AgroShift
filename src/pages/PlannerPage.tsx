@@ -4,6 +4,8 @@ import {
   AlertCircle,
   BookOpen,
   BookmarkPlus,
+  ChevronDown,
+  ChevronUp,
   Loader2,
   PlusCircle,
   RefreshCw,
@@ -112,6 +114,7 @@ export function PlannerPage() {
   const [formValidationError, setFormValidationError] = useState<string | null>(null);
   const [resultView, setResultView] = useState<'all' | 'cards' | 'matrix'>('all');
   const [showCropGuide, setShowCropGuide] = useState(false);
+  const [showWhySuggested, setShowWhySuggested] = useState(false);
   const [inspectedCropId, setInspectedCropId] = useState<string>('wheat');
 
   // Sync defaults when active farm changes
@@ -314,12 +317,12 @@ export function PlannerPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-display text-xl font-bold">
+        <div className="space-y-1">
+          <h2 className="font-display text-[26px] sm:text-[28px] font-bold text-balance">
             Crop Rotation Planner — {activeFarm.details.name}
           </h2>
-          <p className="text-sm text-[var(--as-text-muted)]">
-            Screen multi-season crop sequences against NASA POWER historical climate variability, verified regional planting calendars, soil context, and your farming priorities.
+          <p className="text-[15px] text-[var(--as-text-muted)] leading-[1.55]">
+            Compare multi-season crop plans using NASA climate records, seasonal rainfall, soil details, and your farming goals.
           </p>
         </div>
 
@@ -327,7 +330,7 @@ export function PlannerPage() {
           <button
             type="button"
             onClick={() => setShowCropGuide((prev) => !prev)}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-surface)] text-[var(--as-text-primary)] hover:border-[var(--as-accent-text)] transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-2 min-h-[44px] px-4 py-2.5 text-[15px] font-semibold rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-surface)] text-[var(--as-text-primary)] hover:border-[var(--as-accent-text)] transition-colors whitespace-nowrap"
           >
             <BookOpen className="w-4 h-4 as-text-accent" />
             {showCropGuide ? 'Hide Crop Guide' : 'Crop Guide & Fit'}
@@ -337,12 +340,12 @@ export function PlannerPage() {
             type="button"
             onClick={handleRunScreening}
             disabled={rotationMutation.isPending}
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors disabled:opacity-60 whitespace-nowrap"
+            className="inline-flex items-center gap-2 min-h-[44px] px-5 py-2.5 text-[15px] font-semibold rounded-lg as-btn-primary transition-colors disabled:opacity-60 whitespace-nowrap"
           >
             {rotationMutation.isPending ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Screening Crops...
+                Checking Crop Fit...
               </>
             ) : (
               <>
@@ -410,25 +413,25 @@ export function PlannerPage() {
           onSubmit={handleSubmitForm}
           className="lg:col-span-7 rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 sm:p-6 space-y-5"
         >
-          <h3 className="text-base font-semibold">Planning Parameters</h3>
+          <h3 className="text-lg font-semibold">Planning Inputs for Your Farm</h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs p-3.5 rounded-lg bg-[var(--as-bg-subtle)] border border-[var(--as-border)]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm p-4 rounded-lg bg-[var(--as-bg-subtle)] border border-[var(--as-border)]">
             <div>
-              <span className="text-[var(--as-text-muted)]">Saved Previous Crop</span>
-              <p className="font-semibold text-sm mt-0.5">
+              <span className="text-[13px] font-medium text-[var(--as-text-muted)]">Saved Previous Crop</span>
+              <p className="font-semibold text-[15px] mt-0.5">
                 {activeFarm.history.previousCropName}
               </p>
             </div>
             <div>
-              <span className="text-[var(--as-text-muted)]">Active Screening Goal</span>
-              <p className="font-semibold text-sm mt-0.5">
+              <span className="text-[13px] font-medium text-[var(--as-text-muted)]">Top Goal Used</span>
+              <p className="font-semibold text-[15px] mt-0.5">
                 {BACKEND_GOAL_LABELS[effectiveGoal]}
                 {goalOverride !== 'saved' ? ' (Planner test)' : ''}
               </p>
             </div>
             <div>
-              <span className="text-[var(--as-text-muted)]">Soil Context &amp; Provenance</span>
-              <p className="font-semibold text-sm mt-0.5 capitalize">
+              <span className="text-[13px] font-medium text-[var(--as-text-muted)]">Soil Context &amp; Source</span>
+              <p className="font-semibold text-[15px] mt-0.5 capitalize">
                 {activeFarm.soil.texture.replace(/_/g, ' ')}
                 {activeFarm.soil.texture !== 'unknown'
                   ? ` (${formatProvenanceLabel(activeFarm.soil.textureProvenance)})`
@@ -439,14 +442,14 @@ export function PlannerPage() {
                   : 'pH not recorded (not scored)'}
               </p>
               {socReferenceGKg !== null && (
-                <p className="text-[11px] text-[var(--as-text-muted)] mt-0.5">
-                  SoilGrids SOC reference: {socReferenceGKg} g/kg (context only)
+                <p className="text-[13px] text-[var(--as-text-muted)] mt-0.5">
+                  SoilGrids carbon reference: {socReferenceGKg} g/kg (background only)
                 </p>
               )}
             </div>
             <div>
-              <span className="text-[var(--as-text-muted)]">Location</span>
-              <p className="font-semibold text-sm mt-0.5">{locationSummary}</p>
+              <span className="text-[13px] font-medium text-[var(--as-text-muted)]">Location</span>
+              <p className="font-semibold text-[15px] mt-0.5">{locationSummary}</p>
             </div>
           </div>
 
@@ -455,7 +458,7 @@ export function PlannerPage() {
               <div className="sm:col-span-2">
                 <label
                   htmlFor="ref-prev-crop"
-                  className="block text-xs font-semibold mb-1.5"
+                  className="block text-sm font-semibold mb-1.5"
                 >
                   Reference Previous Crop for Screening *
                 </label>
@@ -466,7 +469,7 @@ export function PlannerPage() {
                     setReferencePrevCropId(e.target.value);
                     setFormValidationError(null);
                   }}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
                 >
                   <option value="">Choose a comparable catalog crop...</option>
                   {engineCatalog.map((crop) => (
@@ -481,7 +484,7 @@ export function PlannerPage() {
             <div>
               <label
                 htmlFor="plan-horizon"
-                className="block text-xs font-semibold mb-1.5"
+                className="block text-sm font-semibold mb-1.5"
               >
                 Planning Horizon
               </label>
@@ -491,7 +494,7 @@ export function PlannerPage() {
                 onChange={(e) =>
                   setHorizonSeasons(Number(e.target.value) as PlanningHorizonSeasons)
                 }
-                className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
+                className="w-full min-h-[44px] px-3.5 py-2.5 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
               >
                 <option value={2}>2 Seasons</option>
                 <option value={3}>3 Seasons</option>
@@ -501,7 +504,7 @@ export function PlannerPage() {
             <div>
               <label
                 htmlFor="planting-month"
-                className="block text-xs font-semibold mb-1.5"
+                className="block text-sm font-semibold mb-1.5"
               >
                 Next Planting Month
               </label>
@@ -509,7 +512,7 @@ export function PlannerPage() {
                 id="planting-month"
                 value={plantingMonth}
                 onChange={(e) => setPlantingMonth(Number(e.target.value))}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
+                className="w-full min-h-[44px] px-3.5 py-2.5 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
               >
                 {MONTH_OPTIONS.map((m) => (
                   <option key={m.value} value={m.value}>
@@ -522,15 +525,15 @@ export function PlannerPage() {
             <div>
               <label
                 htmlFor="plan-water"
-                className="block text-xs font-semibold mb-1.5"
+                className="block text-sm font-semibold mb-1.5"
               >
-                Water Availability (Engine Level: {backendWaterLevel})
+                Farm Water Supply (screening level: {backendWaterLevel})
               </label>
               <select
                 id="plan-water"
                 value={waterConstraint}
                 onChange={(e) => setWaterConstraint(e.target.value as WaterAvailability)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
+                className="w-full min-h-[44px] px-3.5 py-2.5 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
               >
                 <option value="abundant">Reliable / Abundant (High)</option>
                 <option value="seasonal_adequate">Seasonal Adequate (Medium)</option>
@@ -543,9 +546,9 @@ export function PlannerPage() {
             <div>
               <label
                 htmlFor="plan-priority-focus"
-                className="block text-xs font-semibold mb-1.5"
+                className="block text-sm font-semibold mb-1.5"
               >
-                Screening Priority Focus
+                Priority Focus
               </label>
               <select
                 id="plan-priority-focus"
@@ -553,7 +556,7 @@ export function PlannerPage() {
                 onChange={(e) =>
                   setGoalOverride(e.target.value as 'saved' | BackendRotationGoal)
                 }
-                className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
+                className="w-full min-h-[44px] px-3.5 py-2.5 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
               >
                 <option value="saved">
                   Follow Saved Order ({BACKEND_GOAL_LABELS[priorityMapping.activeGoal]})
@@ -568,9 +571,9 @@ export function PlannerPage() {
             <div>
               <label
                 htmlFor="plan-title"
-                className="block text-xs font-semibold mb-1.5"
+                className="block text-sm font-semibold mb-1.5"
               >
-                Plan Label (for saving locally)
+                Plan Label (saved on this device)
               </label>
               <input
                 id="plan-title"
@@ -578,14 +581,14 @@ export function PlannerPage() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder={`${activeFarm.details.name} Next Cycle`}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
+                className="w-full min-h-[44px] px-3.5 py-2.5 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
               />
             </div>
 
             <div>
               <label
                 htmlFor="plan-season"
-                className="block text-xs font-semibold mb-1.5"
+                className="block text-sm font-semibold mb-1.5"
               >
                 Local Cropping Season Name (optional)
               </label>
@@ -595,39 +598,39 @@ export function PlannerPage() {
                 value={localSeasonLabel}
                 onChange={(e) => setLocalSeasonLabel(e.target.value)}
                 placeholder="e.g. Kharif-Rabi, Long/Short Rains"
-                className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
+                className="w-full min-h-[44px] px-3.5 py-2.5 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
               />
             </div>
           </div>
 
-          {/* Current Farming Practice Baseline Selector (Part 5 — never inferred from 1 crop) */}
-          <div className="p-3.5 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] space-y-2.5 text-xs">
+          {/* Current Farming Practice Baseline Selector */}
+          <div className="p-4 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] space-y-3 text-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 font-semibold text-[var(--as-text-primary)]">
-                <Scale className="w-3.5 h-3.5 as-text-accent" />
-                <span>Compare Against Your Current Rotation (Optional Baseline)</span>
+              <div className="flex items-center gap-2 font-semibold text-[var(--as-text-primary)]">
+                <Scale className="w-4 h-4 as-text-accent shrink-0" />
+                <span>Compare Against Your Current Rotation (Optional)</span>
               </div>
               {cleanCurrentBaseline.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setCurrentRotationIds([])}
-                  className="text-xs as-text-accent hover:underline font-medium"
+                  className="min-h-[36px] px-2 text-sm as-text-accent hover:underline font-semibold"
                 >
                   Clear baseline
                 </button>
               )}
             </div>
-            <p className="text-[11px] text-[var(--as-text-muted)]">
-              Specify at least 2 crops in your usual multi-season sequence (chronological order) to score it under the exact same climate, timing, and priority rules. We never guess a full rotation from a single previous crop alone.
+            <p className="text-[13px] text-[var(--as-text-muted)] leading-[1.55]">
+              Pick at least 2 crops in your usual season order to compare side-by-side under the same weather and timing checks. AgroShift never guesses a multi-season habit from one previous crop.
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {Array.from({ length: horizonSeasons }).map((_, idx) => (
                 <div key={`baseline-s-${idx}`}>
                   <label
                     htmlFor={`baseline-season-${idx + 1}`}
-                    className="block text-[11px] text-[var(--as-text-muted)] mb-1"
+                    className="block text-[13px] font-medium text-[var(--as-text-muted)] mb-1"
                   >
-                    Baseline Season {idx + 1}
+                    Current Season {idx + 1}
                   </label>
                   <select
                     id={`baseline-season-${idx + 1}`}
@@ -640,7 +643,7 @@ export function PlannerPage() {
                         return next;
                       });
                     }}
-                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-surface)] text-[var(--as-text-primary)]"
+                    className="w-full min-h-[42px] px-3 py-2 text-sm rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-surface)] text-[var(--as-text-primary)]"
                   >
                     <option value="">Not specified</option>
                     {engineCatalog.map((crop) => (
@@ -655,16 +658,16 @@ export function PlannerPage() {
           </div>
 
           {/* Optional Candidate Crop Filter */}
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-semibold">
-                Filter Candidate Crops (optional — leave unchecked to screen all {engineCatalog.length})
+              <span className="text-sm font-semibold">
+                Filter Candidate Crops (optional — leave unselected to check all {engineCatalog.length})
               </span>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
                   onClick={() => handleOpenCropGuide(selectedCandidateIds[0] || effectivePreviousCropId || 'wheat')}
-                  className="text-xs as-text-accent font-medium hover:underline"
+                  className="min-h-[36px] text-sm as-text-accent font-semibold hover:underline"
                 >
                   Inspect selected crop profile
                 </button>
@@ -672,14 +675,14 @@ export function PlannerPage() {
                   <button
                     type="button"
                     onClick={() => setSelectedCandidateIds([])}
-                    className="text-xs as-text-accent font-medium hover:underline"
+                    className="min-h-[36px] text-sm as-text-accent font-semibold hover:underline"
                   >
                     Clear filter ({selectedCandidateIds.length})
                   </button>
                 )}
               </div>
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               {engineCatalog.map((crop) => {
                 const selected = selectedCandidateIds.includes(crop.id);
                 return (
@@ -687,7 +690,7 @@ export function PlannerPage() {
                     key={crop.id}
                     type="button"
                     onClick={() => handleToggleCandidate(crop.id)}
-                    className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                    className={`min-h-[40px] px-3 py-1.5 text-sm font-medium rounded-md border transition-colors ${
                       selected
                         ? 'as-chip-selected'
                         : 'border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)] hover:border-[var(--as-accent-text)]'
@@ -701,8 +704,8 @@ export function PlannerPage() {
           </div>
 
           <div>
-            <label htmlFor="plan-notes" className="block text-xs font-semibold mb-1.5">
-              Farmer Notes (Market needs, fodder needs, input constraints)
+            <label htmlFor="plan-notes" className="block text-sm font-semibold mb-1.5">
+              Farmer Notes (Market needs, fodder needs, local seed availability)
             </label>
             <textarea
               id="plan-notes"
@@ -710,19 +713,19 @@ export function PlannerPage() {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Need household grain supply in Season 1 and market legume in Season 2..."
-              className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-surface)]"
+              className="w-full px-3.5 py-2.5 text-[15px] rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-surface)]"
             />
           </div>
 
           {formValidationError && (
-            <div className="flex items-start gap-2 text-xs as-text-danger">
+            <div role="alert" className="flex items-start gap-2 text-sm as-text-danger">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>{formValidationError}</span>
             </div>
           )}
 
           {savedFeedback && (
-            <p className="text-xs font-medium as-text-accent">{savedFeedback}</p>
+            <p role="status" className="text-sm font-semibold as-text-accent">{savedFeedback}</p>
           )}
 
           <div className="flex flex-wrap items-center gap-3">
@@ -730,12 +733,12 @@ export function PlannerPage() {
               type="button"
               onClick={handleRunScreening}
               disabled={rotationMutation.isPending}
-              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors disabled:opacity-60"
+              className="inline-flex items-center gap-2 min-h-[44px] px-5 py-2.5 text-[15px] font-semibold rounded-lg as-btn-primary transition-colors disabled:opacity-60"
             >
               {rotationMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Screening Crops...
+                  Checking Crop Fit...
                 </>
               ) : (
                 <>
@@ -747,7 +750,7 @@ export function PlannerPage() {
 
             <button
               type="submit"
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg border border-[var(--as-border)] hover:border-[var(--as-accent-text)] transition-colors"
+              className="inline-flex items-center gap-2 min-h-[44px] px-4 py-2.5 text-[15px] font-semibold rounded-lg border border-[var(--as-border)] hover:border-[var(--as-accent-text)] transition-colors"
             >
               <BookmarkPlus className="w-4 h-4 as-text-accent" />
               Save Plan Snapshot
@@ -757,32 +760,32 @@ export function PlannerPage() {
 
         {/* Saved Plans List */}
         <section className="lg:col-span-5 rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 sm:p-6 space-y-4">
-          <h3 className="text-base font-semibold">
+          <h3 className="text-lg font-semibold">
             Saved Farm Plans ({farmPlans.length})
           </h3>
           {farmPlans.length === 0 ? (
-            <p className="text-sm text-[var(--as-text-muted)]">
-              No rotation plans saved yet for {activeFarm.details.name}. Run screening and save any option you want to compare or export in your Farm Dossier.
+            <p className="text-[15px] text-[var(--as-text-muted)] leading-[1.55]">
+              No rotation plans saved yet for {activeFarm.details.name}. Run screening and save any option you want to compare or export in your Farm Report.
             </p>
           ) : (
             <div className="space-y-3">
               {farmPlans.map((plan) => (
                 <div
                   key={plan.id}
-                  className="p-3.5 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] space-y-1.5"
+                  className="p-4 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] space-y-1.5"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-semibold">{plan.title}</p>
+                    <p className="text-[15px] font-semibold">{plan.title}</p>
                     <button
                       type="button"
                       onClick={() => deleteRotationPlan(plan.id)}
                       aria-label={`Delete plan ${plan.title}`}
-                      className="p-1 text-[var(--as-text-muted)] hover:as-text-danger"
+                      className="min-w-[36px] min-h-[36px] inline-flex items-center justify-center rounded text-[var(--as-text-muted)] hover:as-text-danger"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                  <p className="text-xs text-[var(--as-text-muted)]">
+                  <p className="text-[13px] tabular-nums text-[var(--as-text-muted)]">
                     {plan.horizonSeasons} seasons · {plan.localSeasonLabel} · Prev:{' '}
                     {plan.previousCropName}
                     {plan.topPlanSnapshot
@@ -790,7 +793,7 @@ export function PlannerPage() {
                       : ''}
                   </p>
                   {plan.notes && (
-                    <p className="text-xs text-[var(--as-text-muted)] italic">
+                    <p className="text-[13px] text-[var(--as-text-muted)] italic">
                       &ldquo;{plan.notes}&rdquo;
                     </p>
                   )}
@@ -811,9 +814,9 @@ export function PlannerPage() {
             <button
               type="button"
               onClick={handleRunScreening}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#B91C1C] text-white"
+              className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-sm font-semibold rounded-lg bg-[#B91C1C] text-white"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
+              <RefreshCw className="w-4 h-4" />
               Retry
             </button>
           }
@@ -874,15 +877,19 @@ export function PlannerPage() {
           Diversity: Number((opt.diagnostics?.family_rotation ?? 0).toFixed(1)),
         }));
 
+        const topDiag = topPlan.diagnostics;
+        const topSoil = topPlan.soil_health_summary;
+        const topRes = topPlan.historical_resilience;
+
         return (
           <section className="space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="font-display text-lg font-bold">
-                  Ranked Rotation Options ({liveResult.plans.length})
+                <h3 className="font-display text-xl sm:text-[22px] font-bold">
+                  Recommended Rotation Options ({liveResult.plans.length})
                 </h3>
-                <p className="text-xs text-[var(--as-text-muted)]">
-                  Climate basis: {liveResult.climate_source || 'NASA POWER historical observations'} ({startYear}–{endYear}) · Goal: {BACKEND_GOAL_LABELS[effectiveGoal]}
+                <p className="text-sm text-[var(--as-text-muted)] tabular-nums">
+                  Weather basis: {liveResult.climate_source || 'NASA POWER historical records'} ({startYear}–{endYear}) · Top goal: {BACKEND_GOAL_LABELS[effectiveGoal]}
                 </p>
               </div>
 
@@ -904,7 +911,7 @@ export function PlannerPage() {
                       role="tab"
                       aria-selected={active}
                       onClick={() => setResultView(tab.id as 'all' | 'cards' | 'matrix')}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                      className={`min-h-[40px] px-3.5 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
                         active
                           ? 'bg-[var(--as-bg-surface)] text-[var(--as-text-primary)] shadow-sm'
                           : 'text-[var(--as-text-muted)] hover:text-[var(--as-text-primary)]'
@@ -922,30 +929,121 @@ export function PlannerPage() {
                 tone={liveResult.regional_context.verified ? 'info' : 'warning'}
                 title={
                   liveResult.regional_context.verified
-                    ? `Regional Calendar Context: ${liveResult.regional_context.country_name}${
+                    ? `Planting Calendar Checked: ${liveResult.regional_context.country_name}${
                         liveResult.regional_context.agroecological_zone
                           ? ` (${liveResult.regional_context.agroecological_zone})`
                           : ''
                       }`
-                    : 'Regional Planting Calendar Not Verified for This Location'
+                    : 'Planting Season Needs Local Confirmation'
                 }
                 description={
                   liveResult.regional_context.warning ||
-                  'Crop planting windows were screened against documented regional cropping calendars alongside NASA POWER historical climate.'
+                  'Planting months were checked against documented regional cropping calendars alongside NASA climate history.'
                 }
               />
             )}
 
+            {/* NASA-to-Farmer Explanation Disclosure ("Why AgroShift suggests these crops") */}
+            <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 sm:p-5 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <h4 className="text-[16px] sm:text-[17px] font-semibold text-[var(--as-text-primary)]">
+                    Why AgroShift suggests these crops
+                  </h4>
+                  <p className="text-sm text-[var(--as-text-muted)]">
+                    Plain-language summary of what NASA data and your farm details shaped Option #1 ({topPlan.seasons.map((s) => s.name).join(' → ')}).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-expanded={showWhySuggested}
+                  onClick={() => setShowWhySuggested((prev) => !prev)}
+                  className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-sm font-semibold rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)] hover:border-[var(--as-accent-text)] transition-colors whitespace-nowrap"
+                >
+                  <span>{showWhySuggested ? 'Hide explanation' : 'Read explanation'}</span>
+                  {showWhySuggested ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+
+              {showWhySuggested && (
+                <div className="pt-3 border-t border-[var(--as-border)] grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-[var(--as-text-muted)] leading-[1.55]">
+                  <div className="space-y-2.5">
+                    <p>
+                      <strong className="text-[var(--as-text-primary)]">
+                        1. NASA weather &amp; rain used ({startYear}–{endYear}):
+                      </strong>{' '}
+                      AgroShift pulled NASA POWER historical temperature and precipitation for {locationSummary}
+                      {topDiag
+                        ? ` — Option #1 scored ${topDiag.climate_compatibility.toFixed(1)}/100 on seasonal temperature fit and ${topDiag.water_compatibility.toFixed(1)}/100 on water & rainfall fit under your "${waterConstraint.replace(/_/g, ' ')}" supply setting.`
+                        : '.'}
+                      {liveResult.rainfall_intelligence?.seasonal_contrast_note
+                        ? ` ${liveResult.rainfall_intelligence.seasonal_contrast_note}`
+                        : ''}
+                    </p>
+                    <p>
+                      <strong className="text-[var(--as-text-primary)]">
+                        2. Planting calendar status:
+                      </strong>{' '}
+                      {topDiag?.regional_calendar_evaluated
+                        ? `Your sowing month aligns with documented regional windows (${topDiag.regional_calendar_score?.toFixed(1) ?? 'evaluated'}/100). Still check local seed varieties and onset of rains.`
+                        : 'Planting season needs local confirmation — regional calendar records are incomplete or unverified for this crop/location, so verified regional schedules rank ahead of unverified ones.'}
+                    </p>
+                    <p>
+                      <strong className="text-[var(--as-text-primary)]">
+                        3. Your priority goal ({BACKEND_GOAL_LABELS[effectiveGoal]}):
+                      </strong>{' '}
+                      Weighted the comparison toward {BACKEND_GOAL_LABELS[effectiveGoal].toLowerCase()}. Switch any goal card below to see how another priority changes the top sequence.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <p>
+                      <strong className="text-[var(--as-text-primary)]">
+                        4. Soil &amp; soil-health evaluation:
+                      </strong>{' '}
+                      {topDiag?.soil_evaluated && topDiag.soil_compatibility != null
+                        ? `Your ${formatProvenanceLabel(activeFarm.soil.phProvenance)} (pH ${validSoilPh}) was evaluated in the crop score (${topDiag.soil_compatibility.toFixed(1)}/100).`
+                        : 'Soil pH was omitted from crop scoring because no field pH was provided.'}{' '}
+                      {topSoil
+                        ? `Soil-health screening (${topSoil.soil_health_score.toFixed(1)}/100) checks botanical break (${topDiag?.distinct_families ?? topPlan.seasons.length} plant families), residue cover, legume inclusion, and reported drainage/salinity.`
+                        : ''}{' '}
+                      {socReferenceGKg !== null
+                        ? 'SoilGrids organic carbon is shown for background reference only and never replaces a lab soil test.'
+                        : 'Laboratory nitrogen/phosphorus/potassium (N/P/K) levels are unknown.'}
+                    </p>
+                    <p>
+                      <strong className="text-[var(--as-text-primary)]">
+                        5. Past weather patterns (Climate resilience):
+                      </strong>{' '}
+                      {topRes?.available
+                        ? `How this crop plan handled past weather patterns: ${topRes.summary}`
+                        : 'Not enough complete consecutive NASA years were available to count past heat or dry-season stress.'}
+                    </p>
+                    <p>
+                      <strong className="text-[var(--as-text-primary)]">
+                        6. Separate water check &amp; what to confirm locally:
+                      </strong>{' '}
+                      NASA Water Comparison (crop ETc vs. effective rain) below is an independent check and does not change rotation rankings or guarantee irrigation water savings. Always verify field water supply, soil nutrients, and local sowing dates before planting.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Part 4 — Computed Priority Sensitivity Comparison */}
             {liveResult.priority_sensitivity && liveResult.priority_sensitivity.length > 0 && (
-              <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 sm:p-5 space-y-3 text-xs">
+              <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 space-y-3.5 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <h4 className="text-sm font-semibold text-[var(--as-text-primary)]">
-                      How Priority Choice Shapes Your Top Rotation
+                    <h4 className="text-[16px] sm:text-[17px] font-semibold text-[var(--as-text-primary)]">
+                      How Your Priority Goal Changes the Top Plan
                     </h4>
-                    <p className="text-[11px] text-[var(--as-text-muted)]">
-                      Computed directly from your farm&apos;s dimension scores under each priority focus (preserving verified calendar evidence order).
+                    <p className="text-sm text-[var(--as-text-muted)]">
+                      Calculated from your farm&apos;s dimension scores under each priority focus.
                     </p>
                   </div>
                 </div>
@@ -953,7 +1051,7 @@ export function PlannerPage() {
                   {liveResult.priority_sensitivity.map((item) => (
                     <div
                       key={item.goal}
-                      className={`rounded-lg border p-3 space-y-1.5 ${
+                      className={`rounded-lg border p-3.5 space-y-2 ${
                         item.is_active
                           ? 'border-[var(--as-primary)] bg-[var(--as-accent-surface)]'
                           : 'border-[var(--as-border)] bg-[var(--as-bg-subtle)]'
@@ -963,14 +1061,14 @@ export function PlannerPage() {
                         <span className="font-semibold text-[var(--as-text-primary)]">
                           {item.label}
                         </span>
-                        <span className="font-mono tabular-nums font-semibold as-text-accent">
+                        <span className="tabular-nums text-base font-bold as-text-accent">
                           {item.top_score.toFixed(1)}
                         </span>
                       </div>
                       <p className="font-semibold text-[var(--as-text-primary)]">
                         #1: {item.top_crop_names.join(' → ')}
                       </p>
-                      <p className="text-[11px] text-[var(--as-text-muted)] leading-relaxed">
+                      <p className="text-[13px] text-[var(--as-text-muted)] leading-[1.5]">
                         {item.reason}
                       </p>
                       {!item.is_active && (
@@ -980,7 +1078,7 @@ export function PlannerPage() {
                             setGoalOverride(item.goal);
                             runScreeningWithGoal(item.goal);
                           }}
-                          className="text-[11px] font-semibold as-text-accent hover:underline"
+                          className="min-h-[36px] text-[13px] font-semibold as-text-accent hover:underline text-left"
                         >
                           Switch &amp; screen with {item.label.toLowerCase()}
                         </button>
@@ -993,24 +1091,24 @@ export function PlannerPage() {
 
             {/* Part 5 — Current Farming Practice vs Alternatives Comparison */}
             {baselineComp && (
-              <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 sm:p-5 space-y-3 text-xs">
+              <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 space-y-3.5 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Scale className="w-4 h-4 as-text-accent shrink-0" />
-                    <h4 className="text-sm font-semibold text-[var(--as-text-primary)]">
+                    <h4 className="text-[16px] sm:text-[17px] font-semibold text-[var(--as-text-primary)]">
                       Your Current Rotation vs. Top Ranked Alternative
                     </h4>
                   </div>
                   {baselineComp.evaluated_plan && (
-                    <span className="font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
-                      Baseline: {baselineComp.evaluated_plan.score.toFixed(1)}/100 · Top Option:{' '}
+                    <span className="tabular-nums text-[13px] font-medium text-[var(--as-text-muted)]">
+                      Current: {baselineComp.evaluated_plan.score.toFixed(1)}/100 · Top Option:{' '}
                       {topPlan.score.toFixed(1)}/100
                     </span>
                   )}
                 </div>
 
                 {baselineComp.comparison_summary && (
-                  <p className="text-[var(--as-text-primary)] leading-relaxed">
+                  <p className="text-[var(--as-text-primary)] leading-[1.55]">
                     {baselineComp.comparison_summary}
                   </p>
                 )}
@@ -1020,65 +1118,65 @@ export function PlannerPage() {
 
                 {baselineComp.status === 'ok' && baselineComp.evaluated_plan && (
                   <div className="overflow-x-auto rounded-lg border border-[var(--as-border)]">
-                    <table className="w-full text-left text-xs">
+                    <table className="w-full text-left text-[13px]">
                       <thead className="border-b border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
                         <tr>
-                          <th className="px-3 py-2 font-semibold">Sequence</th>
-                          <th className="px-3 py-2 font-semibold">Timing Evidence</th>
-                          <th className="px-3 py-2 font-semibold text-right">Overall</th>
-                          <th className="px-3 py-2 font-semibold text-right">Climate</th>
-                          <th className="px-3 py-2 font-semibold text-right">Water</th>
-                          <th className="px-3 py-2 font-semibold text-right">Soil Health</th>
-                          <th className="px-3 py-2 font-semibold text-right">Diversity</th>
+                          <th className="px-3 py-2.5 font-semibold">Sequence</th>
+                          <th className="px-3 py-2.5 font-semibold">Timing Status</th>
+                          <th className="px-3 py-2.5 font-semibold text-right">Overall</th>
+                          <th className="px-3 py-2.5 font-semibold text-right">Climate</th>
+                          <th className="px-3 py-2.5 font-semibold text-right">Water</th>
+                          <th className="px-3 py-2.5 font-semibold text-right">Soil Health</th>
+                          <th className="px-3 py-2.5 font-semibold text-right">Diversity</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[var(--as-border)]">
                         <tr>
-                          <td className="px-3 py-2 font-semibold">
+                          <td className="px-3 py-2.5 font-semibold">
                             Current: {baselineComp.evaluated_plan.seasons.map((s) => s.name).join(' → ')}
                           </td>
-                          <td className="px-3 py-2 text-[var(--as-text-muted)]">
+                          <td className="px-3 py-2.5 text-[var(--as-text-muted)]">
                             {baselineComp.evaluated_plan.compatibility_band || 'Evaluated'}
                           </td>
-                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                          <td className="px-3 py-2.5 tabular-nums text-right">
                             {baselineComp.evaluated_plan.score.toFixed(1)}
                           </td>
-                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                          <td className="px-3 py-2.5 tabular-nums text-right">
                             {baselineComp.evaluated_plan.diagnostics?.climate_compatibility.toFixed(1) ?? '—'}
                           </td>
-                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                          <td className="px-3 py-2.5 tabular-nums text-right">
                             {baselineComp.evaluated_plan.diagnostics?.water_compatibility.toFixed(1) ?? '—'}
                           </td>
-                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                          <td className="px-3 py-2.5 tabular-nums text-right">
                             {baselineComp.evaluated_plan.diagnostics?.soil_health_score?.toFixed(1) ?? '—'}
                           </td>
-                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                          <td className="px-3 py-2.5 tabular-nums text-right">
                             {baselineComp.evaluated_plan.diagnostics?.family_rotation.toFixed(1) ?? '—'}
                           </td>
                         </tr>
                         <tr className="bg-[var(--as-bg-subtle)]/50">
-                          <td className="px-3 py-2 font-semibold as-text-accent">
+                          <td className="px-3 py-2.5 font-semibold as-text-accent">
                             Option #1: {topPlan.seasons.map((s) => s.name).join(' → ')}
                           </td>
-                          <td className="px-3 py-2 text-[var(--as-text-muted)]">
+                          <td className="px-3 py-2.5 text-[var(--as-text-muted)]">
                             {topPlan.compatibility_band || 'Screening match'}
                           </td>
-                          <td className="px-3 py-2 font-mono tabular-nums font-semibold text-right">
+                          <td className="px-3 py-2.5 tabular-nums font-semibold text-right">
                             {topPlan.score.toFixed(1)}
                             {baselineComp.score_delta_vs_top !== null
                               ? ` (${baselineComp.score_delta_vs_top > 0 ? `+${baselineComp.score_delta_vs_top}` : baselineComp.score_delta_vs_top})`
                               : ''}
                           </td>
-                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                          <td className="px-3 py-2.5 tabular-nums text-right">
                             {topPlan.diagnostics?.climate_compatibility.toFixed(1) ?? '—'}
                           </td>
-                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                          <td className="px-3 py-2.5 tabular-nums text-right">
                             {topPlan.diagnostics?.water_compatibility.toFixed(1) ?? '—'}
                           </td>
-                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                          <td className="px-3 py-2.5 tabular-nums text-right">
                             {topPlan.diagnostics?.soil_health_score?.toFixed(1) ?? '—'}
                           </td>
-                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                          <td className="px-3 py-2.5 tabular-nums text-right">
                             {topPlan.diagnostics?.family_rotation.toFixed(1) ?? '—'}
                           </td>
                         </tr>
@@ -1090,12 +1188,12 @@ export function PlannerPage() {
             )}
 
             {liveResult.rainfall_intelligence && (
-              <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 sm:p-5 space-y-3 text-xs">
+              <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 space-y-3.5 text-sm">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <p className="font-semibold text-[var(--as-text-primary)]">
+                  <p className="text-[16px] sm:text-[17px] font-semibold text-[var(--as-text-primary)]">
                     NASA POWER Historical Rainfall Context
                   </p>
-                  <span className="font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
+                  <span className="tabular-nums text-[13px] text-[var(--as-text-muted)]">
                     {liveResult.rainfall_intelligence.rainfall_available
                       ? 'Precipitation records loaded'
                       : 'Precipitation records incomplete'}
@@ -1104,31 +1202,31 @@ export function PlannerPage() {
 
                 {liveResult.rainfall_intelligence.rainfall_available && (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3">
-                      <span className="text-[11px] text-[var(--as-text-muted)]">
+                    <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3.5">
+                      <span className="text-[13px] font-medium text-[var(--as-text-muted)]">
                         Historical Annual Mean
                       </span>
-                      <p className="font-mono tabular-nums text-sm font-semibold text-[var(--as-text-primary)] mt-0.5">
+                      <p className="tabular-nums text-[22px] leading-tight font-bold text-[var(--as-text-primary)] mt-1">
                         {liveResult.rainfall_intelligence.annual_mean_mm != null
                           ? `~${liveResult.rainfall_intelligence.annual_mean_mm} mm/yr`
                           : 'Unavailable'}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3">
-                      <span className="text-[11px] text-[var(--as-text-muted)]">
+                    <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3.5">
+                      <span className="text-[13px] font-medium text-[var(--as-text-muted)]">
                         Wettest 3-Month Window
                       </span>
-                      <p className="font-mono tabular-nums text-sm font-semibold text-[var(--as-text-primary)] mt-0.5">
+                      <p className="tabular-nums text-[22px] leading-tight font-bold text-[var(--as-text-primary)] mt-1">
                         {liveResult.rainfall_intelligence.wettest_3mo_mm != null
                           ? `~${liveResult.rainfall_intelligence.wettest_3mo_mm} mm`
                           : 'Unavailable'}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3">
-                      <span className="text-[11px] text-[var(--as-text-muted)]">
+                    <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3.5">
+                      <span className="text-[13px] font-medium text-[var(--as-text-muted)]">
                         Driest 3-Month Window
                       </span>
-                      <p className="font-mono tabular-nums text-sm font-semibold text-[var(--as-text-primary)] mt-0.5">
+                      <p className="tabular-nums text-[22px] leading-tight font-bold text-[var(--as-text-primary)] mt-1">
                         {liveResult.rainfall_intelligence.driest_3mo_mm != null
                           ? `~${liveResult.rainfall_intelligence.driest_3mo_mm} mm`
                           : 'Unavailable'}
@@ -1137,10 +1235,10 @@ export function PlannerPage() {
                   </div>
                 )}
 
-                <p className="text-[var(--as-text-muted)] leading-relaxed">
+                <p className="text-[var(--as-text-muted)] leading-[1.55]">
                   {liveResult.rainfall_intelligence.seasonal_contrast_note}
                 </p>
-                <p className="text-[11px] text-[var(--as-text-muted)]">
+                <p className="text-[13px] text-[var(--as-text-muted)] leading-[1.5]">
                   {liveResult.rainfall_intelligence.note}
                 </p>
               </div>
@@ -1162,15 +1260,27 @@ export function PlannerPage() {
               <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
-                    <h4 className="text-sm font-semibold text-[var(--as-text-primary)]">
+                    <h4 className="text-[16px] sm:text-[17px] font-semibold text-[var(--as-text-primary)]">
                       Side-by-Side Factor Scores Across Options (0–100)
                     </h4>
-                    <p className="text-xs text-[var(--as-text-muted)]">
-                      Connects overall ranking to NASA temperature fit, water &amp; rainfall fit, soil health, and botanical diversity.
+                    <p className="text-sm text-[var(--as-text-muted)]">
+                      Shows how overall fit breaks down across NASA climate fit, water &amp; rainfall, soil health, and crop diversity.
                     </p>
                   </div>
                 </div>
-                <div className="h-[270px] w-full">
+                <div
+                  role="img"
+                  aria-label={`Grouped bar chart comparing overall, climate, water, and soil health scores for ${chartData.length} crop rotation options`}
+                  className="h-[280px] w-full"
+                >
+                  <p className="sr-only">
+                    {chartData
+                      .map(
+                        (d) =>
+                          `${d.option}: Overall ${d.Overall}, Climate ${d.Climate}, Water ${d.Water}, Soil Health ${d.SoilHealth}`
+                      )
+                      .join('; ')}
+                  </p>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 26 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--as-chart-grid)" opacity={0.7} />
@@ -1179,15 +1289,15 @@ export function PlannerPage() {
                         interval={0}
                         angle={chartData.length > 2 ? -10 : 0}
                         textAnchor={chartData.length > 2 ? 'end' : 'middle'}
-                        height={54}
-                        tick={{ fontSize: 10.5, fill: 'var(--as-chart-axis)' }}
+                        height={58}
+                        tick={{ fontSize: 12, fill: 'var(--as-chart-axis)' }}
                         stroke="var(--as-chart-grid)"
                       />
                       <YAxis
                         domain={[0, 100]}
-                        tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                        tick={{ fontSize: 12, fill: 'var(--as-chart-axis)' }}
                         stroke="var(--as-chart-grid)"
-                        width={36}
+                        width={40}
                       />
                       <Tooltip
                         contentStyle={{
@@ -1195,10 +1305,10 @@ export function PlannerPage() {
                           borderColor: '#23362D',
                           borderRadius: '8px',
                           color: '#E8F1EC',
-                          fontSize: '12px',
+                          fontSize: '13px',
                         }}
                       />
-                      <Legend wrapperStyle={{ fontSize: '11px', color: 'var(--as-text-primary)' }} />
+                      <Legend wrapperStyle={{ fontSize: '13px', color: 'var(--as-text-primary)' }} />
                       <Bar dataKey="Overall" name="Overall Score" fill="var(--as-chart-temp)" radius={[4, 4, 0, 0]} />
                       <Bar dataKey="Climate" name="Climate Fit" fill="var(--as-chart-rain)" radius={[4, 4, 0, 0]} />
                       <Bar dataKey="Water" name="Water & Rainfall" fill="var(--as-chart-rain-alt)" radius={[4, 4, 0, 0]} />
@@ -1238,7 +1348,7 @@ export function PlannerPage() {
 
             {/* Side-by-Side Summary Comparison Matrix */}
             <div className="overflow-x-auto rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)]">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-[13px]">
                 <thead className="border-b border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
                   <tr>
                     <th className="px-4 py-3 font-semibold">Option</th>
@@ -1263,7 +1373,7 @@ export function PlannerPage() {
                         <td className="px-4 py-3 font-medium">
                           {opt.seasons.map((s) => s.name).join(' → ')}
                           {opt.feasibility?.total_cycle_months ? (
-                            <span className="block text-[11px] font-mono tabular-nums text-[var(--as-text-muted)]">
+                            <span className="block text-[13px] tabular-nums text-[var(--as-text-muted)]">
                               {opt.feasibility.total_cycle_months} mo total
                             </span>
                           ) : null}
@@ -1271,22 +1381,22 @@ export function PlannerPage() {
                         <td className="px-4 py-3 text-[var(--as-text-muted)]">
                           {opt.compatibility_band || 'Screening match'}
                         </td>
-                        <td className="px-4 py-3 font-mono tabular-nums font-semibold as-text-accent text-right whitespace-nowrap">
+                        <td className="px-4 py-3 tabular-nums font-semibold as-text-accent text-right whitespace-nowrap">
                           {opt.score.toFixed(1)} / 100
                         </td>
-                        <td className="px-4 py-3 font-mono tabular-nums text-[var(--as-text-muted)] text-right whitespace-nowrap">
+                        <td className="px-4 py-3 tabular-nums text-[var(--as-text-muted)] text-right whitespace-nowrap">
                           {idx === 0 ? 'Top' : `${delta > 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1)}`}
                         </td>
-                        <td className="px-4 py-3 font-mono tabular-nums text-right">
+                        <td className="px-4 py-3 tabular-nums text-right">
                           {d ? `${d.climate_compatibility.toFixed(1)}` : '—'}
                         </td>
-                        <td className="px-4 py-3 font-mono tabular-nums text-right">
+                        <td className="px-4 py-3 tabular-nums text-right">
                           {d ? `${d.water_compatibility.toFixed(1)}` : '—'}
                         </td>
-                        <td className="px-4 py-3 font-mono tabular-nums text-right">
+                        <td className="px-4 py-3 tabular-nums text-right">
                           {d?.soil_health_score != null ? `${d.soil_health_score.toFixed(1)}` : '—'}
                         </td>
-                        <td className="px-4 py-3 font-mono tabular-nums text-right">
+                        <td className="px-4 py-3 tabular-nums text-right">
                           {d?.regional_calendar_evaluated && d.regional_calendar_score != null
                             ? `${d.regional_calendar_score.toFixed(1)} (Verified)`
                             : (opt.feasibility?.regional_timing_evidence || d?.regional_timing_evidence) === 'conditional'
@@ -1306,12 +1416,12 @@ export function PlannerPage() {
             </div>
 
             {liveResult.unverified_plans && liveResult.unverified_plans.length > 0 && (
-              <details className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 text-xs space-y-4">
-                <summary className="cursor-pointer font-semibold text-[var(--as-text-primary)]">
-                  Additional Conditional or Unverified Timing Possibilities ({liveResult.unverified_plans.length}) — Confirm Sowing Windows Locally
+              <details className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 text-sm space-y-4">
+                <summary className="cursor-pointer font-semibold text-[var(--as-text-primary)] min-h-[36px] flex items-center">
+                  Planting Season Needs Local Confirmation — Regional Planting Calendar Not Verified ({liveResult.unverified_plans.length})
                 </summary>
-                <p className="mt-2 text-[var(--as-text-muted)]">
-                  These sequences lack complete verified regional planting-calendar entries for this country/crop combination and were ranked below fully verified schedules. Review them with local extension guidance before sowing.
+                <p className="mt-2 text-[var(--as-text-muted)] leading-[1.55]">
+                  These options lack complete local planting-calendar records for this country and crop pair, so AgroShift placed them below verified schedules. Check local extension advice before planting.
                 </p>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-2">
                   {liveResult.unverified_plans.map((opt, idx) => (
@@ -1330,11 +1440,11 @@ export function PlannerPage() {
             )}
 
             {liveResult.rejected_sequences && liveResult.rejected_sequences.length > 0 && (
-              <details className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 text-xs">
-                <summary className="cursor-pointer font-semibold text-[var(--as-text-primary)]">
-                  Sequences Excluded by Regional Timing Checks ({liveResult.rejected_sequences.length})
+              <details className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 text-sm">
+                <summary className="cursor-pointer font-semibold text-[var(--as-text-primary)] min-h-[36px] flex items-center">
+                  Crop Options Left Out — Sequences Excluded by Regional Timing Checks ({liveResult.rejected_sequences.length})
                 </summary>
-                <ul className="mt-2.5 space-y-1.5 text-[var(--as-text-muted)] list-disc pl-5">
+                <ul className="mt-2.5 space-y-1.5 text-[var(--as-text-muted)] list-disc pl-5 leading-[1.55]">
                   {liveResult.rejected_sequences.map((rej, idx) => (
                     <li key={`rej-${idx}`}>
                       <strong className="text-[var(--as-text-primary)]">

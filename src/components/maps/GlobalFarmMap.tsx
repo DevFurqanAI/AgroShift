@@ -393,9 +393,9 @@ export function GlobalFarmMap({
       {!readOnly && (
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
           {/* Place Search (Submitted explicitly, never per keystroke) */}
-          <form onSubmit={handlePlaceSearch} className="relative flex-1 max-w-lg">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
+          <form onSubmit={handlePlaceSearch} className="relative flex-1 max-w-xl">
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+              <div className="relative flex-1 min-w-[200px]">
                 <Search className="w-4 h-4 text-[#64748B] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
@@ -403,13 +403,13 @@ export function GlobalFarmMap({
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search village, town, district, or address..."
                   aria-label="Search location on map"
-                  className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] text-[#172B22] dark:text-[#E8F1EC] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
+                  className="w-full min-h-[44px] pl-9 pr-3 py-2 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] text-[#172B22] dark:text-[#E8F1EC] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
                 />
               </div>
               <button
                 type="submit"
                 disabled={isSearching || !searchQuery.trim()}
-                className="px-3.5 py-2 text-sm font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] text-[#172B22] dark:text-[#E8F1EC] hover:bg-[#F8FAF7] dark:hover:bg-[#182821] transition-colors whitespace-nowrap shrink-0 disabled:opacity-60"
+                className="min-h-[44px] px-4 py-2 text-[14px] font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] text-[#172B22] dark:text-[#E8F1EC] hover:bg-[#F8FAF7] dark:hover:bg-[#182821] transition-colors whitespace-nowrap shrink-0 disabled:opacity-60"
               >
                 {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
               </button>
@@ -417,12 +417,12 @@ export function GlobalFarmMap({
                 type="button"
                 onClick={handleUseDeviceLocation}
                 disabled={geoLoading}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] text-[#14532D] dark:text-[#10B981] hover:bg-[#F8FAF7] dark:hover:bg-[#182821] transition-colors whitespace-nowrap shrink-0 disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 min-h-[44px] px-3.5 py-2 text-[13.5px] font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] text-[#14532D] dark:text-[#10B981] hover:bg-[#F8FAF7] dark:hover:bg-[#182821] transition-colors whitespace-nowrap shrink-0 disabled:opacity-60"
               >
                 {geoLoading ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  <LocateFixed className="w-3.5 h-3.5" />
+                  <LocateFixed className="w-4 h-4" />
                 )}
                 Use My Location
               </button>
@@ -435,7 +435,7 @@ export function GlobalFarmMap({
                     <button
                       type="button"
                       onClick={() => handleSelectSearchResult(res)}
-                      className="w-full text-left px-3.5 py-2.5 text-xs text-[#172B22] dark:text-[#E8F1EC] hover:bg-[#F8FAF7] dark:hover:bg-[#182821] transition-colors"
+                      className="w-full min-h-[42px] text-left px-3.5 py-2.5 text-[13.5px] text-[#172B22] dark:text-[#E8F1EC] hover:bg-[#F8FAF7] dark:hover:bg-[#182821] transition-colors"
                     >
                       {res.displayName}
                     </button>
@@ -451,25 +451,25 @@ export function GlobalFarmMap({
               <button
                 type="button"
                 onClick={() => handleModeSwitch('point')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
+                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-[13.5px] font-medium rounded-md transition-colors whitespace-nowrap ${
                   drawMode === 'point'
                     ? 'bg-white dark:bg-[#111D18] text-[#14532D] dark:text-[#10B981] shadow-xs'
                     : 'text-[#64748B] dark:text-[#94A3B8] hover:text-[#172B22] dark:hover:text-[#E8F1EC]'
                 }`}
               >
-                <MapPin className="w-3.5 h-3.5" />
+                <MapPin className="w-4 h-4" />
                 Farm Point
               </button>
               <button
                 type="button"
                 onClick={() => handleModeSwitch('polygon')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
+                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-[13.5px] font-medium rounded-md transition-colors whitespace-nowrap ${
                   drawMode === 'polygon'
                     ? 'bg-white dark:bg-[#111D18] text-[#14532D] dark:text-[#10B981] shadow-xs'
                     : 'text-[#64748B] dark:text-[#94A3B8] hover:text-[#172B22] dark:hover:text-[#E8F1EC]'
                 }`}
               >
-                <Pentagon className="w-3.5 h-3.5" />
+                <Pentagon className="w-4 h-4" />
                 Draw Boundary
               </button>
             </div>
@@ -480,18 +480,18 @@ export function GlobalFarmMap({
                   type="button"
                   onClick={handleUndoVertex}
                   disabled={vertices.length === 0}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] text-[#172B22] dark:text-[#E8F1EC] hover:bg-[#F8FAF7] disabled:opacity-40 whitespace-nowrap"
+                  className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-[13.5px] font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] text-[#172B22] dark:text-[#E8F1EC] hover:bg-[#F8FAF7] disabled:opacity-40 whitespace-nowrap"
                 >
-                  <Undo2 className="w-3.5 h-3.5" />
+                  <Undo2 className="w-4 h-4" />
                   Undo
                 </button>
                 <button
                   type="button"
                   onClick={handleClearPolygon}
                   disabled={vertices.length === 0}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] text-[#DC2626] hover:bg-[#DC2626]/5 disabled:opacity-40 whitespace-nowrap"
+                  className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-[13.5px] font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] text-[#DC2626] hover:bg-[#DC2626]/5 disabled:opacity-40 whitespace-nowrap"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-4 h-4" />
                   Clear
                 </button>
               </>
@@ -501,9 +501,9 @@ export function GlobalFarmMap({
               type="button"
               onClick={handleCenterOnSelection}
               title="Center map on selection"
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] text-[#64748B] dark:text-[#94A3B8] hover:text-[#172B22] dark:hover:text-[#E8F1EC] whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-[13.5px] font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] text-[#64748B] dark:text-[#94A3B8] hover:text-[#172B22] dark:hover:text-[#E8F1EC] whitespace-nowrap"
             >
-              <Crosshair className="w-3.5 h-3.5" />
+              <Crosshair className="w-4 h-4" />
               Center
             </button>
           </div>
@@ -511,28 +511,28 @@ export function GlobalFarmMap({
       )}
 
       {geoError && (
-        <div className="flex items-center gap-2 text-xs as-text-warning">
+        <div className="flex items-center gap-2 text-[13.5px] as-text-warning">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{geoError}</span>
         </div>
       )}
 
       {searchError && (
-        <div className="flex items-center gap-2 text-xs as-text-warning">
+        <div className="flex items-center gap-2 text-[13.5px] as-text-warning">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{searchError}</span>
         </div>
       )}
 
       {!readOnly && drawMode === 'polygon' && polygonMetrics.error && vertices.length >= 3 && (
-        <div role="alert" className="flex items-center gap-2 text-xs font-medium as-text-danger">
+        <div role="alert" className="flex items-center gap-2 text-[13.5px] font-medium as-text-danger">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{polygonMetrics.error}</span>
         </div>
       )}
 
       {tileError && (
-        <div className="flex items-center gap-2 text-xs as-text-warning">
+        <div className="flex items-center gap-2 text-[13.5px] as-text-warning">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>
             Map background tiles could not load cleanly. Coordinate selection and manual entry still work.
@@ -545,7 +545,7 @@ export function GlobalFarmMap({
       </div>
 
       {/* Mode & Geometry Summary */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-[#64748B] dark:text-[#94A3B8]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[13px] text-[#64748B] dark:text-[#94A3B8]">
         <span>
           {readOnly
             ? geometryType === 'polygon'
@@ -557,7 +557,7 @@ export function GlobalFarmMap({
         </span>
 
         {polygonMetrics.valid && polygonMetrics.estimatedHectares !== null && (
-          <span className="font-mono tabular-nums text-[#14532D] dark:text-[#10B981]">
+          <span className="font-semibold tabular-nums text-[#14532D] dark:text-[#10B981]">
             Estimated land area: ~{polygonMetrics.estimatedHectares.toFixed(2)} ha (
             {hectaresToAcres(polygonMetrics.estimatedHectares).toFixed(2)} ac)
           </span>

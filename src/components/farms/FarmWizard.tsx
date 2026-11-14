@@ -954,22 +954,22 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
   return (
     <div className="space-y-6">
       {/* Stepper Header */}
-      <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-4 sm:p-5">
+      <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
-            <h2 className="text-lg font-semibold text-[#172B22] dark:text-[#E8F1EC]">
+            <h2 className="text-[20px] font-semibold text-[#172B22] dark:text-[#E8F1EC]">
               {isEdit ? `Edit Farm: ${existingFarm?.details.name}` : 'Set Up Your Farm Profile'}
             </h2>
-            <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-0.5">
+            <p className="text-[14px] text-[#64748B] dark:text-[#94A3B8] mt-1">
               Step {step} of {STEPS.length} — {STEPS[step - 1].title}
             </p>
           </div>
-          <span className="text-xs font-mono tabular-nums text-[#64748B] dark:text-[#94A3B8]">
+          <span className="text-[13px] font-medium tabular-nums text-[#64748B] dark:text-[#94A3B8]">
             Saved locally on this device
           </span>
         </div>
 
-        <ol className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+        <ol className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
           {STEPS.map((s) => {
             const isCurrent = s.id === step;
             const isDone = s.id < step;
@@ -981,7 +981,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                     if (s.id <= step) setStep(s.id);
                     else goToStep(s.id);
                   }}
-                  className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-colors ${
+                  className={`w-full min-h-[44px] text-left px-3 py-2 rounded-lg border text-[13.5px] transition-colors ${
                     isCurrent
                       ? 'border-[var(--as-primary)] bg-[#15803D]/10 as-text-accent dark:bg-[#34D399]/12 font-semibold'
                       : isDone
@@ -989,7 +989,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                         : 'border-[#D9E2EC] dark:border-[#23362D] bg-[#F8FAF7] dark:bg-[#0B1310] text-[var(--as-text-muted)]'
                   }`}
                 >
-                  <span className="font-mono tabular-nums mr-1.5">0{s.id}</span>
+                  <span className="font-semibold tabular-nums mr-1.5">0{s.id}</span>
                   <span>{s.title}</span>
                 </button>
               </li>
@@ -1011,11 +1011,11 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
       {/* STEP 1: FIND YOUR FARM */}
       {step === 1 && (
         <section className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 sm:p-6 space-y-5">
-          <div className="space-y-1">
-            <h3 className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
+          <div className="space-y-1.5">
+            <h3 className="text-[18px] font-semibold text-[#172B22] dark:text-[#E8F1EC]">
               Locate Your Farm Anywhere in the World
             </h3>
-            <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
+            <p className="text-[14px] leading-relaxed text-[#64748B] dark:text-[#94A3B8]">
               Search for your town, use your current device location, click directly on the map, or draw your field boundary. Country, region, and locality automatically stay synced to your selected coordinates.
             </p>
           </div>
@@ -1057,39 +1057,39 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
           />
 
           {/* Synchronized Resolved Address + Optional Country Filter / Correction */}
-          <div className="rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] p-4 space-y-4">
+          <div className="rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] p-4 sm:p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <h4 className="text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC]">
+                <h4 className="text-[14px] font-semibold text-[#172B22] dark:text-[#E8F1EC]">
                   Place Details (Synced with Selected Coordinates)
                 </h4>
                 {isResolvingAddress && (
-                  <span className="inline-flex items-center gap-1 text-xs as-text-accent">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span className="inline-flex items-center gap-1.5 text-[13.5px] as-text-accent">
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Looking up place details...
                   </span>
                 )}
               </div>
               {userConfirmedCorrections && (
-                <span className="text-[11px] font-medium as-text-accent">
+                <span className="text-[13px] font-medium as-text-accent">
                   Address edited manually
                 </span>
               )}
             </div>
 
             {addressLookupMessage && (
-              <p className="text-xs as-text-warning">{addressLookupMessage}</p>
+              <p className="text-[13.5px] as-text-warning">{addressLookupMessage}</p>
             )}
 
             {countryMismatchNote && (
-              <p className="text-xs as-text-warning">{countryMismatchNote}</p>
+              <p className="text-[13.5px] as-text-warning">{countryMismatchNote}</p>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label
                   htmlFor="farm-country"
-                  className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
+                  className="block text-[13.5px] font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
                 >
                   Country (Filter map or confirm)
                 </label>
@@ -1097,7 +1097,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   id="farm-country"
                   value={COUNTRIES.some((c) => c.code === countryCode) ? countryCode : countryCode ? 'OTHER' : ''}
                   onChange={(e) => handleCountrySelect(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
+                  className="w-full min-h-[44px] px-3 py-2 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
                 >
                   <option value="">Auto-detected from map / filter...</option>
                   {COUNTRIES.map((c) => (
@@ -1113,7 +1113,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                     value={countryName}
                     onChange={(e) => handleManualAddressEdit('country', e.target.value)}
                     placeholder="Country name"
-                    className="mt-2 w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+                    className="mt-2 w-full min-h-[44px] px-3 py-2 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
                   />
                 )}
               </div>
@@ -1121,7 +1121,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
               <div>
                 <label
                   htmlFor="farm-region"
-                  className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
+                  className="block text-[13.5px] font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
                 >
                   State / Province / Region
                 </label>
@@ -1131,14 +1131,14 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   value={region}
                   onChange={(e) => handleManualAddressEdit('region', e.target.value)}
                   placeholder="Detected from map or edit"
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
+                  className="w-full min-h-[44px] px-3 py-2 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor="farm-locality"
-                  className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
+                  className="block text-[13.5px] font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
                 >
                   City / Village / Locality
                 </label>
@@ -1148,27 +1148,27 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   value={locality}
                   onChange={(e) => handleManualAddressEdit('locality', e.target.value)}
                   placeholder="Detected from map or edit"
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
+                  className="w-full min-h-[44px] px-3 py-2 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
                 />
               </div>
             </div>
           </div>
 
           {/* Exact Coordinates */}
-          <div className="rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] p-4 space-y-3">
+          <div className="rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] p-4 sm:p-5 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h4 className="text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC]">
+              <h4 className="text-[14px] font-semibold text-[#172B22] dark:text-[#E8F1EC]">
                 Authoritative Coordinates
               </h4>
-              <span className="text-xs text-[#64748B] dark:text-[#94A3B8] inline-flex items-center gap-1.5">
+              <span className="text-[13px] text-[#64748B] dark:text-[#94A3B8] inline-flex items-center gap-1.5">
                 {geometryType === 'polygon' && polygonGeoJSON ? (
                   <>
-                    <Pentagon className="w-3.5 h-3.5 text-[#16A34A]" />
+                    <Pentagon className="w-4 h-4 text-[#16A34A]" />
                     Representative point inside field boundary
                   </>
                 ) : (
                   <>
-                    <MapPin className="w-3.5 h-3.5 text-[#16A34A]" />
+                    <MapPin className="w-4 h-4 text-[#16A34A]" />
                     Single farm point
                   </>
                 )}
@@ -1179,7 +1179,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
               <div className="sm:col-span-5">
                 <label
                   htmlFor="farm-lat"
-                  className="block text-xs text-[#64748B] dark:text-[#94A3B8] mb-1"
+                  className="block text-[13px] font-medium text-[#64748B] dark:text-[#94A3B8] mb-1.5"
                 >
                   Latitude (-90 to 90) *
                 </label>
@@ -1190,13 +1190,13 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   value={latInput}
                   onChange={(e) => setLatInput(e.target.value)}
                   placeholder="e.g. 41.8780"
-                  className="w-full px-3 py-2 text-sm font-mono tabular-nums rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
+                  className="w-full min-h-[44px] px-3 py-2 text-[15px] tabular-nums rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
                 />
               </div>
               <div className="sm:col-span-5">
                 <label
                   htmlFor="farm-lon"
-                  className="block text-xs text-[#64748B] dark:text-[#94A3B8] mb-1"
+                  className="block text-[13px] font-medium text-[#64748B] dark:text-[#94A3B8] mb-1.5"
                 >
                   Longitude (-180 to 180) *
                 </label>
@@ -1207,7 +1207,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   value={lonInput}
                   onChange={(e) => setLonInput(e.target.value)}
                   placeholder="e.g. -93.0977"
-                  className="w-full px-3 py-2 text-sm font-mono tabular-nums rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
+                  className="w-full min-h-[44px] px-3 py-2 text-[15px] tabular-nums rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
                 />
               </div>
               <div className="sm:col-span-2">
@@ -1215,7 +1215,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   type="button"
                   onClick={handleManualCoordResolve}
                   disabled={!coordStatus.valid || isResolvingAddress}
-                  className="w-full px-3 py-2 text-xs font-semibold rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] hover:border-[#16A34A] disabled:opacity-50 whitespace-nowrap"
+                  className="w-full min-h-[44px] px-3 py-2 text-[14px] font-semibold rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] hover:border-[#16A34A] disabled:opacity-50 whitespace-nowrap"
                 >
                   Sync Place
                 </button>
@@ -1223,7 +1223,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
             </div>
 
             {!coordStatus.valid && (latInput !== '' || lonInput !== '') && (
-              <p className="text-xs text-[#DC2626]">{coordStatus.error}</p>
+              <p className="text-[13.5px] text-[#DC2626]">{coordStatus.error}</p>
             )}
           </div>
 
@@ -1259,7 +1259,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
             <div>
               <label
                 htmlFor="farm-name"
-                className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
+                className="block text-[14px] font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
               >
                 Farm Name *
               </label>
@@ -1269,14 +1269,14 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                 value={farmName}
                 onChange={(e) => setFarmName(e.target.value)}
                 placeholder="e.g. North Ridge Plot, Green Valley Farm"
-                className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
+                className="w-full min-h-[44px] px-3 py-2 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
               />
             </div>
 
             <div>
               <label
                 htmlFor="farm-area"
-                className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
+                className="block text-[14px] font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
               >
                 Cultivated Area *
               </label>
@@ -1292,13 +1292,13 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                     setAreaSource('manual');
                   }}
                   placeholder="Enter area"
-                  className="flex-1 px-3 py-2 text-sm font-mono tabular-nums rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
+                  className="flex-1 min-h-[44px] px-3 py-2 text-[15px] tabular-nums rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
                 />
                 <div className="inline-flex rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] p-0.5 bg-[#F8FAF7] dark:bg-[#0B1310]">
                   <button
                     type="button"
                     onClick={() => handleAreaUnitSwitch('hectares')}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    className={`min-h-[40px] px-3 py-1.5 text-[13.5px] font-medium rounded-md transition-colors ${
                       areaUnit === 'hectares'
                         ? 'bg-[#14532D] text-white'
                         : 'text-[#64748B] dark:text-[#94A3B8]'
@@ -1309,7 +1309,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   <button
                     type="button"
                     onClick={() => handleAreaUnitSwitch('acres')}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    className={`min-h-[40px] px-3 py-1.5 text-[13.5px] font-medium rounded-md transition-colors ${
                       areaUnit === 'acres'
                         ? 'bg-[#14532D] text-white'
                         : 'text-[#64748B] dark:text-[#94A3B8]'
@@ -1319,7 +1319,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   </button>
                 </div>
               </div>
-              <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-xs text-[#64748B] dark:text-[#94A3B8]">
+              <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-[13px] text-[#64748B] dark:text-[#94A3B8]">
                 {areaHectaresPreview !== null ? (
                   <span className="tabular-nums">
                     Equivalent: {areaHectaresPreview.toFixed(2)} ha ·{' '}
@@ -1332,15 +1332,15 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   <button
                     type="button"
                     onClick={handleUseBoundaryArea}
-                    className="as-text-accent hover:underline font-medium"
+                    className="as-text-accent hover:underline font-medium min-h-[36px] py-1"
                   >
                     Use this estimated area (~{polygonEstimatedHectares.toFixed(2)} ha)
                   </button>
                 )}
               </div>
               {boundaryMismatchWarning && (
-                <p className="mt-1.5 text-xs as-text-warning flex items-start gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <p className="mt-1.5 text-[13px] as-text-warning flex items-start gap-1.5">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span>{boundaryMismatchWarning}</span>
                 </p>
               )}
@@ -1349,7 +1349,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
             <div>
               <label
                 htmlFor="farm-type"
-                className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
+                className="block text-[14px] font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
               >
                 Farm Operation Type
               </label>
@@ -1357,7 +1357,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                 id="farm-type"
                 value={farmType}
                 onChange={(e) => setFarmType(e.target.value as FarmType)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
+                className="w-full min-h-[44px] px-3 py-2 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
               >
                 <option value="smallholder">Smallholder / Family Farm</option>
                 <option value="rainfed">Rain-fed Arable Farm</option>
@@ -1366,8 +1366,8 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                 <option value="commercial">Commercial Agricultural Operation</option>
               </select>
               {smallholderAreaWarning && (
-                <p className="mt-1.5 text-xs as-text-warning flex items-start gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <p className="mt-1.5 text-[13px] as-text-warning flex items-start gap-1.5">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span>{smallholderAreaWarning}</span>
                 </p>
               )}
@@ -1376,7 +1376,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
             <div>
               <label
                 htmlFor="irrigation-method"
-                className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
+                className="block text-[14px] font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
               >
                 Irrigation Method
               </label>
@@ -1384,7 +1384,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                 id="irrigation-method"
                 value={irrigationMethod}
                 onChange={(e) => setIrrigationMethod(e.target.value as IrrigationMethod)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
+                className="w-full min-h-[44px] px-3 py-2 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
               >
                 <option value="rainfed_only">Rain-fed Only (No Irrigation)</option>
                 <option value="drip">Drip / Micro-irrigation</option>
@@ -1399,7 +1399,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
             <div>
               <label
                 htmlFor="water-availability"
-                className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
+                className="block text-[14px] font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
               >
                 {irrigationMethod === 'rainfed_only'
                   ? 'Typical Moisture Availability During Season'
@@ -1409,7 +1409,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                 id="water-availability"
                 value={waterAvailability}
                 onChange={(e) => setWaterAvailability(e.target.value as WaterAvailability)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
+                className="w-full min-h-[44px] px-3 py-2 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
               >
                 <option value="abundant">Reliable / Abundant</option>
                 <option value="seasonal_adequate">Adequate During Main Growing Season</option>
@@ -1423,7 +1423,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
               <div>
                 <label
                   htmlFor="rainfall-reliability"
-                  className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
+                  className="block text-[14px] font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
                 >
                   Seasonal Rainfall Pattern
                 </label>
@@ -1433,7 +1433,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   onChange={(e) =>
                     setRainfallReliability(e.target.value as RainfallReliability)
                   }
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
+                  className="w-full min-h-[44px] px-3 py-2 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
                 >
                   <option value="unknown">Unsure / Not specified</option>
                   <option value="reliable">Usually sufficient and timely</option>
@@ -1445,7 +1445,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
               <div>
                 <label
                   htmlFor="fields-count"
-                  className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
+                  className="block text-[14px] font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
                 >
                   Number of Managed Plots / Fields (Optional)
                 </label>
@@ -1456,7 +1456,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   value={managedFieldsCount}
                   onChange={(e) => setManagedFieldsCount(e.target.value)}
                   placeholder="e.g. 3"
-                  className="w-full px-3 py-2 text-sm font-mono tabular-nums rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
+                  className="w-full min-h-[44px] px-3 py-2 text-[15px] tabular-nums rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
                 />
               </div>
             )}
@@ -1468,20 +1468,20 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
       {step === 3 && (
         <section className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 sm:p-6 space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
+            <div className="space-y-1">
+              <h3 className="text-[18px] font-semibold text-[#172B22] dark:text-[#E8F1EC]">
                 Ordered Crop History
               </h3>
-              <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
+              <p className="text-[14px] text-[#64748B] dark:text-[#94A3B8]">
                 Start with the most recent crop grown (#1), then optionally add earlier seasons in reverse chronological order.
               </p>
             </div>
             <button
               type="button"
               onClick={handleAddSeason}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] hover:border-[#16A34A] whitespace-nowrap self-start"
+              className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-[14px] font-semibold rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] hover:border-[#16A34A] whitespace-nowrap self-start"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-4 h-4" />
               Add Earlier Season
             </button>
           </div>
@@ -1505,16 +1505,16 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-semibold text-[#14532D] dark:text-[#10B981]">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[13.5px] font-semibold text-[#14532D] dark:text-[#10B981]">
                         {idx === 0 ? 'Most Recent Season *' : `Earlier Season #${idx + 1}`}
                       </span>
-                      <span className="text-sm font-semibold text-[#172B22] dark:text-[#E8F1EC]">
+                      <span className="text-[15px] font-semibold text-[#172B22] dark:text-[#E8F1EC]">
                         {entry.cropName || 'Select crop below'}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1523,9 +1523,9 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                         }}
                         disabled={idx === 0}
                         aria-label="Move season earlier"
-                        className="p-1 rounded border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] disabled:opacity-40"
+                        className="min-w-[36px] min-h-[36px] inline-flex items-center justify-center p-1.5 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] disabled:opacity-40"
                       >
-                        <ArrowUp className="w-3.5 h-3.5" />
+                        <ArrowUp className="w-4 h-4" />
                       </button>
                       <button
                         type="button"
@@ -1535,9 +1535,9 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                         }}
                         disabled={idx === seasons.length - 1}
                         aria-label="Move season later"
-                        className="p-1 rounded border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] disabled:opacity-40"
+                        className="min-w-[36px] min-h-[36px] inline-flex items-center justify-center p-1.5 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] disabled:opacity-40"
                       >
-                        <ArrowDown className="w-3.5 h-3.5" />
+                        <ArrowDown className="w-4 h-4" />
                       </button>
                       {seasons.length > 1 && (
                         <button
@@ -1547,9 +1547,9 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                             handleRemoveSeason(idx);
                           }}
                           aria-label="Remove season"
-                          className="p-1 rounded border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] text-[#64748B] hover:text-[#DC2626]"
+                          className="min-w-[36px] min-h-[36px] inline-flex items-center justify-center p-1.5 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] text-[#64748B] hover:text-[#DC2626]"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                     </div>
@@ -1557,7 +1557,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
 
                   {entry.isCustomOther && (
                     <div>
-                      <label className="block text-xs font-medium mb-1">
+                      <label className="block text-[13.5px] font-medium mb-1">
                         Custom Crop Name *
                       </label>
                       <input
@@ -1568,20 +1568,20 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                         }
                         onClick={(e) => e.stopPropagation()}
                         placeholder="Enter crop name (e.g. Sesame, Mustard, Oats)"
-                        className="w-full max-w-sm px-3 py-1.5 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+                        className="w-full max-w-sm min-h-[44px] px-3 py-2 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
                       />
                     </div>
                   )}
 
                   {unsupported && (
-                    <p className="text-[11px] as-text-warning">
+                    <p className="text-[13px] as-text-warning">
                       Saved in your farm profile. Note: the automatic rotation screening engine currently supports 14 core crops, so you can select a supported reference crop in the planner when scoring rotations.
                     </p>
                   )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] text-[#64748B] mb-1">
+                      <label className="block text-[13px] text-[#64748B] dark:text-[#94A3B8] mb-1">
                         Approximate Planting Date / Month (Optional)
                       </label>
                       <input
@@ -1592,11 +1592,11 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                         }
                         onClick={(e) => e.stopPropagation()}
                         placeholder="e.g. Nov 2024 or April"
-                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+                        className="w-full min-h-[42px] px-3 py-2 text-[14px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] text-[#64748B] mb-1">
+                      <label className="block text-[13px] text-[#64748B] dark:text-[#94A3B8] mb-1">
                         Approximate Harvest Date / Month (Optional)
                       </label>
                       <input
@@ -1607,7 +1607,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                         }
                         onClick={(e) => e.stopPropagation()}
                         placeholder="e.g. Apr 2025 or August"
-                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+                        className="w-full min-h-[42px] px-3 py-2 text-[14px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
                       />
                     </div>
                   </div>
@@ -1621,7 +1621,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <label
                 htmlFor="crop-search"
-                className="text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC]"
+                className="text-[14px] font-semibold text-[#172B22] dark:text-[#E8F1EC]"
               >
                 Choose Crop for{' '}
                 {activeSeasonIndex === 0
@@ -1629,7 +1629,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   : `Earlier Season #${activeSeasonIndex + 1}`}
               </label>
               {cropsQuery.isError && (
-                <span className="text-[11px] text-[#64748B]">
+                <span className="text-[13px] text-[#64748B] dark:text-[#94A3B8]">
                   Showing standard offline crop list
                 </span>
               )}
@@ -1643,11 +1643,11 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                 value={cropSearch}
                 onChange={(e) => setCropSearch(e.target.value)}
                 placeholder="Search by crop, family, or alternate name (e.g. bajra, corn)..."
-                className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
+                className="w-full min-h-[44px] pl-9 pr-3 py-2 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
               />
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-h-64 overflow-y-auto p-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-72 overflow-y-auto p-1">
               {filteredCrops.map((crop) => {
                 const selected =
                   !activeSeason?.isCustomOther && activeSeason?.cropId === crop.id;
@@ -1658,7 +1658,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                     onClick={() =>
                       handleSelectCropForActiveSeason(crop.id, crop.name, false)
                     }
-                    className={`text-left px-3 py-2 rounded-lg border text-xs transition-colors ${
+                    className={`min-h-[52px] text-left px-3 py-2.5 rounded-lg border text-[13.5px] transition-colors ${
                       selected
                         ? 'as-chip-selected'
                         : 'border-[#D9E2EC] dark:border-[#23362D] bg-[#F8FAF7] dark:bg-[#0B1310] hover:border-[var(--as-accent-text)]'
@@ -1666,7 +1666,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   >
                     <p className="font-semibold truncate">{crop.name}</p>
                     <p
-                      className={`text-[11px] truncate ${
+                      className={`text-[12.5px] truncate ${
                         selected ? 'text-white/90' : 'text-[var(--as-text-muted)]'
                       }`}
                     >
@@ -1682,7 +1682,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
               <button
                 type="button"
                 onClick={() => handleSelectCropForActiveSeason('custom', '', true)}
-                className={`text-left px-3 py-2 rounded-lg border text-xs transition-colors ${
+                className={`min-h-[52px] text-left px-3 py-2.5 rounded-lg border text-[13.5px] transition-colors ${
                   activeSeason?.isCustomOther
                     ? 'as-chip-selected'
                     : 'border-dashed border-[#D9E2EC] dark:border-[#23362D] bg-[#F8FAF7] dark:bg-[#0B1310] hover:border-[var(--as-accent-text)]'
@@ -1690,7 +1690,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
               >
                 <p className="font-semibold">Other crop</p>
                 <p
-                  className={`text-[11px] ${
+                  className={`text-[12.5px] ${
                     activeSeason?.isCustomOther
                       ? 'text-white/90'
                       : 'text-[var(--as-text-muted)]'
@@ -1705,7 +1705,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
           <div>
             <label
               htmlFor="rotation-challenges"
-              className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
+              className="block text-[14px] font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
             >
               Known Field or Rotation Challenges (Optional)
             </label>
@@ -1715,7 +1715,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
               value={rotationChallenges}
               onChange={(e) => setRotationChallenges(e.target.value)}
               placeholder="e.g. Striga weed buildup, root rot after consecutive cereal crops, mid-season dry spells..."
-              className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
+              className="w-full px-3 py-2.5 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
             />
           </div>
         </section>
@@ -1724,11 +1724,11 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
       {/* STEP 4: PROGRESSIVE SOIL INFORMATION */}
       {step === 4 && (
         <section className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 sm:p-6 space-y-5">
-          <div className="space-y-2">
-            <h3 className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
+          <div className="space-y-1.5">
+            <h3 className="text-[18px] font-semibold text-[#172B22] dark:text-[#E8F1EC]">
               Do you know anything about your soil?
             </h3>
-            <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
+            <p className="text-[14px] leading-relaxed text-[#64748B] dark:text-[#94A3B8]">
               Soil tests are optional. Share only what you actually know—AgroShift never guesses or invents soil pH or nutrient numbers.
             </p>
           </div>
@@ -1757,23 +1757,25 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   key={option.id}
                   type="button"
                   onClick={() => handleSoilKnowledgeSelect(option.id)}
-                  className={`text-left p-4 rounded-xl border transition-colors space-y-1 ${
+                  className={`min-h-[84px] text-left p-4 rounded-xl border transition-colors space-y-1 ${
                     selected
                       ? 'border-[#14532D] bg-[#14532D]/5 dark:border-[#10B981] dark:bg-[#10B981]/10'
                       : 'border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] hover:border-[#16A34A]'
                   }`}
                 >
-                  <p className="text-sm font-semibold text-[#172B22] dark:text-[#E8F1EC]">
+                  <p className="text-[15px] font-semibold text-[#172B22] dark:text-[#E8F1EC]">
                     {option.title}
                   </p>
-                  <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">{option.desc}</p>
+                  <p className="text-[13.5px] leading-relaxed text-[#64748B] dark:text-[#94A3B8]">
+                    {option.desc}
+                  </p>
                 </button>
               );
             })}
           </div>
 
           {soilKnowledge === 'unsure' && (
-            <div className="rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] p-4 text-xs text-[#64748B] dark:text-[#94A3B8]">
+            <div className="rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] p-4 text-[14px] leading-relaxed text-[#64748B] dark:text-[#94A3B8]">
               No problem—soil pH and texture will be recorded as unknown. Crop rotation screening will still work using your farm coordinates, climate history, and water availability without inventing soil values.
             </div>
           )}
@@ -1804,10 +1806,10 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
           {soilKnowledge !== 'unsure' && (
             <div className="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-2 p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310]">
+                <div className="space-y-2.5 p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310]">
                   <label
                     htmlFor="soil-texture"
-                    className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC]"
+                    className="block text-[14px] font-semibold text-[#172B22] dark:text-[#E8F1EC]"
                   >
                     Soil Texture
                   </label>
@@ -1830,7 +1832,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                         }
                       }
                     }}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+                    className="w-full min-h-[44px] px-3 py-2 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
                   >
                     <option value="unknown">Unknown</option>
                     <option value="sandy">Sandy</option>
@@ -1841,13 +1843,13 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                     <option value="clay">Clay</option>
                   </select>
                   {soilTexture !== 'unknown' && (
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="text-[#64748B]">Source:</span>
+                    <div className="flex items-center gap-2 text-[13.5px]">
+                      <span className="text-[#64748B] dark:text-[#94A3B8]">Source:</span>
                       <select
                         aria-label="Soil texture source"
                         value={soilTextureProv}
                         onChange={(e) => setSoilTextureProv(e.target.value as DataProvenance)}
-                        className="px-2 py-1 rounded border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+                        className="min-h-[38px] px-2.5 py-1 text-[13.5px] rounded border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
                       >
                         <option value="lab_test">Lab test</option>
                         <option value="farmer_observation">Farmer observation</option>
@@ -1858,10 +1860,10 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   )}
                 </div>
 
-                <div className="space-y-2 p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310]">
+                <div className="space-y-2.5 p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310]">
                   <label
                     htmlFor="soil-drainage"
-                    className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC]"
+                    className="block text-[14px] font-semibold text-[#172B22] dark:text-[#E8F1EC]"
                   >
                     Drainage Characteristics
                   </label>
@@ -1876,7 +1878,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                         setDrainageProv('farmer_observation');
                       }
                     }}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+                    className="w-full min-h-[44px] px-3 py-2 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
                   >
                     <option value="unknown">Unknown</option>
                     <option value="well_drained">Well drained</option>
@@ -1885,13 +1887,13 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                     <option value="waterlogging_prone">Prone to waterlogging</option>
                   </select>
                   {drainage !== 'unknown' && (
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="text-[#64748B]">Source:</span>
+                    <div className="flex items-center gap-2 text-[13.5px]">
+                      <span className="text-[#64748B] dark:text-[#94A3B8]">Source:</span>
                       <select
                         aria-label="Drainage source"
                         value={drainageProv}
                         onChange={(e) => setDrainageProv(e.target.value as DataProvenance)}
-                        className="px-2 py-1 rounded border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+                        className="min-h-[38px] px-2.5 py-1 text-[13.5px] rounded border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
                       >
                         <option value="farmer_observation">Farmer observation</option>
                         <option value="lab_test">Lab / survey report</option>
@@ -1901,10 +1903,10 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   )}
                 </div>
 
-                <div className="space-y-2 p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310]">
+                <div className="space-y-2.5 p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310]">
                   <label
                     htmlFor="soil-ph"
-                    className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC]"
+                    className="block text-[14px] font-semibold text-[#172B22] dark:text-[#E8F1EC]"
                   >
                     Soil pH (Optional)
                   </label>
@@ -1930,16 +1932,16 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                       }
                     }}
                     placeholder="e.g. 6.5 (leave blank if unknown)"
-                    className="w-full px-3 py-2 text-sm font-mono tabular-nums rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+                    className="w-full min-h-[44px] px-3 py-2 text-[15px] tabular-nums rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
                   />
                   {soilPh.trim() !== '' && (
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="text-[#64748B]">Source:</span>
+                    <div className="flex items-center gap-2 text-[13.5px]">
+                      <span className="text-[#64748B] dark:text-[#94A3B8]">Source:</span>
                       <select
                         aria-label="Soil pH source"
                         value={soilPhProv}
                         onChange={(e) => setSoilPhProv(e.target.value as DataProvenance)}
-                        className="px-2 py-1 rounded border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+                        className="min-h-[38px] px-2.5 py-1 text-[13.5px] rounded border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
                       >
                         <option value="lab_test">Lab soil test</option>
                         <option value="farmer_observation">Field kit / observation</option>
@@ -1951,10 +1953,10 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                 </div>
 
                 {soilKnowledge === 'lab_test' && (
-                  <div className="space-y-2 p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310]">
+                  <div className="space-y-2.5 p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310]">
                     <label
                       htmlFor="soil-om"
-                      className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC]"
+                      className="block text-[14px] font-semibold text-[#172B22] dark:text-[#E8F1EC]"
                     >
                       Organic Matter % (Optional)
                     </label>
@@ -1972,18 +1974,18 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                         }
                       }}
                       placeholder="e.g. 2.4"
-                      className="w-full px-3 py-2 text-sm font-mono tabular-nums rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+                      className="w-full min-h-[44px] px-3 py-2 text-[15px] tabular-nums rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
                     />
                     {organicMatter.trim() !== '' && (
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="text-[#64748B]">Source:</span>
+                      <div className="flex items-center gap-2 text-[13.5px]">
+                        <span className="text-[#64748B] dark:text-[#94A3B8]">Source:</span>
                         <select
                           aria-label="Organic matter source"
                           value={organicMatterProv}
                           onChange={(e) =>
                             setOrganicMatterProv(e.target.value as DataProvenance)
                           }
-                          className="px-2 py-1 rounded border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+                          className="min-h-[38px] px-2.5 py-1 text-[13.5px] rounded border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
                         >
                           <option value="lab_test">Lab soil test</option>
                           <option value="farmer_observation">Field observation</option>
@@ -1994,10 +1996,10 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   </div>
                 )}
 
-                <div className="space-y-2 p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310]">
+                <div className="space-y-2.5 p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310]">
                   <label
                     htmlFor="soil-salinity"
-                    className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC]"
+                    className="block text-[14px] font-semibold text-[#172B22] dark:text-[#E8F1EC]"
                   >
                     Salinity / Salt Crusting Concern
                   </label>
@@ -2005,7 +2007,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                     id="soil-salinity"
                     value={salinityConcern}
                     onChange={(e) => setSalinityConcern(e.target.value as SalinityConcern)}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+                    className="w-full min-h-[44px] px-3 py-2 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
                   >
                     <option value="unknown">Unsure</option>
                     <option value="none">No salinity signs observed</option>
@@ -2018,7 +2020,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
               <div>
                 <label
                   htmlFor="soil-notes"
-                  className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
+                  className="block text-[14px] font-semibold text-[#172B22] dark:text-[#E8F1EC] mb-1.5"
                 >
                   Additional Soil Observations (Optional)
                 </label>
@@ -2028,7 +2030,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   value={soilObservations}
                   onChange={(e) => setSoilObservations(e.target.value)}
                   placeholder="e.g. Crusting after heavy rains, compaction below plow layer, rocky upper slope..."
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
+                  className="w-full px-3 py-2.5 text-[15px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
                 />
               </div>
             </div>
@@ -2039,17 +2041,17 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
       {/* STEP 5: FARMING PRIORITIES */}
       {step === 5 && (
         <section className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 sm:p-6 space-y-4">
-          <div className="space-y-1">
-            <h3 className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
+          <div className="space-y-1.5">
+            <h3 className="text-[18px] font-semibold text-[#172B22] dark:text-[#E8F1EC]">
               Rank Your Farming Priorities
             </h3>
-            <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
+            <p className="text-[14px] text-[#64748B] dark:text-[#94A3B8]">
               Put your highest priority at #1. Your top supported goal drives automatic rotation screening.
             </p>
           </div>
 
           {priorityMapping.unsupportedTopNotice && (
-            <div className="rounded-lg border border-[#D97706]/40 bg-[#D97706]/5 p-3 text-xs text-[#172B22] dark:text-[#E8F1EC]">
+            <div className="rounded-lg border border-[#D97706]/40 bg-[#D97706]/5 p-3.5 text-[14px] text-[#172B22] dark:text-[#E8F1EC]">
               {priorityMapping.unsupportedTopNotice}
             </div>
           )}
@@ -2061,57 +2063,57 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
               return (
                 <div
                   key={id}
-                  className="flex items-center justify-between gap-3 p-3.5 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310]"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310]"
                 >
                   <div className="flex items-start gap-3 min-w-0">
-                    <span className="font-mono tabular-nums text-xs font-semibold text-[#14532D] dark:text-[#10B981] mt-0.5">
+                    <span className="tabular-nums text-[14px] font-semibold text-[#14532D] dark:text-[#10B981] mt-0.5">
                       #{idx + 1}
                     </span>
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold text-[#172B22] dark:text-[#E8F1EC]">
+                        <p className="text-[15px] font-semibold text-[#172B22] dark:text-[#E8F1EC]">
                           {info.title}
                         </p>
                         {isEngineGoal && (
-                          <span className="text-[11px] font-semibold as-text-accent">
+                          <span className="text-[13px] font-semibold as-text-accent">
                             Active screening goal
                           </span>
                         )}
                         {info.engineNote && (
-                          <span className="text-[11px] font-medium as-text-warning">
+                          <span className="text-[13px] font-medium as-text-warning">
                             {info.engineNote}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
+                      <p className="text-[13.5px] leading-relaxed text-[#64748B] dark:text-[#94A3B8]">
                         {info.description}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       type="button"
                       onClick={() => movePriority(idx, -1)}
                       disabled={idx === 0}
                       aria-label={`Move ${info.title} up`}
-                      className="p-1.5 rounded border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] disabled:opacity-40"
+                      className="min-w-[38px] min-h-[38px] inline-flex items-center justify-center p-1.5 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] disabled:opacity-40"
                     >
-                      <ArrowUp className="w-3.5 h-3.5" />
+                      <ArrowUp className="w-4 h-4" />
                     </button>
                     <button
                       type="button"
                       onClick={() => movePriority(idx, 1)}
                       disabled={idx === priorities.length - 1}
                       aria-label={`Move ${info.title} down`}
-                      className="p-1.5 rounded border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] disabled:opacity-40"
+                      className="min-w-[38px] min-h-[38px] inline-flex items-center justify-center p-1.5 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] disabled:opacity-40"
                     >
-                      <ArrowDown className="w-3.5 h-3.5" />
+                      <ArrowDown className="w-4 h-4" />
                     </button>
                     <button
                       type="button"
                       onClick={() => togglePriorityActive(id)}
                       disabled={priorities.length === 1}
-                      className="ml-1 px-2.5 py-1 text-xs rounded border border-[#E2E8F0] dark:border-[#1E2E26] text-[#64748B] hover:text-[#DC2626] disabled:opacity-40"
+                      className="ml-1 min-h-[38px] px-3 py-1.5 text-[13.5px] rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] text-[#64748B] hover:text-[#DC2626] disabled:opacity-40"
                     >
                       Remove
                     </button>
@@ -2129,7 +2131,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   key={id}
                   type="button"
                   onClick={() => togglePriorityActive(id)}
-                  className="px-3 py-1.5 text-xs rounded-lg border border-dashed border-[var(--as-border)] text-[var(--as-text-muted)] hover:border-[var(--as-accent-text)] hover:as-text-accent"
+                  className="min-h-[40px] px-3.5 py-2 text-[13.5px] rounded-lg border border-dashed border-[var(--as-border)] text-[var(--as-text-muted)] hover:border-[var(--as-accent-text)] hover:as-text-accent"
                 >
                   + Add {PRIORITY_LABELS[id].title}
                 </button>
@@ -2142,25 +2144,27 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
       {step === 6 && (
         <section className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 sm:p-6 space-y-5">
           <div>
-            <h3 className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
+            <h3 className="text-[18px] font-semibold text-[#172B22] dark:text-[#E8F1EC]">
               Review and Save Farm
             </h3>
-            <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-0.5">
+            <p className="text-[14px] text-[#64748B] dark:text-[#94A3B8] mt-1">
               This profile is saved in your browser&apos;s local storage so your farm stays accessible on this device without requiring an account.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-[14.5px]">
             <div className="p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] space-y-2">
-              <h4 className="text-xs font-semibold text-[#64748B]">Location & Boundary</h4>
+              <h4 className="text-[13.5px] font-semibold text-[#64748B] dark:text-[#94A3B8]">
+                Location & Boundary
+              </h4>
               <p className="font-semibold text-[#172B22] dark:text-[#E8F1EC]">
                 {[locality, region, countryName].filter(Boolean).join(', ') ||
                   'Coordinates saved (place name unresolved)'}
               </p>
-              <p className="text-xs font-mono tabular-nums text-[#64748B]">
+              <p className="text-[13.5px] tabular-nums text-[#64748B] dark:text-[#94A3B8]">
                 Lat {parsedLat?.toFixed(5)} · Lon {parsedLon?.toFixed(5)}
               </p>
-              <p className="text-xs text-[#64748B]">
+              <p className="text-[13.5px] text-[#64748B] dark:text-[#94A3B8]">
                 Geometry:{' '}
                 {geometryType === 'polygon' && polygonGeoJSON
                   ? 'Field boundary polygon'
@@ -2172,9 +2176,11 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
             </div>
 
             <div className="p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] space-y-2">
-              <h4 className="text-xs font-semibold text-[#64748B]">Farm Profile</h4>
+              <h4 className="text-[13.5px] font-semibold text-[#64748B] dark:text-[#94A3B8]">
+                Farm Profile
+              </h4>
               <p className="font-semibold text-[#172B22] dark:text-[#E8F1EC]">{farmName}</p>
-              <p className="text-xs tabular-nums text-[#64748B]">
+              <p className="text-[13.5px] tabular-nums text-[#64748B] dark:text-[#94A3B8]">
                 Cultivated area:{' '}
                 {areaHectaresPreview !== null
                   ? `${areaHectaresPreview.toFixed(2)} ha (${hectaresToAcres(
@@ -2183,15 +2189,17 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   : 'Not specified'}
                 {areaSource === 'calculated_from_boundary' ? ' (from boundary)' : ''}
               </p>
-              <p className="text-xs text-[#64748B] capitalize">
+              <p className="text-[13.5px] text-[#64748B] dark:text-[#94A3B8] capitalize">
                 Water: {waterAvailability.replace(/_/g, ' ')} · Method:{' '}
                 {irrigationMethod.replace(/_/g, ' ')}
               </p>
             </div>
 
             <div className="p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] space-y-2">
-              <h4 className="text-xs font-semibold text-[#64748B]">Ordered Crop History</h4>
-              <ol className="space-y-1 text-xs text-[#172B22] dark:text-[#E8F1EC]">
+              <h4 className="text-[13.5px] font-semibold text-[#64748B] dark:text-[#94A3B8]">
+                Ordered Crop History
+              </h4>
+              <ol className="space-y-1.5 text-[14px] text-[#172B22] dark:text-[#E8F1EC]">
                 {seasons
                   .filter((s) => s.cropName.trim())
                   .map((s, i) => (
@@ -2203,31 +2211,33 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                     </li>
                   ))}
               </ol>
-              <p className="text-xs text-[#64748B]">
+              <p className="text-[13.5px] text-[#64748B] dark:text-[#94A3B8]">
                 #1 Priority: {PRIORITY_LABELS[priorities[0]]?.title}
               </p>
             </div>
 
             <div className="p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] space-y-2">
-              <h4 className="text-xs font-semibold text-[#64748B]">Soil & Provenance</h4>
+              <h4 className="text-[13.5px] font-semibold text-[#64748B] dark:text-[#94A3B8]">
+                Soil & Provenance
+              </h4>
               {soilKnowledge === 'unsure' ? (
-                <p className="text-xs text-[#64748B]">
+                <p className="text-[14px] text-[#64748B] dark:text-[#94A3B8]">
                   Soil measurements not recorded (unknown). No values invented.
                 </p>
               ) : (
                 <>
-                  <p className="text-xs text-[#172B22] dark:text-[#E8F1EC] capitalize">
+                  <p className="text-[14px] text-[#172B22] dark:text-[#E8F1EC] capitalize">
                     Texture: {soilTexture.replace(/_/g, ' ')} (
                     {formatProvenanceLabel(soilTextureProv)})
                   </p>
-                  <p className="text-xs text-[#172B22] dark:text-[#E8F1EC]">
+                  <p className="text-[14px] text-[#172B22] dark:text-[#E8F1EC]">
                     pH:{' '}
                     {soilPh.trim()
                       ? `${soilPh} (${formatProvenanceLabel(soilPhProv)})`
                       : 'Not recorded'}{' '}
                     · Drainage: {drainage.replace(/_/g, ' ')}
                   </p>
-                  <p className="text-xs text-[#172B22] dark:text-[#E8F1EC] capitalize">
+                  <p className="text-[14px] text-[#172B22] dark:text-[#E8F1EC] capitalize">
                     Salinity: {salinityConcern.replace(/_/g, ' ')}
                     {organicMatter.trim()
                       ? ` · Organic Matter: ${organicMatter}% (${formatProvenanceLabel(organicMatterProv)})`
@@ -2236,7 +2246,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                 </>
               )}
               {(envContextData && !envContextStale) || existingFarm?.environmentalContext ? (
-                <p className="text-[11px] as-text-accent pt-1 border-t border-[#E2E8F0] dark:border-[#1E2E26]">
+                <p className="text-[13px] as-text-accent pt-1.5 border-t border-[#E2E8F0] dark:border-[#1E2E26]">
                   Public environmental reference snapshot (NASA climate / SoilGrids metadata) will be saved with this farm without overriding farmer inputs.
                 </p>
               ) : null}
@@ -2250,7 +2260,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
         <button
           type="button"
           onClick={() => (step === 1 ? navigate('/dashboard/farms') : goToStep(step - 1))}
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] text-[#172B22] dark:text-[#E8F1EC] hover:bg-[#F8FAF7] dark:hover:bg-[#182821] transition-colors whitespace-nowrap"
+          className="inline-flex items-center gap-2 min-h-[44px] px-4 py-2.5 text-[15px] font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] text-[#172B22] dark:text-[#E8F1EC] hover:bg-[#F8FAF7] dark:hover:bg-[#182821] transition-colors whitespace-nowrap"
         >
           <ArrowLeft className="w-4 h-4" />
           {step === 1 ? 'Cancel' : 'Previous'}
@@ -2260,7 +2270,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
           <button
             type="button"
             onClick={() => goToStep(step + 1)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-2 min-h-[44px] px-5 py-2.5 text-[15px] font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap"
           >
             Continue
             <ArrowRight className="w-4 h-4" />
@@ -2269,7 +2279,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
           <button
             type="button"
             onClick={handleSaveFarm}
-            className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-2 min-h-[44px] px-6 py-2.5 text-[15px] font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap"
           >
             <Check className="w-4 h-4" />
             {isEdit ? 'Save Farm Changes' : 'Save Farm & Open Dashboard'}
