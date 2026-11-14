@@ -6,6 +6,7 @@ import {
   Send,
   Trash2,
 } from 'lucide-react';
+import { AssistantMarkdown } from '../components/assistant/AssistantMarkdown';
 import { StatusBanner } from '../components/common/StatusBanner';
 import { useAgroShift } from '../context/AgroShiftContext';
 import {
@@ -240,13 +241,17 @@ export function AssistantPage() {
                 }`}
               >
                 <div
-                  className={`max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                  className={`max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
                     msg.role === 'user'
-                      ? 'bg-[var(--as-primary)] text-[var(--as-primary-foreground)]'
+                      ? 'bg-[var(--as-primary)] text-[var(--as-primary-foreground)] whitespace-pre-wrap'
                       : 'bg-[var(--as-surface-alt)] border border-[var(--as-border)] text-[var(--as-text)]'
                   }`}
                 >
-                  {msg.content}
+                  {msg.role === 'assistant' ? (
+                    <AssistantMarkdown content={msg.content} />
+                  ) : (
+                    msg.content
+                  )}
                 </div>
               </div>
             ))

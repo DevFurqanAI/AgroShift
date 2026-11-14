@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { AssistantMarkdown } from '../src/components/assistant/AssistantMarkdown.tsx';
 
 import {
   ACRES_PER_HECTARE,
@@ -1080,4 +1083,91 @@ test('24. Farmer limitations disclosure and WCAG AA dark-mode contrast tokens ar
   assert.ok(!layoutSource.includes('dark:bg-[#16A34A]'));
   assert.match(chartSource, /var\(--as-chart-temp\)/);
   assert.match(chartSource, /var\(--as-chart-axis\)/);
+});
+
+test('25. AssistantMarkdown formats headings, bold/italic, nested lists, blockquotes, links, tables, and code blocks', () => {
+  const sampleMarkdown = [
+    '# Farm Overview',
+    '### Understanding NDVI and NDMI',
+    '',
+    '**NDVI** measures *vegetation greenness*.',
+    '',
+    '- NDVI helps assess vegetation cover.',
+    '  - Nested canopy detail',
+    '1. First check soil moisture',
+    '2. Then inspect crop spacing',
+    '',
+    '> Historical climate records help compare seasons.',
+    '',
+    'Inline metric: `ndvi_status`',
+    '',
+    '```json',
+    '{"ndvi": 0.54}',
+    '```',
+    '',
+    '| Metric | Role |',
+    '| --- | --- |',
+    '| NDVI | Vegetation vigor |',
+    '',
+    'Learn more at [NASA POWER](https://power.larc.nasa.gov/).',
+  ].join('\n');
+
+  const html = renderToStaticMarkup(
+    React.createElement(AssistantMarkdown, { content: sampleMarkdown })
+  );
+
+  // Uses bubble-sized headings (h3-h6) instead of raw literal ### or oversized h1
+  assert.ok(!html.includes('### Understanding'));
+  assert.ok(!html.includes('**NDVI**'));
+  assert.match(html, /<h3[^>]*>Farm Overview<\/h3>/);
+  assert.match(html, /<h5[^>]*>Understanding NDVI and NDMI<\/h5>/);
+  assert.match(html, /<strong[^>]*>NDVI<\/strong>/);
+  assert.match(html, /<em[^>]*>vegetation greenness<\/em>/);
+  assert.match(html, /<ul[^>]*>[\s\S]*<ul[^>]*>[\s\S]*Nested canopy detail/);
+  assert.match(html, /<ol[^>]*>[\s\S]*First check soil moisture/);
+  assert.match(html, /<blockquote[^>]*>[\s\S]*Historical climate records/);
+  assert.match(html, /<code[^>]*>ndvi_status<\/code>/);
+  assert.match(html, /<pre[^>]*>[\s\S]*<code[^>]*>\{&quot;ndvi&quot;: 0\.54\}\s*<\/code><\/pre>/);
+  assert.match(html, /<div class="[^"]*overflow-x-auto[^"]*"><table[\s\S]*<th[^>]*>Metric<\/th>/);
+  assert.match(
+    html,
+    /<a href="https:\/\/power\.larc\.nasa\.gov\/" target="_blank" rel="noopener noreferrer"/
+  );
+});
+
+test('26. AssistantMarkdown blocks raw HTML / dangerous URLs and AssistantPage renders markdown only for assistant messages', () => {
+  const unsafeInput = [
+    'Safe guidance paragraph.',
+    '',
+    '<script>window.__xss=1</script>',
+    '<img src="x" onerror="alert(1)" />',
+    '<div onclick="alert(2)">Injected HTML</div>',
+    '',
+    '[Bad link](javascript:alert(3))',
+  ].join('\n');
+
+  const html = renderToStaticMarkup(
+    React.createElement(AssistantMarkdown, { content: unsafeInput })
+  );
+
+  assert.match(html, /Safe guidance paragraph\./);
+  assert.ok(!html.includes('<script'));
+  assert.ok(!html.includes('<img'));
+  assert.ok(!html.includes('onerror='));
+  assert.ok(!html.includes('onclick='));
+  assert.ok(!html.includes('javascript:'));
+
+  const assistantMarkdownSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/assistant/AssistantMarkdown.tsx'),
+    'utf8'
+  );
+  assert.ok(!assistantMarkdownSource.includes('dangerouslySetInnerHTML'));
+  assert.ok(!assistantMarkdownSource.includes('rehype-raw'));
+
+  const assistantPageSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/AssistantPage.tsx'),
+    'utf8'
+  );
+  assert.match(assistantPageSource, /msg\.role === 'assistant'/);
+  assert.match(assistantPageSource, /<AssistantMarkdown content=\{msg\.content\} \/>/);
 });

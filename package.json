@@ -28,8 +28,10 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-hook-form": "^7.92.0",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.5",
     "recharts": "^3.10.1",
+    "remark-gfm": "^4.0.1",
     "vite": "^8.3.0",
     "zod": "^4.6.7"
   },
