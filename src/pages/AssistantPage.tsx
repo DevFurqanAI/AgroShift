@@ -98,7 +98,12 @@ export function AssistantPage() {
             temperatureC: fieldHealth.temperature_c ?? null,
             humidityPercent: fieldHealth.humidity_percent ?? null,
             recentRainfallMm: fieldHealth.recent_rainfall_mm ?? null,
+            heatRisk: fieldHealth.heat_risk ?? null,
+            rainfallStatus: fieldHealth.rainfall_status ?? null,
             possibleWaterStress: fieldHealth.possible_water_stress ?? null,
+            moistureStressStatus: fieldHealth.moisture_stress_status ?? null,
+            currentStandingCropKnown: false,
+            currentGrowthStageKnown: false,
           }
         : 'Not loaded in current session',
       loadedRotationScreening: rotation

@@ -82,17 +82,30 @@ export function describeMoistureStress(result: FieldAnalyzeResponse): string {
   ) {
     return 'Inconclusive — very low vegetation cover means optical NDMI mainly reflects bare soil, residue, or early emergence rather than crop water status.';
   }
+  const hasLowNdmi =
+    result.ndmi_status === 'VERY_LOW' ||
+    result.ndmi_status === 'LOW' ||
+    (result.ndmi !== null && result.ndmi !== undefined && result.ndmi < 0.15);
+  if (
+    result.moisture_stress_status === 'INCONCLUSIVE_COLD_OR_DORMANT' ||
+    (result.temperature_c !== null &&
+      result.temperature_c !== undefined &&
+      result.temperature_c <= 5 &&
+      hasLowNdmi)
+  ) {
+    return 'Inconclusive (cold/freezing or seasonal dormancy) — low NDMI under freezing or near-freezing conditions may reflect frost effects, seasonal dormancy, or crop senescence rather than confirmed drought or irrigation deficiency; current crop and growth stage are also unknown.';
+  }
   if (result.moisture_stress_status === 'POSSIBLE_STRESS' || result.possible_water_stress === true) {
-    return 'Possible moisture-stress pattern — check crop canopy and root-zone soil moisture on site.';
+    return 'Possible moisture-stress indicator — low optical canopy moisture (NDMI) is not confirmed drought or irrigation deficiency; confirm current crop, growth stage, potential senescence, and root-zone soil moisture on site.';
   }
   if (
     result.moisture_stress_status === 'INCONCLUSIVE_MIXED' ||
     result.possible_water_stress === null ||
     result.possible_water_stress === undefined
   ) {
-    return 'Inconclusive — single-date optical indices and 1-day weather cannot confirm or rule out crop moisture stress; check root-zone moisture on site.';
+    return 'Inconclusive — single-date optical indices and 1-day weather cannot confirm drought or rule out crop moisture stress, seasonal dormancy, or senescence while current crop and growth stage are unknown; check root-zone moisture on site.';
   }
-  return 'No combined heat-and-low-NDMI alert in this snapshot (cannot rule out localized field stress without an on-site check).';
+  return 'No combined heat-or-dry low-NDMI alert in this snapshot (cannot rule out localized field stress or confirm crop condition without knowing the current crop, growth stage, and on-site soil moisture).';
 }
 
 export function FieldHealthPage() {
@@ -173,7 +186,7 @@ export function FieldHealthPage() {
             (CC BY 4.0), with optional fallback weather providers when configured.
           </p>
           <p>
-            NDVI and NDMI interpretation depends on crop type, growth stage, soil background, season, and pixel quality—these are screening indicators, not lab soil tests or confirmed diagnoses.
+            NDVI and NDMI interpretation depends on crop type, growth stage, soil background, season, and pixel quality—current standing crop is not inferred from historical crops, and these remain uncertain screening indicators rather than lab soil tests or confirmed drought/irrigation diagnoses.
           </p>
         </div>
       </div>
@@ -432,7 +445,7 @@ export function FieldHealthPage() {
               </p>
               <InfoTooltipHint
                 label="Explain moisture stress screening thresholds"
-                explanation="NDVI below 0.20 usually indicates bare soil or very sparse cover, so NDMI moisture screening becomes inconclusive. When NDVI >= 0.20, low NDMI combined with moderate/high heat or low recent rain flags possible moisture stress rather than confirming crop disease or exact irrigation volume."
+                explanation="NDVI below 0.20 usually indicates bare soil or sparse cover, so NDMI screening is inconclusive. Under freezing, near-freezing (<= 5 C), or cool (< 15 C) temperatures, low NDMI remains inconclusive because frost, seasonal dormancy, or senescence may explain the signal. Under warmer/dry weather, low NDMI still serves only as an optical canopy moisture indicator rather than confirmed drought or irrigation deficiency while current crop and growth stage are unknown."
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

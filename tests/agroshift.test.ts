@@ -3280,3 +3280,83 @@ test('53. observationRepository remains backward-compatible with pre-Phase 4W re
     assert.equal(loaded.data['farm-legacy']?.water, undefined);
   });
 });
+
+test('54. FieldHealthPage describeMoistureStress treats freezing low-NDMI Bosnia case as cold/dormant inconclusive and distinguishes NDMI from drought', () => {
+  const bosniaFreezing = {
+    ndvi: 0.577,
+    ndvi_status: 'GOOD',
+    ndmi: 0.058,
+    ndmi_status: 'LOW',
+    temperature_c: -1.7,
+    humidity_percent: 68,
+    recent_rainfall_mm: 0,
+    heat_risk: 'LOW',
+    rainfall_status: 'LOW',
+    possible_water_stress: null,
+    moisture_stress_status: 'INCONCLUSIVE_COLD_OR_DORMANT',
+    analysis_confidence: 'MODERATE',
+    observation_quality: 'GOOD',
+    confidence_reason: null,
+    satellite_available: true,
+    satellite_observation_date: '2026-11-09',
+    cloud_cover_percent: 4.0,
+    valid_coverage_percent: 96.0,
+    excluded_pixel_percent: 4.0,
+    satellite_message: null,
+    weather_available: true,
+    weather_message: null,
+    weather_source: 'open-meteo',
+    ai_explanation: '',
+    recommendations: [],
+  };
+
+  const coldMsg = describeMoistureStress(bosniaFreezing);
+  assert.match(coldMsg, /^Inconclusive \(cold\/freezing or seasonal dormancy\)/i);
+  assert.match(coldMsg, /frost|dormancy|senescence/i);
+  assert.match(coldMsg, /current crop and growth stage are also unknown/i);
+  assert.ok(!/warm/i.test(coldMsg));
+
+  // Even a legacy cached response that had possible_water_stress=true at -1.7 C is overridden safely in UI
+  const staleColdCached = {
+    ...bosniaFreezing,
+    possible_water_stress: true,
+    moisture_stress_status: 'POSSIBLE_STRESS',
+  };
+  assert.match(describeMoistureStress(staleColdCached), /^Inconclusive \(cold\/freezing or seasonal dormancy\)/i);
+
+  // Hot and dry + low NDMI flags possible stress while distinguishing optical NDMI from confirmed drought
+  const hotDry = {
+    ...bosniaFreezing,
+    temperature_c: 36.5,
+    heat_risk: 'MODERATE',
+    possible_water_stress: true,
+    moisture_stress_status: 'POSSIBLE_STRESS',
+  };
+  const hotMsg = describeMoistureStress(hotDry);
+  assert.match(hotMsg, /not confirmed drought or irrigation deficiency/i);
+  assert.match(hotMsg, /current crop, growth stage/i);
+
+  // Missing weather stays Unavailable
+  const missingWeather = {
+    ...bosniaFreezing,
+    weather_available: false,
+    temperature_c: null,
+    recent_rainfall_mm: null,
+    possible_water_stress: null,
+    moisture_stress_status: 'UNAVAILABLE',
+  };
+  assert.match(describeMoistureStress(missingWeather), /^Unavailable/i);
+});
+
+test('55. Assistant context and honesty rules prevent inferring current standing crop solely from previousCrop', () => {
+  const assistantPageSrc = fs.readFileSync(path.resolve('src/pages/AssistantPage.tsx'), 'utf8');
+  const assistantServiceSrc = fs.readFileSync(path.resolve('server/assistantService.ts'), 'utf8');
+
+  assert.match(assistantPageSrc, /currentStandingCropKnown:\s*false/);
+  assert.match(assistantPageSrc, /currentGrowthStageKnown:\s*false/);
+  assert.match(assistantPageSrc, /moistureStressStatus:\s*fieldHealth\.moisture_stress_status/);
+  assert.match(assistantServiceSrc, /Never infer the current standing crop on the field solely from previousCrop/);
+  assert.match(assistantServiceSrc, /Never classify negative or near-freezing temperatures as warm weather/);
+  assert.match(assistantServiceSrc, /Distinguish low optical canopy moisture indicators \(NDMI\) from confirmed drought/);
+});
+

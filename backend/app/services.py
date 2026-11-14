@@ -234,6 +234,66 @@ def classify_heat(temp_c: float) -> str:
     return _bucket(temp_c, HEAT_THRESHOLDS, HEAT_MAX_LABEL)
 
 
+def classify_thermal_regime(temp_c: Optional[float]) -> Optional[str]:
+    """Classify air temperature into physical cold/temperate/warm/hot regimes."""
+    val = _safe_number(temp_c)
+    if val is None:
+        return None
+    if val <= 0.0:
+        return "FREEZING"
+    if val <= 5.0:
+        return "NEAR_FREEZING"
+    if val < 15.0:
+        return "COOL"
+    if val < 25.0:
+        return "MODERATE"
+    if val < 30.0:
+        return "WARM"
+    return "HOT"
+
+
+def _observation_month_name(observation_date: Optional[str]) -> Optional[str]:
+    if not observation_date or not isinstance(observation_date, str):
+        return None
+    try:
+        return datetime.strptime(observation_date[:10], "%Y-%m-%d").strftime("%B")
+    except ValueError:
+        return None
+
+
+def _build_seasonal_note(
+    observation_date: Optional[str],
+    lat: Optional[float],
+    temp_c: Optional[float],
+) -> str:
+    month_name = _observation_month_name(observation_date)
+    regime = classify_thermal_regime(temp_c)
+    parts = [
+        "Current standing crop and growth stage are unknown (never infer current crop from past history).",
+    ]
+    if month_name:
+        parts.append(f"Satellite observation month: {month_name}.")
+    if regime == "FREEZING":
+        parts.append(
+            "Below-freezing temperature (<= 0 C): frost effects, seasonal dormancy, and senescence are plausible explanations for low NDMI rather than warm/dry moisture stress or irrigation deficiency."
+        )
+    elif regime == "NEAR_FREEZING":
+        parts.append(
+            "Near-freezing temperature (<= 5 C): frost exposure, seasonal dormancy, and senescence are plausible explanations for low NDMI rather than warm/dry moisture stress or irrigation deficiency."
+        )
+    elif regime == "COOL":
+        parts.append(
+            "Cool temperature (< 15 C): evaporative demand is low; low NDMI with low single-day rain may reflect dormancy, senescence, or crop stage rather than active moisture stress."
+        )
+    elif lat is not None and month_name:
+        month_num = datetime.strptime(observation_date[:10], "%Y-%m-%d").month
+        if (lat >= 25.0 and month_num in (10, 11, 12, 1, 2, 3)) or (lat <= -25.0 and month_num in (4, 5, 6, 7, 8, 9)):
+            parts.append(
+                "Autumn/winter/early-spring observation window at mid/high latitude: seasonal senescence or dormancy remains an alternative explanation."
+            )
+    return " ".join(parts)
+
+
 def classify_rainfall(rainfall_mm: float) -> str:
     return _bucket(rainfall_mm, RAINFALL_THRESHOLDS, RAINFALL_MAX_LABEL)
 
@@ -1122,10 +1182,12 @@ def evaluate_moisture_stress(
     rainfall_status: Optional[str],
     satellite_available: bool,
     weather_available: bool,
+    temperature_c: Optional[float] = None,
 ) -> Tuple[Optional[bool], str]:
     """
     Evaluate screening moisture-stress status without inferring absence of stress from
-    bare-soil/low-NDVI readings or limited 1-day weather data.
+    bare-soil/low-NDVI readings, without treating freezing/cold weather as warm/dry
+    moisture stress, and without confirming drought from limited 1-day weather.
     """
     if (
         not satellite_available
@@ -1141,7 +1203,18 @@ def evaluate_moisture_stress(
         # NDMI cannot diagnose crop water status or rule out moisture stress.
         return None, "INCONCLUSIVE_LOW_VEGETATION"
 
+    temp_val = _safe_number(temperature_c)
+
     if ndmi_status in ("VERY_LOW", "LOW"):
+        if temp_val is not None and temp_val <= 5.0:
+            # Freezing (<= 0 C) or near-freezing (<= 5 C): evaporative demand is minimal and
+            # low NDMI + low 1-day rain cannot be flagged as warm/dry moisture stress.
+            # Frost, seasonal dormancy, senescence, and unknown crop stage remain plausible.
+            return None, "INCONCLUSIVE_COLD_OR_DORMANT"
+        if temp_val is not None and temp_val < 15.0 and heat_risk == "LOW":
+            # Cool conditions (< 15 C): single-day low rainfall does not establish active
+            # drought stress or warm/dry conditions; senescence/dormancy/stage remain plausible.
+            return None, "INCONCLUSIVE_MIXED"
         if heat_risk in ("MODERATE", "HIGH") or rainfall_status == "LOW":
             return True, "POSSIBLE_STRESS"
         # Low NDMI with cool/wet single-day weather cannot rule out crop stress.
@@ -1161,7 +1234,9 @@ def build_confidence_reason(
     confidence: str,
     ndvi: Optional[float],
     excluded_pixel_percent: Optional[float],
+    temperature_c: Optional[float] = None,
 ) -> str:
+    temp_val = _safe_number(temperature_c)
     if lang == "ur":
         if not satellite_available or not weather_available:
             return "نامکمل ڈیٹا دستیابی: سیٹلائٹ اور موسمی مشاہدات دونوں کے بغیر فیلڈ کی حالت کا مکمل جائزہ ممکن نہیں۔"
@@ -1169,7 +1244,9 @@ def build_confidence_reason(
             return "کم نباتاتی سگنل: کم NDVI خالی مٹی، کٹائی کے بعد کی حالت، یا ابتدائی اگاؤ ظاہر کر سکتا ہے، اس لیے فصل کے دباؤ کا یقینی نتیجہ نہیں نکالا جا سکتا۔"
         if excluded_pixel_percent is not None and excluded_pixel_percent > 40:
             return "محدود پکسل کوالٹی: بادلوں، سائے یا فیلڈ کے کناروں کی وجہ سے کئی پکسل خارج ہوئے، جس سے اندازے کی یقینی کیفیت کم ہے۔"
-        return "اسکریننگ سطح کا جائزہ: ایک دن کے سیٹلائٹ اور موسمی اشاریے فصل کی قسم، نشوونما کے مرحلے، مٹی اور موسم کے بغیر حتمی تشخیص نہیں دیتے۔"
+        if temp_val is not None and temp_val <= 5.0:
+            return "غیر یقینی اسکریننگ: موجودہ فصل کی قسم اور نشوونما کا مرحلہ معلوم نہیں، اور نقطہ انجماد کے قریب یا اس سے کم درجہ حرارت میں پالا، سرد جمود اور خزاں کی تبدیلی کے باعث حتمی تشریح ممکن نہیں۔"
+        return "اسکریننگ سطح کا جائزہ: ایک دن کے سیٹلائٹ اور موسمی اشاریے موجودہ فصل کی قسم، نشوونما کے مرحلے، مٹی اور موسم کے بغیر حتمی تشخیص نہیں دیتے۔"
 
     if not satellite_available and not weather_available:
         return "Neither satellite nor weather data was available for this snapshot."
@@ -1188,11 +1265,17 @@ def build_confidence_reason(
     if observation_quality == "LIMITED":
         return (
             "Observation quality is limited (older scene or sparse valid pixels), and single-date optical indices "
-            "depend on crop type, growth stage, soil background, and season."
+            "remain uncertain when current crop type, growth stage, soil background, and season are unknown."
+        )
+    if temp_val is not None and temp_val <= 5.0:
+        return (
+            f"Screening-level ({confidence.lower()}) and uncertain: current standing crop and growth stage are unknown, "
+            f"and freezing or near-freezing temperature ({temp_val:.1f} C) introduces frost, seasonal dormancy, "
+            "and senescence ambiguity for single-date NDVI/NDMI."
         )
     return (
-        f"Screening-level ({confidence.lower()}) only: single-date NDVI/NDMI and 1-day weather depend on crop type, "
-        "growth stage, soil background, season, and pixel quality."
+        f"Screening-level ({confidence.lower()}) and uncertain: current standing crop and growth stage are unknown; "
+        "single-date NDVI/NDMI and 1-day weather depend on crop type, growth stage, soil background, season, and pixel quality."
     )
 
 
@@ -1250,7 +1333,11 @@ moisture, crop type, disease, pests, soil NPK values, fertilizer dosage, irrigat
 what is given.
 
 Strict guardrails - do not do any of the following:
-- Do not identify or guess a specific crop type.
+- Do not identify, assume, or guess a specific standing crop type (current_crop_known and crop_growth_stage_known are false).
+- Never classify negative or near-freezing temperatures (<= 5.0 C) as warm weather, heat stress, or warm-season drought.
+- Distinguish a low canopy moisture indicator (NDMI) from confirmed drought or irrigation deficiency.
+- When temperatures are freezing, near-freezing, or cool (or moisture_stress_status is inconclusive), consider seasonal dormancy, crop senescence/maturation, frost exposure, and unknown crop growth stage as plausible alternative explanations.
+- Explain clearly that interpretation is uncertain when current crop or growth stage is unknown.
 - Do not diagnose a disease or pest.
 - Do not state exact soil moisture, NPK, or fertilizer amounts.
 - Do not prescribe exact irrigation quantities or a fertilizer dosage.
@@ -1258,10 +1345,9 @@ Strict guardrails - do not do any of the following:
 
 Wording guidance - prefer neutral, cautious phrasing:
 - Say "relatively strong vegetation activity" or "higher vegetation activity" instead of "healthy vegetation".
-- Say "conditions may indicate increasing moisture stress" instead of "the crops may be approaching water stress".
-- Use terms like "vegetation activity", "moisture condition", "possible moisture stress", "conditions may indicate...",
+- Use terms like "vegetation activity", "canopy moisture indicator", "possible moisture-stress pattern", "conditions may reflect...",
   "consider checking...", "verify...", "inspect..." rather than "healthy crop", "unhealthy crop", "your crop is
-  stressed", "the field needs irrigation", or "you should irrigate now".
+  stressed", "the field has drought", "the field needs irrigation", or "you should irrigate now".
 - The dashboard already shows the exact numbers - interpret them, don't just restate every value.
 
 Data availability: check the "satellite_available" and "weather_available" fields in the structured facts before
@@ -1278,7 +1364,7 @@ Structured facts:
 
 Return STRICTLY valid JSON with this shape:
 {{
-  "ai_explanation": "2-4 concise sentences interpreting the most important signals (vegetation activity, moisture, heat/rainfall context, and whether a moisture-stress signal is present) in plain, non-technical language.",
+  "ai_explanation": "2-4 concise sentences interpreting the most important signals (vegetation activity, canopy moisture indicator, thermal/rainfall/seasonal context, crop/stage uncertainty, and alternative explanations where appropriate) in plain, non-technical language.",
   "recommendations": ["2-3 cautious, actionable recommendations - no exact quantities, dosages, or diagnoses"]
 }}"""
 
@@ -1289,14 +1375,17 @@ Return STRICTLY valid JSON with this shape:
 مٹی کے NPK اعداد، کھاد کی مقدار، آبپاشی کی مقدار، یا پیداوار ہرگز خود سے نہ بنائیں۔
 
 سخت حدود:
-- کسی مخصوص فصل کی قسم کی شناخت یا اندازہ نہ لگائیں۔
+- کسی مخصوص موجودہ فصل کی شناخت یا اندازہ نہ لگائیں (موجودہ فصل اور نشوونما کا مرحلہ معلوم نہیں)۔
+- صفر سے کم یا نقطہ انجماد کے قریب درجہ حرارت (<= 5.0 C) کو ہرگز گرم موسم یا گرمی سے ہونے والا آبی دباؤ قرار نہ دیں۔
+- کم نمی کے سیٹلائٹ اشاریے (NDMI) کو یقینی خشک سالی یا آبپاشی کی کمی سے الگ بیان کریں۔
+- سرد، نقطہ انجماد کے قریب یا خزاں/سردیوں کے حالات میں سرد جمود، پالا، فصل کے پکنے/خشک ہونے اور نامعلوم مرحلے کو ممکنہ متبادل وجوہات کے طور پر بیان کریں اور واضح کریں کہ نامعلوم فصل/مرحلے کی وجہ سے تشریح غیر یقینی ہے۔
 - کسی بیماری یا کیڑے کی تشخیص نہ کریں۔
 - مٹی کی نمی، NPK، یا کھاد کی صحیح مقدار نہ بتائیں۔
 - آبپاشی کی صحیح مقدار یا کھاد کی خوراک تجویز نہ کریں۔
 - پیداوار کی ضمانت یا فصل کی صحت کا حتمی فیصلہ نہ دیں۔
 
 الفاظ کا انتخاب - محتاط اور غیر جانبدار زبان استعمال کریں:
-"نباتاتی سرگرمی زیادہ ہے" جیسے الفاظ استعمال کریں، "فصل صحت مند ہے" کہنے کے بجائے۔ "حالات نمی کے دباؤ کی طرف اشارہ کر
+"نباتاتی سرگرمی زیادہ ہے" جیسے الفاظ استعمال کریں، "فصل صحت مند ہے" کہنے کے بجائے۔ "حالات نمی کے دباؤ یا موسمی تبدیلی کی طرف اشارہ کر
 سکتے ہیں" کہیں، "فصل پانی کی کمی کا شکار ہو رہی ہے" کہنے کے بجائے۔ "ظاہر کر سکتا ہے"، "معائنہ کرنے پر غور کریں"،
 "چیک کریں"، "تصدیق کریں" جیسے الفاظ استعمال کریں۔ ڈیش بورڈ پر تمام اعداد پہلے سے موجود ہیں - انہیں دہرانے کے بجائے
 ان کی مختصر تشریح کریں۔
@@ -1316,9 +1405,19 @@ Return STRICTLY valid JSON with this shape:
 
 صرف اور صرف درست JSON فارمیٹ میں جواب دیں:
 {{
-  "ai_explanation": "نباتاتی سرگرمی، نمی، موسمی حالات، اور ممکنہ نمی کے دباؤ کے بارے میں 2-4 مختصر اور سادہ جملے۔",
+  "ai_explanation": "نباتاتی سرگرمی، نمی کے اشاریے، درجہ حرارت/موسمی تناظر، نامعلوم فصل/مرحلے کی غیر یقینی کیفیت اور متبادل وضاحتوں کے بارے میں 2-4 مختصر اور سادہ جملے۔",
   "recommendations": ["2-3 محتاط اور عملی تجاویز - بغیر صحیح مقدار، خوراک، یا تشخیص کے"]
 }}"""
+
+
+_WARM_WEATHER_LLM_RE = re.compile(
+    r"\b(warm|warmth|heat[- ]?stress|heatwave|hot weather|afternoon sun)\b",
+    re.IGNORECASE,
+)
+_FALSE_CERTAINTY_LLM_RE = re.compile(
+    r"\b(confirmed drought|irrigation deficiency|must irrigate now|definitely stressed)\b",
+    re.IGNORECASE,
+)
 
 
 def default_ai_response(
@@ -1330,12 +1429,17 @@ def default_ai_response(
     """
     Deterministic fallback text used when Groq is unavailable or unconfigured.
     Never claims high diagnostic confidence, never treats excluded pixels as pure
-    cloud cover, and never infers an absence of moisture stress from low NDVI/NDMI
-    or limited 1-day weather.
+    cloud cover, never treats freezing/near-freezing weather as warm weather,
+    never conflates low optical NDMI with confirmed drought/irrigation deficiency,
+    and never infers an absence of moisture stress from low NDVI/NDMI or limited
+    1-day weather.
     """
     facts = facts or {}
     ndvi = facts.get("ndvi")
     ndmi_status = facts.get("ndmi_status")
+    heat_risk = facts.get("heat_risk")
+    temp_c = _safe_number(facts.get("temperature_c"))
+    obs_month = facts.get("observation_month")
     stress_status = facts.get("moisture_stress_status")
     possible_stress = facts.get("possible_water_stress")
     excluded_pct = facts.get("excluded_pixel_percent")
@@ -1348,59 +1452,137 @@ def default_ai_response(
         coverage_note_en = f" Note that {excluded_pct:.1f}% of sampled pixels were excluded (cloud/shadow mask or boundary edge)."
         coverage_note_ur = f" واضح رہے کہ نمونے کے {excluded_pct:.1f}% پکسل (بادل، سایہ یا کنارہ) خارج ہوئے۔"
 
+    month_clause_en = f" in {obs_month}" if obs_month else ""
+
     if lang == "en":
         if satellite_available and weather_available:
             if ndvi is not None and ndvi < 0.20:
+                cold_note = (
+                    f" Recent weather is {'below freezing' if temp_c <= 0.0 else 'near freezing'} ({temp_c:.1f} C){month_clause_en}, "
+                    "which is also consistent with winter fallow, frost-exposed residue, or dormant ground cover."
+                    if temp_c is not None and temp_c <= 5.0
+                    else ""
+                )
                 return {
                     "ai_explanation": (
                         "Vegetation cover appears very low in this snapshot (which commonly reflects bare soil, "
                         "fallow land, harvested residue, or early emergence). Optical NDVI and NDMI alone cannot "
-                        "confirm or rule out crop moisture stress, and interpretation depends on crop type, "
-                        "growth stage, soil background, season, and pixel quality." + coverage_note_en
+                        "confirm or rule out crop moisture stress, and interpretation remains uncertain when crop type, "
+                        "growth stage, soil background, season, and pixel quality are unknown."
+                        + cold_note
+                        + coverage_note_en
                     ),
                     "recommendations": [
                         "Confirm on site whether the field is bare, recently sown, or in early emergence before acting on low index values.",
-                        "Check top-soil and root-zone moisture directly by hand if a crop is already planted.",
+                        "Check top-soil and root-zone moisture directly by hand if an active crop is already planted.",
                         "Re-check satellite vegetation indices once canopy cover develops, as bare soil heavily influences optical reflectance.",
                     ],
                 }
-            if possible_stress is True or stress_status == "POSSIBLE_STRESS":
+
+            if stress_status == "INCONCLUSIVE_COLD_OR_DORMANT" or (
+                ndmi_status in ("VERY_LOW", "LOW") and temp_c is not None and temp_c <= 5.0
+            ):
+                freeze_label = "below freezing" if temp_c is not None and temp_c <= 0.0 else "near freezing"
+                temp_text = f" ({temp_c:.1f} C)" if temp_c is not None else ""
                 return {
                     "ai_explanation": (
-                        "Lower canopy moisture signal combined with warm or dry recent weather suggests possible "
-                        "moisture stress, though screening confidence remains limited. NDVI and NDMI depend on crop "
-                        "type, growth stage, soil background, season, and pixel quality rather than providing a "
-                        "direct soil diagnosis." + coverage_note_en
+                        f"Canopy moisture index (NDMI) is low while recent weather is {freeze_label}{temp_text}{month_clause_en}, "
+                        "so this signal does not indicate heat-driven moisture stress, confirmed drought, or irrigation deficiency. "
+                        "Because the current standing crop and growth stage are unknown, interpretation is uncertain: "
+                        "low NDMI alongside moderate or higher NDVI under cold conditions commonly reflects frost exposure, "
+                        "seasonal dormancy, crop senescence or maturation, or cold-season cover." + coverage_note_en
                     ),
                     "recommendations": [
-                        "Inspect crop leaves during afternoon warmth and check root-zone soil moisture directly across the field.",
-                        "Review recent irrigation or rainfall distribution in drier zones before adjusting watering.",
-                        "Track follow-up observations together with your crop's growth stage and local field conditions.",
+                        "Confirm on site what crop or ground cover is currently in the field and its growth stage, without assuming it from past crop history.",
+                        "Inspect the canopy for frost injury, winter dormancy, or normal seasonal senescence before considering irrigation.",
+                        "Check unfrozen root-zone soil moisture directly on site only if an active cold-tolerant crop is growing.",
                     ],
                 }
-            if stress_status == "INCONCLUSIVE_MIXED" or ndmi_status in ("VERY_LOW", "LOW"):
+
+            if possible_stress is True or stress_status == "POSSIBLE_STRESS":
+                weather_phrase = (
+                    "hot or warm, dry weather"
+                    if (heat_risk in ("MODERATE", "HIGH") or (temp_c is not None and temp_c >= 25.0))
+                    else "dry single-day weather"
+                )
+                inspect_rec = (
+                    "Inspect canopy leaves during the afternoon and check root-zone soil moisture directly across the field."
+                    if (temp_c is None or temp_c >= 25.0)
+                    else "Inspect crop canopy condition and check root-zone soil moisture directly across the field."
+                )
                 return {
                     "ai_explanation": (
-                        "Canopy moisture indicators are on the lower side, while single-day weather cannot confirm "
-                        "whether this reflects crop water stress, sparse canopy, soil background, or growth stage. "
-                        "Do not assume moisture stress is absent without an on-farm check." + coverage_note_en
+                        f"A lower optical canopy moisture indicator (NDMI) combined with {weather_phrase} suggests a possible "
+                        "moisture-stress pattern, though low NDMI alone is not confirmed drought or irrigation deficiency. "
+                        "Because the current standing crop, growth stage, soil moisture, and possible crop senescence or seasonal "
+                        "maturation are unknown from single-date imagery, interpretation remains uncertain." + coverage_note_en
+                    ),
+                    "recommendations": [
+                        inspect_rec,
+                        "Verify the current standing crop, growth stage, and whether normal maturation or senescence explains the lower NDMI before adjusting watering.",
+                        "Track follow-up satellite observations alongside recent rainfall and irrigation records.",
+                    ],
+                }
+
+            if stress_status == "INCONCLUSIVE_MIXED" or ndmi_status in ("VERY_LOW", "LOW"):
+                if temp_c is not None and temp_c < 15.0:
+                    return {
+                        "ai_explanation": (
+                            f"Canopy moisture indicator (NDMI) is low while recent weather is cool ({temp_c:.1f} C){month_clause_en}, "
+                            "so this optical reading does not confirm drought or irrigation deficiency. Because the current standing "
+                            "crop and growth stage are unknown, interpretation is uncertain and may reflect seasonal dormancy, "
+                            "crop senescence or maturation, sparse canopy, or soil background; do not assume moisture stress is "
+                            "absent without an on-farm check." + coverage_note_en
+                        ),
+                        "recommendations": [
+                            "Verify the current standing crop and growth stage directly on site rather than relying on past crop history.",
+                            "Inspect for seasonal senescence, cool-season dormancy, or residue alongside root-zone soil moisture.",
+                            "Monitor field conditions and upcoming weather over the next several days.",
+                        ],
+                    }
+                return {
+                    "ai_explanation": (
+                        "Canopy moisture indicator (NDMI) is on the lower side, which indicates a lower optical canopy "
+                        "moisture reading rather than confirmed drought or irrigation deficiency. Because current crop type "
+                        "and growth stage are unknown and single-day weather cannot distinguish crop water stress from "
+                        "senescence, sparse canopy, or soil background, interpretation is uncertain; do not assume moisture "
+                        "stress is absent without an on-farm check." + coverage_note_en
                     ),
                     "recommendations": [
                         "Check soil moisture directly at root depth in several spots across the field.",
-                        "Compare satellite readings against your current crop type, planting date, and canopy cover.",
+                        "Compare satellite readings against your current standing crop, growth stage, and canopy cover.",
                         "Monitor field conditions and upcoming weather over the next several days.",
                     ],
                 }
+
+            if temp_c is not None and temp_c <= 5.0:
+                freeze_label = "below freezing" if temp_c <= 0.0 else "near freezing"
+                return {
+                    "ai_explanation": (
+                        f"Canopy vegetation and moisture indicators appear relatively active in this snapshot, while recent "
+                        f"weather is {freeze_label} ({temp_c:.1f} C){month_clause_en}. Because the current crop type, growth "
+                        "stage, and seasonal state (such as winter cover, dormant pasture, or frost exposure) are unknown, "
+                        "interpretation remains uncertain and cannot confirm crop health or rule out localized field stress."
+                        + coverage_note_en
+                    ),
+                    "recommendations": [
+                        "Verify the current standing cover, growth stage, and any frost impact directly on site.",
+                        "Do not infer active crop growth or current crop type solely from past rotation history.",
+                        "Compare subsequent clear satellite dates alongside local temperature trends.",
+                    ],
+                }
+
             return {
                 "ai_explanation": (
-                    "Canopy vegetation and moisture indicators were retrieved for this snapshot with current "
-                    "weather context. Because single-date NDVI and NDMI depend on crop type, growth stage, "
-                    "soil background, season, and pixel quality, they provide screening context only and cannot "
-                    "rule out localized field stress." + coverage_note_en
+                    "Canopy vegetation and moisture indicators were retrieved for this snapshot with current weather "
+                    "context. Because the current crop type, growth stage, and seasonal context are unknown, single-date "
+                    "NDVI and NDMI remain uncertain screening context—they depend on crop type, growth stage, soil "
+                    "background, season, and pixel quality, and cannot confirm crop health or rule out localized field "
+                    "stress." + coverage_note_en
                 ),
                 "recommendations": [
-                    "Verify crop vigor and root-zone soil moisture directly on site, as localized stress can still occur.",
-                    "Interpret NDVI and NDMI alongside your crop's current growth stage and recent irrigation history.",
+                    "Verify current crop cover, growth stage, and root-zone soil moisture directly on site, as localized stress can still occur.",
+                    "Interpret NDVI and NDMI alongside your actual current standing crop and recent irrigation or rainfall history.",
                     "Compare subsequent clear satellite dates to track changes rather than relying on one snapshot.",
                 ],
             }
@@ -1421,12 +1603,13 @@ def default_ai_response(
             return {
                 "ai_explanation": (
                     "Satellite vegetation and moisture indicators were retrieved, but current weather readings "
-                    "are unavailable. NDVI and NDMI depend on crop type, growth stage, soil background, season, "
-                    "and pixel quality, so moisture stress cannot be assessed without weather and on-site checks." + coverage_note_en
+                    "are unavailable. Because current crop type, growth stage, and weather context are unknown, "
+                    "interpretation is uncertain and moisture stress, dormancy, or senescence cannot be distinguished "
+                    "without weather and on-site checks." + coverage_note_en
                 ),
                 "recommendations": [
-                    "Check root-zone moisture and local temperature conditions directly in the field.",
-                    "Interpret NDVI and NDMI alongside your crop's growth stage and field cover.",
+                    "Check root-zone moisture, current standing crop, and local temperature conditions directly in the field.",
+                    "Interpret NDVI and NDMI alongside your crop's growth stage and seasonal field cover.",
                     "Retry later once weather data is reachable again.",
                 ],
             }
@@ -1449,7 +1632,7 @@ def default_ai_response(
                 "ai_explanation": (
                     "اس تصویر میں نباتاتی سرگرمی بہت کم نظر آ رہی ہے (جو خالی مٹی، کٹائی کے بعد کی حالت، یا "
                     "ابتدائی اگاؤ میں عام ہے)۔ صرف NDVI اور NDMI سے فصل میں پانی کے دباؤ کی تصدیق یا نفی نہیں کی "
-                    "جا سکتی، کیونکہ ان کی تشریح فصل کی قسم، مرحلے، مٹی اور موسم پر منحصر ہے۔" + coverage_note_ur
+                    "جا سکتی، اور موجودہ فصل، مرحلے، مٹی اور موسم کے معلوم نہ ہونے کی وجہ سے تشریح غیر یقینی ہے۔" + coverage_note_ur
                 ),
                 "recommendations": [
                     "کم اشاریوں پر فیصلہ کرنے سے پہلے کھیت میں جا کر دیکھیں کہ زمین خالی ہے یا فصل ابتدائی مرحلے میں ہے۔",
@@ -1457,41 +1640,63 @@ def default_ai_response(
                     "جب فصل کا پھیلاؤ بڑھ جائے تو بعد کی صاف سیٹلائٹ تصاویر سے دوبارہ موازنہ کریں۔",
                 ],
             }
-        if possible_stress is True or stress_status == "POSSIBLE_STRESS":
+        if stress_status == "INCONCLUSIVE_COLD_OR_DORMANT" or (
+            ndmi_status in ("VERY_LOW", "LOW") and temp_c is not None and temp_c <= 5.0
+        ):
+            temp_text_ur = f" ({temp_c:.1f} C)" if temp_c is not None else ""
             return {
                 "ai_explanation": (
-                    "کم نمی کے اشاریے اور گرم یا خشک موسم ممکنہ آبی دباؤ کی نشاندہی کر سکتے ہیں، تاہم یہ صرف "
-                    "ابتدائی اسکریننگ ہے۔ NDVI اور NDMI کی تشریح فصل کی قسم، نشوونما کے مرحلے، مٹی کے پس منظر، "
-                    "موسم اور پکسل کوالٹی پر منحصر ہے۔" + coverage_note_ur
+                    f"نمی کا سیٹلائٹ اشاریہ (NDMI) کم ہے لیکن درجہ حرارت نقطہ انجماد کے قریب یا اس سے کم{temp_text_ur} ہے، "
+                    "اس لیے یہ یقینی خشک سالی یا آبپاشی کی کمی ظاہر نہیں کرتا۔ چونکہ موجودہ فصل اور نشوونما کا مرحلہ معلوم نہیں، "
+                    "اس لیے سرد موسمی جمود، پالا پڑنے، یا فصل کے پکنے اور خزاں کی تبدیلی کی وجہ سے تشریح غیر یقینی ہے۔" + coverage_note_ur
                 ),
                 "recommendations": [
-                    "دوپہر کی گرمی میں پتوں کی حالت اور جڑوں کے پاس مٹی کی نمی کا براہ راست معائنہ کریں۔",
-                    "پانی لگانے کا فیصلہ کرنے سے پہلے حالیہ آبپاشی اور بارش کی صورتحال چیک کریں۔",
+                    "پچھلی فصلوں کی تاریخ سے اندازہ لگانے کے بجائے کھیت میں جا کر موجودہ فصل اور اس کے مرحلے کی تصدیق کریں۔",
+                    "آبپاشی کا فیصلہ کرنے سے پہلے پالا، سرد جمود، یا قدرتی طور پر خشک ہونے کی علامات کا معائنہ کریں۔",
+                    "صرف اسی صورت میں جڑوں کے قریب مٹی کی نمی چیک کریں اگر کھیت میں واقعی سرد موسم کی فعال فصل موجود ہو۔",
+                ],
+            }
+        if possible_stress is True or stress_status == "POSSIBLE_STRESS":
+            warm_or_dry_ur = (
+                "گرم یا خشک موسم"
+                if (heat_risk in ("MODERATE", "HIGH") or (temp_c is not None and temp_c >= 25.0))
+                else "حالیہ خشک موسم"
+            )
+            return {
+                "ai_explanation": (
+                    f"کم نمی کے اشاریے (NDMI) اور {warm_or_dry_ur} ممکنہ آبی دباؤ کی نشاندہی کر سکتے ہیں، تاہم صرف کم NDMI "
+                    "یقینی خشک سالی یا آبپاشی کی کمی ثابت نہیں کرتا۔ موجودہ فصل، نشوونما کے مرحلے، اور موسمی پختگی کے معلوم نہ ہونے "
+                    "کی وجہ سے یہ تشریح غیر یقینی ہے۔" + coverage_note_ur
+                ),
+                "recommendations": [
+                    "کھیت میں جا کر پتوں کی حالت اور جڑوں کے پاس مٹی کی نمی کا براہ راست معائنہ کریں۔",
+                    "پانی لگانے کا فیصلہ کرنے سے پہلے موجودہ فصل، مرحلے، اور حالیہ بارش یا آبپاشی کی صورتحال چیک کریں۔",
                     "فصل کے مرحلے کو مدنظر رکھتے ہوئے اگلے چند دنوں میں دوبارہ نگرانی کریں۔",
                 ],
             }
         if stress_status == "INCONCLUSIVE_MIXED" or ndmi_status in ("VERY_LOW", "LOW"):
             return {
                 "ai_explanation": (
-                    "نمی کا سیٹلائٹ اشاریہ نسبتاً کم ہے، لیکن صرف ایک دن کے موسم سے یہ طے نہیں کیا جا سکتا کہ "
-                    "یہ آبی دباؤ ہے یا خالی مٹی اور فصل کے مرحلے کا اثر۔ کھیت کے معائنے کے بغیر آبی دباؤ کی "
-                    "عدم موجودگی فرض نہ کریں۔" + coverage_note_ur
+                    "نمی کا سیٹلائٹ اشاریہ نسبتاً کم ہے، جو یقینی خشک سالی کے بجائے محض کم بصری نمی کی نشاندہی کرتا ہے۔ "
+                    "موجودہ فصل اور مرحلے کے معلوم نہ ہونے کی وجہ سے صرف ایک دن کے موسم سے یہ طے نہیں کیا جا سکتا کہ یہ "
+                    "آبی دباؤ ہے یا موسمی جمود، فصل کا پکنا، یا خالی مٹی؛ کھیت کے معائنے کے بغیر آبی دباؤ کی عدم موجودگی فرض نہ کریں۔"
+                    + coverage_note_ur
                 ),
                 "recommendations": [
                     "کھیت کے مختلف حصوں میں جڑوں کی گہرائی پر مٹی کی نمی چیک کریں۔",
-                    "سیٹلائٹ اشاریوں کو اپنی موجودہ فصل کی قسم اور بوائی کی تاریخ کے ساتھ ملا کر دیکھیں۔",
+                    "سیٹلائٹ اشاریوں کو کھیت میں موجود اصل فصل اور نشوونما کے مرحلے کے ساتھ ملا کر دیکھیں۔",
                     "اگلے چند دنوں میں موسم اور فصل کی حالت پر نظر رکھیں۔",
                 ],
             }
         return {
             "ai_explanation": (
-                "اس رقبے کے لیے سیٹلائٹ اور موسمی اشاریے حاصل کر لیے گئے ہیں۔ تاہم ایک دن کے NDVI اور NDMI "
-                "فصل کی قسم، مرحلے، مٹی اور پکسل کوالٹی پر منحصر ہوتے ہیں، اس لیے یہ صرف ابتدائی رہنمائی ہیں "
-                "اور کھیت میں مقامی دباؤ کے امکان کو ختم نہیں کرتے۔" + coverage_note_ur
+                "اس رقبے کے لیے سیٹلائٹ اور موسمی اشاریے حاصل کر لیے گئے ہیں۔ تاہم موجودہ فصل کی قسم، نشوونما کے مرحلے، "
+                "اور موسمی تناظر کے معلوم نہ ہونے کی وجہ سے ایک دن کے NDVI اور NDMI غیر یقینی رہتے ہیں اور کھیت میں مقامی "
+                "دباؤ کے امکان کو ختم نہیں کرتے۔" + coverage_note_ur
             ),
             "recommendations": [
-                "کھیت میں جا کر فصل کی بڑھوتری اور مٹی کی نمی کی خود تصدیق کریں۔",
-                "ان اشاریوں کو فصل کے موجودہ مرحلے اور حالیہ آبپاشی کے تناظر میں دیکھیں۔",
+                "کھیت میں جا کر موجودہ فصل کی بڑھوتری اور مٹی کی نمی کی خود تصدیق کریں۔",
+                "ان اشاریوں کو کھیت میں موجود اصل فصل اور حالیہ آبپاشی کے تناظر میں دیکھیں۔",
                 "ایک تصویر پر انحصار کے بجائے آنے والی صاف سیٹلائٹ تاریخوں کا موازنہ کریں۔",
             ],
         }
@@ -1510,13 +1715,13 @@ def default_ai_response(
     if satellite_available and not weather_available:
         return {
             "ai_explanation": (
-                "سیٹلائٹ اشاریے حاصل ہو گئے ہیں، لیکن موجودہ موسمی اعداد دستیاب نہیں۔ NDVI اور NDMI فصل کی "
-                "قسم، مرحلے، مٹی اور پکسل کوالٹی پر منحصر ہیں، اس لیے موسم اور کھیت کے معائنے کے بغیر آبی دباؤ "
-                "کا اندازہ نہیں لگایا جا سکتا۔" + coverage_note_ur
+                "سیٹلائٹ اشاریے حاصل ہو گئے ہیں، لیکن موجودہ موسمی اعداد دستیاب نہیں۔ موجودہ فصل، مرحلے، مٹی اور "
+                "موسم کے معلوم نہ ہونے کی وجہ سے تشریح غیر یقینی ہے اور کھیت کے معائنے کے بغیر آبی دباؤ کا اندازہ نہیں لگایا جا سکتا۔"
+                + coverage_note_ur
             ),
             "recommendations": [
                 "کھیت میں جا کر مٹی کی نمی اور درجہ حرارت کی صورتحال خود چیک کریں۔",
-                "ان اشاریوں کو اپنی فصل کے مرحلے اور زمین کے ڈھکاؤ کے مطابق پرکھیں۔",
+                "ان اشاریوں کو اپنی موجودہ فصل کے مرحلے اور زمین کے ڈھکاؤ کے مطابق پرکھیں۔",
                 "موسمی سروس بحال ہونے پر دوبارہ تجزیہ چلائیں۔",
             ],
         }
@@ -1560,9 +1765,18 @@ def get_ai_explanation(lang: str, facts: Dict[str, Any]) -> Dict[str, Any]:
         parsed = json.loads(content.strip())
         if (isinstance(parsed, dict) and isinstance(parsed.get("ai_explanation"), str)
                 and isinstance(parsed.get("recommendations"), list)):
-            return sanitize_ai_result(
+            sanitized = sanitize_ai_result(
                 {"ai_explanation": parsed["ai_explanation"], "recommendations": parsed["recommendations"]}
             )
+            combined_text = " ".join(
+                [sanitized["ai_explanation"], *sanitized["recommendations"]]
+            )
+            temp_c = _safe_number(facts.get("temperature_c"))
+            if temp_c is not None and temp_c <= 5.0 and _WARM_WEATHER_LLM_RE.search(combined_text):
+                return fallback
+            if _FALSE_CERTAINTY_LLM_RE.search(combined_text):
+                return fallback
+            return sanitized
     except Exception:
         pass
 
@@ -1672,6 +1886,7 @@ def process_farm_analysis(
         rainfall_status=rainfall_status,
         satellite_available=sat_available,
         weather_available=weather_available,
+        temperature_c=temp_c,
     )
 
     observation_quality = compute_observation_quality(
@@ -1695,7 +1910,12 @@ def process_farm_analysis(
         confidence=confidence,
         ndvi=ndvi,
         excluded_pixel_percent=excluded_pct,
+        temperature_c=temp_c,
     )
+
+    thermal_regime = classify_thermal_regime(temp_c) if temp_c is not None else None
+    obs_month = _observation_month_name(obs_date)
+    seasonal_note = _build_seasonal_note(obs_date, lat, temp_c)
 
     facts = {
         "acres": acres,
@@ -1704,6 +1924,7 @@ def process_farm_analysis(
         "ndmi": ndmi,
         "ndmi_status": ndmi_status,
         "temperature_c": temp_c,
+        "thermal_regime": thermal_regime,
         "humidity_percent": humidity,
         "recent_rainfall_mm": rainfall,
         "heat_risk": heat_risk,
@@ -1713,6 +1934,10 @@ def process_farm_analysis(
         "analysis_confidence": confidence,
         "observation_quality": observation_quality,
         "satellite_observation_date": obs_date,
+        "observation_month": obs_month,
+        "current_crop_known": False,
+        "crop_growth_stage_known": False,
+        "seasonal_and_agronomic_caveat": seasonal_note,
         "cloud_cover_percent": satellite.get("cloud_cover_percent"),
         "valid_coverage_percent": valid_pct,
         "excluded_pixel_percent": excluded_pct,
