@@ -163,7 +163,7 @@ export function AssistantPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="font-display text-xl font-bold">Ask AgroShift</h2>
-          <p className="text-sm text-[#64748B] dark:text-[#94A3B8] mt-0.5">
+          <p className="text-sm text-[var(--as-text-muted)] mt-0.5">
             {activeFarm
               ? `Contextualized for ${activeFarm.details.name}${activeFarm.location.country ? ` (${activeFarm.location.country})` : ''}`
               : 'General farming and Earth observation guidance (select a farm for farm-specific context)'}
@@ -173,7 +173,7 @@ export function AssistantPage() {
           <button
             type="button"
             onClick={() => setMessages([])}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] text-[#64748B] hover:text-[#DC2626] self-start"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-[var(--as-border)] text-[var(--as-text-muted)] hover:as-text-danger self-start"
           >
             <Trash2 className="w-3.5 h-3.5" />
             Clear Conversation
@@ -185,31 +185,35 @@ export function AssistantPage() {
         <StatusBanner
           tone="warning"
           title="Ask AgroShift AI Service Is Currently Unavailable"
-          description="The server-side AI assistant endpoint is not active in this environment. Other farm management and Earth observation features continue working normally."
+          description={
+            status?.reason
+              ? `${status.reason} Other farm management and Earth observation features continue working normally.`
+              : 'The server-side AI assistant endpoint is not active in this environment. Other farm management and Earth observation features continue working normally.'
+          }
         />
       )}
 
       {/* Conversation Surface */}
-      <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] flex flex-col min-h-[460px] max-h-[65vh]">
+      <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-surface)] flex flex-col min-h-[460px] max-h-[65vh]">
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {messages.length === 0 ? (
             <div className="space-y-5 py-4">
               <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-lg bg-[#16A34A]/10 text-[#14532D] dark:text-[#10B981] flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-lg as-icon-badge flex items-center justify-center shrink-0">
                   <MessageSquare className="w-4 h-4" />
                 </div>
                 <div className="space-y-1.5">
                   <h3 className="text-sm font-semibold">
                     Practical guidance grounded in your saved farm data
                   </h3>
-                  <p className="text-xs text-[#64748B] dark:text-[#94A3B8] leading-relaxed max-w-xl">
+                  <p className="text-xs text-[var(--as-text-muted)] leading-relaxed max-w-xl">
                     Ask AgroShift translates climate records, crop rotation trade-offs, and satellite vegetation indicators into plain language. When live satellite or climate records are not loaded, it clearly notes what is missing rather than inventing measurements.
                   </p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-[#64748B] dark:text-[#94A3B8]">
+                <p className="text-xs font-semibold text-[var(--as-text-muted)]">
                   Suggested questions
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -219,7 +223,7 @@ export function AssistantPage() {
                       type="button"
                       disabled={!status?.available || sending}
                       onClick={() => handleSend(q)}
-                      className="text-left p-3 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] text-xs text-[#172B22] dark:text-[#E8F1EC] hover:border-[#16A34A] transition-colors disabled:opacity-50"
+                      className="text-left p-3 rounded-lg border border-[var(--as-border)] bg-[var(--as-surface-alt)] text-xs text-[var(--as-text)] hover:border-[var(--as-accent-text)] transition-colors disabled:opacity-50"
                     >
                       {q}
                     </button>
@@ -238,8 +242,8 @@ export function AssistantPage() {
                 <div
                   className={`max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
                     msg.role === 'user'
-                      ? 'bg-[#14532D] text-white'
-                      : 'bg-[#F8FAF7] dark:bg-[#0B1310] border border-[#E2E8F0] dark:border-[#1E2E26] text-[#172B22] dark:text-[#E8F1EC]'
+                      ? 'bg-[var(--as-primary)] text-[var(--as-primary-foreground)]'
+                      : 'bg-[var(--as-surface-alt)] border border-[var(--as-border)] text-[var(--as-text)]'
                   }`}
                 >
                   {msg.content}
@@ -250,15 +254,15 @@ export function AssistantPage() {
 
           {sending && (
             <div className="flex justify-start">
-              <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#F8FAF7] dark:bg-[#0B1310] border border-[#E2E8F0] dark:border-[#1E2E26] text-xs text-[#64748B]">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#16A34A]" />
+              <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--as-surface-alt)] border border-[var(--as-border)] text-xs text-[var(--as-text-muted)]">
+                <Loader2 className="w-3.5 h-3.5 animate-spin as-text-accent" />
                 Preparing plain-language guidance...
               </div>
             </div>
           )}
 
           {errorMsg && (
-            <div className="flex items-center gap-2 text-xs text-[#DC2626] pt-1">
+            <div className="flex items-center gap-2 text-xs as-text-danger pt-1">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMsg}</span>
             </div>
@@ -270,7 +274,7 @@ export function AssistantPage() {
         {/* Input Form */}
         <form
           onSubmit={handleSubmit}
-          className="border-t border-[#E2E8F0] dark:border-[#1E2E26] p-3 sm:p-4 flex items-center gap-2.5"
+          className="border-t border-[var(--as-border)] p-3 sm:p-4 flex items-center gap-2.5"
         >
           <input
             type="text"
@@ -283,12 +287,12 @@ export function AssistantPage() {
                 : 'Assistant service is unavailable'
             }
             aria-label="Ask AgroShift a question"
-            className="flex-1 px-3.5 py-2.5 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] focus:outline-none focus:ring-2 focus:ring-[#16A34A] disabled:opacity-50"
+            className="flex-1 px-3.5 py-2.5 text-sm rounded-lg border border-[var(--as-border)] bg-[var(--as-surface-alt)] text-[var(--as-text)] focus:outline-none focus:ring-2 focus:ring-[var(--as-focus-ring)] disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={!status?.available || sending || !input.trim()}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold rounded-lg bg-[#14532D] hover:bg-[#166534] text-white disabled:opacity-50 transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap"
           >
             <Send className="w-4 h-4" />
             Send

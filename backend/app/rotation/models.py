@@ -44,4 +44,11 @@ class ClimateMonth(BaseModel):
             raise ValueError('Invalid month')
         return self
 
+class ScenarioRotationRequest(RotationRequest):
+    scenario_label: str = Field(default='Custom Sensitivity', min_length=1, max_length=80)
+    temperature_delta_c: float = Field(default=0.0, ge=-5.0, le=8.0, allow_inf_nan=False)
+    precipitation_shift_percent: float = Field(default=0.0, ge=-80.0, le=100.0, allow_inf_nan=False)
+
+
 RotationRequest.model_rebuild()
+ScenarioRotationRequest.model_rebuild()

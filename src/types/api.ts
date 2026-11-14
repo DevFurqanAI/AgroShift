@@ -113,10 +113,26 @@ export interface RotationSeasonDetail {
   screening_score: number;
 }
 
+export interface RotationPlanDiagnostics {
+  climate_compatibility: number;
+  water_compatibility: number;
+  family_rotation: number;
+  soil_compatibility: number | null;
+  soil_evaluated: boolean;
+  distinct_families: number;
+  distinct_crops: number;
+  goal_applied: BackendRotationGoal;
+  goal_weights_applied: Record<string, number>;
+  missing_data_notes: string[];
+  tie_note: string | null;
+}
+
 export interface RotationPlanOption {
   crop_ids: string[];
   score: number;
+  compatibility_band?: string;
   seasons: RotationSeasonDetail[];
+  diagnostics?: RotationPlanDiagnostics;
   explanation: string;
 }
 
@@ -126,6 +142,58 @@ export interface RotationPlanResponse {
   plans: RotationPlanOption[];
   climate_source?: string;
   historical_not_forecast?: boolean;
+  screening_disclaimer?: string;
+  method?: string;
+  catalog_warning?: string;
+  limitations?: string[];
+  message?: string | null;
+}
+
+export interface ScenarioRotationRequest extends RotationPlanRequest {
+  scenario_label?: string;
+  temperature_delta_c: number;
+  precipitation_shift_percent: number;
+}
+
+export interface ScenarioComparisonRow {
+  crop_ids: string[];
+  crop_names: string[];
+  baseline_rank: number | null;
+  scenario_rank: number | null;
+  rank_change: number | null;
+  baseline_score: number | null;
+  scenario_score: number | null;
+  score_delta: number | null;
+  baseline_band: string | null;
+  scenario_band: string | null;
+  reason: string;
+}
+
+export interface ScenarioComparisonResponse {
+  status: 'ok' | 'insufficient_data' | 'invalid_crops';
+  data_available: boolean;
+  climate_source?: string;
+  historical_not_forecast?: boolean;
+  is_hypothetical_sensitivity?: boolean;
+  scenario_label: string;
+  assumptions: {
+    temperature_delta_c: number;
+    precipitation_shift_percent: number;
+    baseline_water_availability: BackendWaterLevel;
+    scenario_water_availability: BackendWaterLevel;
+    water_shift_note: string;
+  };
+  climate_metrics: {
+    baseline_avg_temp_c: number | null;
+    scenario_avg_temp_c: number | null;
+    baseline_avg_monthly_precip_mm: number | null;
+    scenario_avg_monthly_precip_mm: number | null;
+  } | null;
+  baseline_plans: RotationPlanOption[];
+  scenario_plans: RotationPlanOption[];
+  comparisons: ScenarioComparisonRow[];
+  disclaimer: string;
+  screening_disclaimer?: string;
   method?: string;
   catalog_warning?: string;
   limitations?: string[];
@@ -135,7 +203,9 @@ export interface RotationPlanResponse {
 export interface AssistantStatusResponse {
   available: boolean;
   model: string | null;
+  configuredModel?: string;
   provider: string;
+  reason?: string | null;
 }
 
 export interface AssistantChatMessage {

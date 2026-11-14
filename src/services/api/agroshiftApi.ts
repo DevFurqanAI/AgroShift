@@ -6,6 +6,8 @@ import type {
   RotationCropsResponse,
   RotationPlanRequest,
   RotationPlanResponse,
+  ScenarioComparisonResponse,
+  ScenarioRotationRequest,
 } from '../../types/api';
 import { normalizeBaseUrl } from '../../utils/validation';
 
@@ -55,12 +57,17 @@ export class ApiClientError extends Error {
 
 async function fetchJsonWithTimeout<T>(
   url: string,
-  options: RequestInit & { timeoutMs?: number; farmerErrorMessage?: string } = {}
+  options: RequestInit & {
+    timeoutMs?: number;
+    farmerErrorMessage?: string;
+    preferServerError?: boolean;
+  } = {}
 ): Promise<T> {
   const {
     timeoutMs = 25000,
     signal: externalSignal,
     farmerErrorMessage = FARMER_ERROR_MESSAGES.generic,
+    preferServerError = false,
     ...fetchOptions
   } = options;
 
@@ -87,6 +94,7 @@ async function fetchJsonWithTimeout<T>(
 
     if (!response.ok) {
       let detail = `HTTP ${response.status}`;
+      let safeServerError: string | undefined;
       if (isJson) {
         try {
           const errJson = (await response.json()) as {
@@ -94,13 +102,16 @@ async function fetchJsonWithTimeout<T>(
             error?: string;
             message?: string;
           };
-          detail = errJson.detail || errJson.error || errJson.message || detail;
+          safeServerError = errJson.error || errJson.detail || errJson.message;
+          detail = safeServerError || detail;
         } catch {
           // Keep status detail
         }
       }
       console.error(`[AgroShift API] Request failed (${url}):`, response.status, detail);
-      throw new ApiClientError(farmerErrorMessage, 'HTTP_ERROR', response.status, detail);
+      const clientMessage =
+        preferServerError && safeServerError ? safeServerError : farmerErrorMessage;
+      throw new ApiClientError(clientMessage, 'HTTP_ERROR', response.status, detail);
     }
 
     if (!isJson) {
@@ -284,6 +295,39 @@ export async function fetchRotationPlan(
   return data;
 }
 
+export async function fetchScenarioComparison(
+  payload: ScenarioRotationRequest,
+  signal?: AbortSignal,
+  baseUrlOverride?: string
+): Promise<ScenarioComparisonResponse> {
+  const baseUrl = resolveApiBaseUrl(baseUrlOverride);
+  const data = await fetchJsonWithTimeout<ScenarioComparisonResponse>(
+    `${baseUrl}/api/v1/rotation/scenario`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      timeoutMs: 35000,
+      farmerErrorMessage: FARMER_ERROR_MESSAGES.rotation,
+      signal,
+    }
+  );
+
+  if (!data || typeof data !== 'object' || typeof data.status !== 'string') {
+    console.error('[AgroShift API] Invalid rotation scenario payload:', data);
+    throw new ApiClientError(
+      FARMER_ERROR_MESSAGES.rotation,
+      'INVALID_RESPONSE',
+      undefined,
+      'Invalid /api/v1/rotation/scenario payload'
+    );
+  }
+
+  return data;
+}
+
 export async function getAssistantStatus(
   signal?: AbortSignal
 ): Promise<AssistantStatusResponse> {
@@ -309,6 +353,7 @@ export async function sendAssistantMessage(
     body: JSON.stringify(body),
     timeoutMs: 30000,
     farmerErrorMessage: "We couldn't get a response right now. Please try again.",
+    preferServerError: true,
     signal,
   });
 }

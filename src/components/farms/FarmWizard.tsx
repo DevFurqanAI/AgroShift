@@ -846,10 +846,10 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   }}
                   className={`w-full text-left px-3 py-2 rounded-lg border text-xs transition-colors ${
                     isCurrent
-                      ? 'border-[#14532D] bg-[#14532D]/5 text-[#14532D] dark:border-[#10B981] dark:bg-[#10B981]/10 dark:text-[#10B981] font-semibold'
+                      ? 'border-[var(--as-primary)] bg-[#15803D]/10 as-text-accent dark:bg-[#34D399]/12 font-semibold'
                       : isDone
-                        ? 'border-[#16A34A]/30 bg-white dark:bg-[#0B1310] text-[#172B22] dark:text-[#E8F1EC]'
-                        : 'border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] text-[#64748B] dark:text-[#94A3B8]'
+                        ? 'border-[#15803D]/35 bg-white dark:bg-[#0B1310] text-[#172B22] dark:text-[#E8F1EC]'
+                        : 'border-[#D9E2EC] dark:border-[#23362D] bg-[#F8FAF7] dark:bg-[#0B1310] text-[var(--as-text-muted)]'
                   }`}
                 >
                   <span className="font-mono tabular-nums mr-1.5">0{s.id}</span>
@@ -864,7 +864,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
       {stepError && (
         <div
           role="alert"
-          className="rounded-xl border border-[#DC2626]/40 bg-[#DC2626]/5 px-4 py-3 flex items-start gap-2.5 text-sm text-[#DC2626]"
+          className="rounded-xl border border-[#B91C1C]/40 bg-[#DC2626]/7 px-4 py-3 flex items-start gap-2.5 text-sm as-text-danger"
         >
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{stepError}</span>
@@ -926,25 +926,25 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   Place Details (Synced with Selected Coordinates)
                 </h4>
                 {isResolvingAddress && (
-                  <span className="inline-flex items-center gap-1 text-xs text-[#16A34A]">
+                  <span className="inline-flex items-center gap-1 text-xs as-text-accent">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     Looking up place details...
                   </span>
                 )}
               </div>
               {userConfirmedCorrections && (
-                <span className="text-[11px] font-medium text-[#16A34A]">
+                <span className="text-[11px] font-medium as-text-accent">
                   Address edited manually
                 </span>
               )}
             </div>
 
             {addressLookupMessage && (
-              <p className="text-xs text-[#D97706]">{addressLookupMessage}</p>
+              <p className="text-xs as-text-warning">{addressLookupMessage}</p>
             )}
 
             {countryMismatchNote && (
-              <p className="text-xs text-[#D97706]">{countryMismatchNote}</p>
+              <p className="text-xs as-text-warning">{countryMismatchNote}</p>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1171,14 +1171,14 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   <button
                     type="button"
                     onClick={handleUseBoundaryArea}
-                    className="text-[#16A34A] hover:underline font-medium"
+                    className="as-text-accent hover:underline font-medium"
                   >
                     Use this estimated area (~{polygonEstimatedHectares.toFixed(2)} ha)
                   </button>
                 )}
               </div>
               {boundaryMismatchWarning && (
-                <p className="mt-1.5 text-xs text-[#D97706] flex items-start gap-1.5">
+                <p className="mt-1.5 text-xs as-text-warning flex items-start gap-1.5">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                   <span>{boundaryMismatchWarning}</span>
                 </p>
@@ -1205,7 +1205,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                 <option value="commercial">Commercial Agricultural Operation</option>
               </select>
               {smallholderAreaWarning && (
-                <p className="mt-1.5 text-xs text-[#D97706] flex items-start gap-1.5">
+                <p className="mt-1.5 text-xs as-text-warning flex items-start gap-1.5">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                   <span>{smallholderAreaWarning}</span>
                 </p>
@@ -1413,7 +1413,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   )}
 
                   {unsupported && (
-                    <p className="text-[11px] text-[#D97706]">
+                    <p className="text-[11px] as-text-warning">
                       Saved in your farm profile. Note: the automatic rotation screening engine currently supports 14 core crops, so you can select a supported reference crop in the planner when scoring rotations.
                     </p>
                   )}
@@ -1499,14 +1499,14 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                     }
                     className={`text-left px-3 py-2 rounded-lg border text-xs transition-colors ${
                       selected
-                        ? 'border-[#14532D] bg-[#14532D] text-white dark:border-[#16A34A] dark:bg-[#16A34A]'
-                        : 'border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] hover:border-[#16A34A]'
+                        ? 'as-chip-selected'
+                        : 'border-[#D9E2EC] dark:border-[#23362D] bg-[#F8FAF7] dark:bg-[#0B1310] hover:border-[var(--as-accent-text)]'
                     }`}
                   >
                     <p className="font-semibold truncate">{crop.name}</p>
                     <p
                       className={`text-[11px] truncate ${
-                        selected ? 'text-white/80' : 'text-[#64748B] dark:text-[#94A3B8]'
+                        selected ? 'text-white/90' : 'text-[var(--as-text-muted)]'
                       }`}
                     >
                       {crop.botanicalFamily}
@@ -1523,16 +1523,16 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                 onClick={() => handleSelectCropForActiveSeason('custom', '', true)}
                 className={`text-left px-3 py-2 rounded-lg border text-xs transition-colors ${
                   activeSeason?.isCustomOther
-                    ? 'border-[#14532D] bg-[#14532D] text-white dark:border-[#16A34A] dark:bg-[#16A34A]'
-                    : 'border-dashed border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] hover:border-[#16A34A]'
+                    ? 'as-chip-selected'
+                    : 'border-dashed border-[#D9E2EC] dark:border-[#23362D] bg-[#F8FAF7] dark:bg-[#0B1310] hover:border-[var(--as-accent-text)]'
                 }`}
               >
                 <p className="font-semibold">Other crop</p>
                 <p
                   className={`text-[11px] ${
                     activeSeason?.isCustomOther
-                      ? 'text-white/80'
-                      : 'text-[#64748B] dark:text-[#94A3B8]'
+                      ? 'text-white/90'
+                      : 'text-[var(--as-text-muted)]'
                   }`}
                 >
                   Enter custom crop name
@@ -1875,12 +1875,12 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                           {info.title}
                         </p>
                         {isEngineGoal && (
-                          <span className="text-[11px] font-medium text-[#16A34A]">
+                          <span className="text-[11px] font-semibold as-text-accent">
                             Active screening goal
                           </span>
                         )}
                         {info.engineNote && (
-                          <span className="text-[11px] text-[#D97706]">
+                          <span className="text-[11px] font-medium as-text-warning">
                             {info.engineNote}
                           </span>
                         )}
@@ -1931,7 +1931,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   key={id}
                   type="button"
                   onClick={() => togglePriorityActive(id)}
-                  className="px-3 py-1.5 text-xs rounded-lg border border-dashed border-[#E2E8F0] dark:border-[#1E2E26] text-[#64748B] hover:border-[#16A34A] hover:text-[#16A34A]"
+                  className="px-3 py-1.5 text-xs rounded-lg border border-dashed border-[var(--as-border)] text-[var(--as-text-muted)] hover:border-[var(--as-accent-text)] hover:as-text-accent"
                 >
                   + Add {PRIORITY_LABELS[id].title}
                 </button>
@@ -2051,7 +2051,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
           <button
             type="button"
             onClick={() => goToStep(step + 1)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg bg-[#14532D] hover:bg-[#166534] text-white transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap"
           >
             Continue
             <ArrowRight className="w-4 h-4" />
@@ -2060,7 +2060,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
           <button
             type="button"
             onClick={handleSaveFarm}
-            className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold rounded-lg bg-[#16A34A] hover:bg-[#15803D] text-white transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap"
           >
             <Check className="w-4 h-4" />
             {isEdit ? 'Save Farm Changes' : 'Save Farm & Open Dashboard'}

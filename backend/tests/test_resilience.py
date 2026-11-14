@@ -61,3 +61,117 @@ def test_weather_nan_rejected():
 
 def test_ai_malformed_content_uses_fallback():
     assert services.sanitize_ai_result({'ai_explanation':'hello','recommendations':None})['recommendations']==[]
+
+
+def test_copernicus_token_cached_across_requests():
+    services.clear_provider_caches()
+    calls = {'token': 0, 'stats': 0}
+
+    def fake_post(url, *args, **kwargs):
+        if 'openid-connect/token' in url:
+            calls['token'] += 1
+            res = Fake({'access_token': 'tok-123', 'expires_in': 600})
+            return res
+        calls['stats'] += 1
+        return Fake({
+            'data': [{
+                'interval': {'from': '2026-04-01T00:00:00Z'},
+                'outputs': {
+                    'ndvi': {'bands': {'B0': {'stats': {'sampleCount': 100, 'noDataCount': 10, 'mean': 0.55}}}},
+                    'ndmi': {'bands': {'B0': {'stats': {'sampleCount': 100, 'noDataCount': 10, 'mean': 0.22}}}},
+                },
+            }]
+        })
+
+    with patch('app.services.settings.COPERNICUS_CLIENT_ID', 'cid'), \
+         patch('app.services.settings.COPERNICUS_CLIENT_SECRET', 'csec'), \
+         patch('app.services.requests.post', side_effect=fake_post):
+        first = services.get_satellite_data(None, 31.2, 72.4)
+        second = services.get_satellite_data(None, 31.3, 72.5)
+
+    assert first['satellite_available'] is True and second['satellite_available'] is True
+    assert calls['token'] == 1 and calls['stats'] == 2
+
+
+def test_copernicus_429_respects_cooldown_without_retry_loop():
+    services.clear_provider_caches()
+    post_urls = []
+
+    def fake_post(url, *args, **kwargs):
+        post_urls.append(url)
+        if 'openid-connect/token' in url:
+            return Fake({'access_token': 'tok-123', 'expires_in': 600})
+        res = Fake({})
+        res.status_code = 429
+        res.headers = {'Retry-After': '45'}
+        return res
+
+    with patch('app.services.settings.COPERNICUS_CLIENT_ID', 'cid'), \
+         patch('app.services.settings.COPERNICUS_CLIENT_SECRET', 'csec'), \
+         patch('app.services.requests.post', side_effect=fake_post):
+        first = services.get_satellite_data(None, 31.2, 72.4)
+        second = services.get_satellite_data(None, 31.2, 72.4)
+
+    assert first['satellite_available'] is False
+    assert '45 seconds' in first['satellite_message']
+    assert 'not configured' not in first['satellite_message'].lower()
+    assert second['satellite_available'] is False
+    assert '45 seconds' in second['satellite_message']
+    # Only 1 token call + 1 stats call total (no tight 429 retries, second call stopped by cooldown)
+    assert len(post_urls) == 2
+
+
+def test_copernicus_missing_vs_invalid_credentials_messages():
+    services.clear_provider_caches()
+    with patch('app.services.settings.COPERNICUS_CLIENT_ID', ''), \
+         patch('app.services.settings.COPERNICUS_CLIENT_SECRET', ''):
+        missing = services.get_satellite_data(None, 31.2, 72.4)
+    assert missing['satellite_available'] is False
+    assert 'not configured' in missing['satellite_message'].lower()
+
+    services.clear_provider_caches()
+    unauth = Fake({})
+    unauth.status_code = 401
+    with patch('app.services.settings.COPERNICUS_CLIENT_ID', 'bad'), \
+         patch('app.services.settings.COPERNICUS_CLIENT_SECRET', 'bad'), \
+         patch('app.services.requests.post', return_value=unauth):
+        invalid = services.get_satellite_data(None, 31.2, 72.4)
+    assert invalid['satellite_available'] is False
+    assert 'authorized' in invalid['satellite_message'].lower()
+    assert 'not configured' not in invalid['satellite_message'].lower()
+
+
+def test_process_farm_analysis_caches_successful_observations():
+    services.clear_provider_caches()
+    sat_calls = 0
+    weather_calls = 0
+
+    def fake_sat(*args, **kwargs):
+        nonlocal sat_calls
+        sat_calls += 1
+        return {
+            'satellite_available': True,
+            'ndvi': 0.52,
+            'ndmi': 0.18,
+            'satellite_observation_date': '2026-04-01',
+            'cloud_cover_percent': 8.0,
+        }
+
+    def fake_weather(*args, **kwargs):
+        nonlocal weather_calls
+        weather_calls += 1
+        return {
+            'weather_available': True,
+            'temperature_c': 27.5,
+            'humidity_percent': 48,
+            'recent_rainfall_mm': 0.0,
+        }
+
+    with patch('app.services.get_satellite_data', side_effect=fake_sat), \
+         patch('app.services.get_weather_data', side_effect=fake_weather):
+        first = services.process_farm_analysis(31.2, 72.4, 5.0, None, 'en')
+        second = services.process_farm_analysis(31.2, 72.4, 5.0, None, 'en')
+
+    assert first['satellite_available'] is True and second['ndvi'] == 0.52
+    assert sat_calls == 1 and weather_calls == 1
+

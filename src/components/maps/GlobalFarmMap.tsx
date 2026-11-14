@@ -506,28 +506,28 @@ export function GlobalFarmMap({
       )}
 
       {geoError && (
-        <div className="flex items-center gap-2 text-xs text-[#D97706]">
+        <div className="flex items-center gap-2 text-xs as-text-warning">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{geoError}</span>
         </div>
       )}
 
       {searchError && (
-        <div className="flex items-center gap-2 text-xs text-[#D97706]">
+        <div className="flex items-center gap-2 text-xs as-text-warning">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{searchError}</span>
         </div>
       )}
 
       {!readOnly && drawMode === 'polygon' && polygonMetrics.error && vertices.length >= 3 && (
-        <div role="alert" className="flex items-center gap-2 text-xs font-medium text-[#DC2626]">
+        <div role="alert" className="flex items-center gap-2 text-xs font-medium as-text-danger">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{polygonMetrics.error}</span>
         </div>
       )}
 
       {tileError && (
-        <div className="flex items-center gap-2 text-xs text-[#D97706]">
+        <div className="flex items-center gap-2 text-xs as-text-warning">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>
             Map background tiles could not load cleanly. Coordinate selection and manual entry still work.

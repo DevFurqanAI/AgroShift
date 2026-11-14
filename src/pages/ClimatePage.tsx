@@ -86,7 +86,7 @@ export function ClimatePage() {
         primaryAction={
           <Link
             to="/dashboard/farms/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg bg-[#14532D] text-white"
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors"
           >
             <PlusCircle className="w-4 h-4" />
             Add Farm
@@ -164,7 +164,7 @@ export function ClimatePage() {
           <button
             type="submit"
             disabled={climateQuery.isFetching}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-[#14532D] hover:bg-[#166534] text-white disabled:opacity-50 whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg as-btn-primary disabled:opacity-50 whitespace-nowrap"
           >
             {climateQuery.isFetching ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -215,7 +215,7 @@ export function ClimatePage() {
             <button
               type="button"
               onClick={() => climateQuery.refetch()}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-[#14532D] text-white whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg as-btn-primary whitespace-nowrap"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               Retry

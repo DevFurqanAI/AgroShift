@@ -12,10 +12,10 @@ import {
   X,
 } from 'lucide-react';
 import { LogoMark } from '../components/layout/LogoMark';
-
-const HERO_IMAGE = '/src/assets/images/hero_agroshift_farmland_1794642288047.jpg';
-const EARTH_DATA_IMAGE = '/src/assets/images/earth_observation_crops_1794642287748.jpg';
-const GLOBAL_REACH_IMAGE = '/src/assets/images/global_smallholder_field_1794642287829.jpg';
+import { ResilientImage } from '../components/common/ResilientImage';
+import heroFarmlandImg from '../assets/images/hero_agroshift_farmland_1794642288047.jpg';
+import earthObservationImg from '../assets/images/earth_observation_crops_1794642287748.jpg';
+import globalSmallholderImg from '../assets/images/global_smallholder_field_1794642287829.jpg';
 
 const HOW_IT_WORKS = [
   {
@@ -97,7 +97,7 @@ export function LandingPage() {
 
           <nav
             aria-label="Primary navigation"
-            className="hidden md:flex items-center gap-7 text-sm font-medium text-[#64748B] dark:text-[#94A3B8]"
+            className="hidden md:flex items-center gap-7 text-sm font-medium text-[var(--as-text-muted)]"
           >
             <a
               href="#top"
@@ -134,7 +134,7 @@ export function LandingPage() {
           <div className="flex items-center gap-3 shrink-0">
             <Link
               to="/dashboard/farms/new"
-              className="hidden sm:inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-[#14532D] hover:bg-[#166534] text-white transition-colors whitespace-nowrap shrink-0"
+              className="hidden sm:inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap shrink-0"
             >
               Get Started
             </Link>
@@ -195,26 +195,26 @@ export function LandingPage() {
         <section className="max-w-[1200px] mx-auto px-4 sm:px-6 pt-10 pb-16 lg:pt-16 lg:pb-24">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-stretch">
             <div className="lg:col-span-6 flex flex-col justify-center space-y-6">
-              <p className="text-xs font-medium text-[#14532D] dark:text-[#10B981]">
+              <p className="text-xs font-semibold as-text-accent">
                 AgroShift · Every Farm Deserves Smarter Decisions
               </p>
               <h1 className="font-display text-[clamp(2.25rem,4vw,3.5rem)] font-bold leading-[1.08] tracking-tight text-[#172B22] dark:text-[#E8F1EC] text-balance">
                 Smarter Farming Starts with Better Decisions.
               </h1>
-              <p className="text-base sm:text-lg text-[#64748B] dark:text-[#94A3B8] leading-relaxed max-w-[60ch]">
+              <p className="text-base sm:text-lg text-[var(--as-text-muted)] leading-relaxed max-w-[60ch]">
                 Explore climate-smart crop rotations using Earth observation data, local farm conditions, and easy-to-understand agricultural insights.
               </p>
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <Link
                   to="/dashboard/farms/new"
-                  className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-lg bg-[#14532D] hover:bg-[#166534] text-white transition-colors whitespace-nowrap"
+                  className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap"
                 >
                   Plan My Farm
                   <ArrowRight className="w-4 h-4" />
                 </Link>
                 <a
                   href="#how-it-works"
-                  className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] text-[#172B22] dark:text-[#E8F1EC] hover:border-[#16A34A] transition-colors whitespace-nowrap"
+                  className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-lg border border-[#D9E2EC] dark:border-[#23362D] bg-white dark:bg-[#111D18] text-[#172B22] dark:text-[#E8F1EC] hover:border-[var(--as-accent-text)] transition-colors whitespace-nowrap"
                 >
                   Explore AgroShift
                 </a>
@@ -222,11 +222,11 @@ export function LandingPage() {
             </div>
 
             <div className="lg:col-span-6">
-              <div className="h-full min-h-[280px] sm:min-h-[360px] rounded-2xl overflow-hidden border border-[#E2E8F0] dark:border-[#1E2E26] bg-gradient-to-br from-[#14532D] to-[#10B981] relative">
-                <img
-                  src={HERO_IMAGE}
+              <div className="h-full min-h-[280px] sm:min-h-[360px] rounded-2xl overflow-hidden border border-[#D9E2EC] dark:border-[#23362D] bg-[#14532D] relative">
+                <ResilientImage
+                  src={heroFarmlandImg}
                   alt="Aerial view of sustainable crop rotation strips with green legumes and golden grain fields"
-                  referrerPolicy="no-referrer"
+                  caption="Multi-crop rotation strips supporting climate-smart farm planning"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -241,7 +241,7 @@ export function LandingPage() {
         >
           <div className="max-w-[1200px] mx-auto px-4 sm:px-6 space-y-10">
             <div className="max-w-2xl space-y-2">
-              <p className="text-xs font-semibold text-[#16A34A]">How AgroShift Works</p>
+              <p className="text-xs font-semibold as-text-accent">How AgroShift Works</p>
               <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-balance">
                 Four practical steps from field location to seasonal planning
               </h2>
@@ -251,15 +251,15 @@ export function LandingPage() {
               {HOW_IT_WORKS.map((item) => (
                 <div
                   key={item.num}
-                  className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] p-6 space-y-3"
+                  className="rounded-xl border border-[#D9E2EC] dark:border-[#23362D] bg-[#F8FAF7] dark:bg-[#0B1310] p-6 space-y-3"
                 >
-                  <span className="font-mono tabular-nums text-sm font-semibold text-[#16A34A]">
+                  <span className="font-mono tabular-nums text-sm font-semibold as-text-accent">
                     {item.num}.
                   </span>
                   <h3 className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
                     {item.title}
                   </h3>
-                  <p className="text-sm text-[#64748B] dark:text-[#94A3B8] leading-relaxed">
+                  <p className="text-sm text-[var(--as-text-muted)] leading-relaxed">
                     {item.body}
                   </p>
                 </div>
@@ -272,7 +272,7 @@ export function LandingPage() {
         <section id="features" className="py-16 lg:py-20">
           <div className="max-w-[1200px] mx-auto px-4 sm:px-6 space-y-10">
             <div className="max-w-2xl space-y-2">
-              <p className="text-xs font-semibold text-[#16A34A]">Core Benefits</p>
+              <p className="text-xs font-semibold as-text-accent">Core Benefits</p>
               <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-balance">
                 Designed for everyday farm decisions, not academic complexity
               </h2>
@@ -282,15 +282,15 @@ export function LandingPage() {
               {CORE_BENEFITS.map(({ title, body, icon: Icon, span }) => (
                 <div
                   key={title}
-                  className={`${span} rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-6 space-y-3`}
+                  className={`${span} rounded-xl border border-[#D9E2EC] dark:border-[#23362D] bg-white dark:bg-[#111D18] p-6 space-y-3`}
                 >
-                  <div className="w-10 h-10 rounded-lg bg-[#16A34A]/10 text-[#14532D] dark:text-[#10B981] flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-lg as-icon-badge flex items-center justify-center">
                     <Icon className="w-5 h-5" />
                   </div>
                   <h3 className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
                     {title}
                   </h3>
-                  <p className="text-sm text-[#64748B] dark:text-[#94A3B8] leading-relaxed max-w-xl">
+                  <p className="text-sm text-[var(--as-text-muted)] leading-relaxed max-w-xl">
                     {body}
                   </p>
                 </div>
@@ -300,42 +300,42 @@ export function LandingPage() {
         </section>
 
         {/* C. Global Reach */}
-        <section className="border-t border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] py-16 lg:py-20">
+        <section className="border-t border-[#D9E2EC] dark:border-[#23362D] bg-white dark:bg-[#111D18] py-16 lg:py-20">
           <div className="max-w-[1200px] mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
             <div className="lg:col-span-6">
-              <div className="aspect-[4/3] rounded-2xl overflow-hidden border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#14532D]/10">
-                <img
-                  src={GLOBAL_REACH_IMAGE}
+              <div className="aspect-[4/3] rounded-2xl overflow-hidden border border-[#D9E2EC] dark:border-[#23362D] bg-[#14532D]/10">
+                <ResilientImage
+                  src={globalSmallholderImg}
                   alt="Terraced green smallholder agricultural plots across rolling hillside terrain"
-                  referrerPolicy="no-referrer"
+                  caption="Global climate-smart support for smallholder and commercial fields"
                   className="w-full h-full object-cover"
                 />
               </div>
             </div>
             <div className="lg:col-span-6 space-y-5">
-              <p className="text-xs font-semibold text-[#16A34A]">Global Reach</p>
+              <p className="text-xs font-semibold as-text-accent">Global Reach</p>
               <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-balance">
                 Built for every climate zone, cropping calendar, and farm scale
               </h2>
-              <p className="text-sm sm:text-base text-[#64748B] dark:text-[#94A3B8] leading-relaxed">
+              <p className="text-sm sm:text-base text-[var(--as-text-muted)] leading-relaxed">
                 Whether you manage a half-hectare rain-fed plot in East Africa, terraced grains in South Asia, or multi-field commercial acreage in the Americas or Europe, AgroShift adapts to your exact coordinates, area units, water constraints, and crop history.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-[#E2E8F0] dark:border-[#1E2E26]">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-[#D9E2EC] dark:border-[#23362D]">
                 <div>
                   <p className="text-sm font-semibold">Smallholders & Rain-Fed</p>
-                  <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-1">
+                  <p className="text-xs text-[var(--as-text-muted)] mt-1">
                     No laboratory soil tests required to get started.
                   </p>
                 </div>
                 <div>
                   <p className="text-sm font-semibold">Irrigated & Commercial</p>
-                  <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-1">
+                  <p className="text-xs text-[var(--as-text-muted)] mt-1">
                     Boundary polygons, acres or hectares, and multi-farm switching.
                   </p>
                 </div>
                 <div>
                   <p className="text-sm font-semibold">Global Crop Catalog</p>
-                  <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-1">
+                  <p className="text-xs text-[var(--as-text-muted)] mt-1">
                     Cereals, legumes, tubers, oilseeds, and cover crops.
                   </p>
                 </div>
@@ -348,13 +348,13 @@ export function LandingPage() {
         <section id="earth-data" className="py-16 lg:py-20">
           <div className="max-w-[1200px] mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
             <div className="lg:col-span-6 space-y-5 order-2 lg:order-1">
-              <p className="text-xs font-semibold text-[#16A34A]">
+              <p className="text-xs font-semibold as-text-accent">
                 Earth Observation Intelligence
               </p>
               <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-balance">
                 Transparent separation of climate records and satellite vegetation indicators
               </h2>
-              <div className="space-y-4 text-sm text-[#64748B] dark:text-[#94A3B8] leading-relaxed">
+              <div className="space-y-4 text-sm text-[var(--as-text-muted)] leading-relaxed">
                 <p>
                   <strong className="text-[#172B22] dark:text-[#E8F1EC]">
                     NASA POWER Historical Climate:
@@ -371,7 +371,7 @@ export function LandingPage() {
               <div className="pt-2">
                 <Link
                   to="/dashboard"
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-[#14532D] dark:text-[#10B981] hover:underline"
+                  className="inline-flex items-center gap-2 text-sm font-semibold as-text-accent hover:underline"
                 >
                   Open Farmer Dashboard
                   <ArrowRight className="w-4 h-4" />
@@ -380,11 +380,11 @@ export function LandingPage() {
             </div>
 
             <div className="lg:col-span-6 order-1 lg:order-2">
-              <div className="aspect-[16/10] rounded-2xl overflow-hidden border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#14532D]/10">
-                <img
-                  src={EARTH_DATA_IMAGE}
+              <div className="aspect-[16/10] rounded-2xl overflow-hidden border border-[#D9E2EC] dark:border-[#23362D] bg-[#14532D]/10">
+                <ResilientImage
+                  src={earthObservationImg}
                   alt="Overhead view of structured multi-crop plots and moisture-conserving contours"
-                  referrerPolicy="no-referrer"
+                  caption="Earth observation climate baselines and satellite canopy indicators"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -393,13 +393,13 @@ export function LandingPage() {
         </section>
 
         {/* E. Call to Action */}
-        <section className="border-t border-[#E2E8F0] dark:border-[#1E2E26] bg-[#14532D] text-white py-16">
+        <section className="border-t border-[#D9E2EC] dark:border-[#23362D] bg-[#14532D] text-white py-16">
           <div className="max-w-[1200px] mx-auto px-4 sm:px-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="space-y-2 max-w-xl">
-              <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-balance">
+              <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-balance text-white">
                 Plan a Better Future for Your Farm.
               </h2>
-              <p className="text-sm sm:text-base text-white/80">
+              <p className="text-sm sm:text-base text-white/90">
                 Set up your first field location in minutes and connect your climate, soil, and crop rotation workflow.
               </p>
             </div>
@@ -413,7 +413,7 @@ export function LandingPage() {
               </Link>
               <Link
                 to="/dashboard"
-                className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold rounded-lg border border-white/30 text-white hover:bg-white/10 transition-colors whitespace-nowrap"
+                className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold rounded-lg border border-white/40 text-white hover:bg-white/10 transition-colors whitespace-nowrap"
               >
                 Go to Dashboard
               </Link>

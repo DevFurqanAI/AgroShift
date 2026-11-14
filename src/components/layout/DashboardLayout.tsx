@@ -94,8 +94,8 @@ export function DashboardLayout() {
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                 isActive
-                  ? 'bg-[#14532D] text-white dark:bg-[#16A34A]'
-                  : 'text-[#64748B] dark:text-[#94A3B8] hover:bg-[#14532D]/5 dark:hover:bg-[#182821] hover:text-[#172B22] dark:hover:text-[#E8F1EC]'
+                  ? 'as-nav-active shadow-xs'
+                  : 'text-[var(--as-text-muted)] hover:bg-[#14532D]/8 dark:hover:bg-[#182821] hover:text-[#172B22] dark:hover:text-[#E8F1EC]'
               }`
             }
           >
@@ -192,7 +192,7 @@ export function DashboardLayout() {
 
             <Link
               to="/dashboard/farms/new"
-              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-[#14532D] hover:bg-[#166534] text-white transition-colors whitespace-nowrap shrink-0"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap shrink-0"
             >
               <PlusCircle className="w-3.5 h-3.5" />
               Add Farm

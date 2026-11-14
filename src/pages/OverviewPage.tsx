@@ -35,7 +35,7 @@ export function OverviewPage() {
           primaryAction={
             <Link
               to="/dashboard/farms/new"
-              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg bg-[#14532D] hover:bg-[#166534] text-white transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors"
             >
               <PlusCircle className="w-4 h-4" />
               Add Your First Farm
@@ -81,7 +81,7 @@ export function OverviewPage() {
           </Link>
           <Link
             to="/dashboard/planner"
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-[#14532D] hover:bg-[#166534] text-white transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap"
           >
             <Repeat className="w-4 h-4" />
             Open Rotation Planner
@@ -211,7 +211,7 @@ export function OverviewPage() {
             </h3>
             <Link
               to={`/dashboard/farms/${activeFarm.id}/edit`}
-              className="text-xs font-medium text-[#16A34A] hover:underline"
+              className="text-xs font-medium as-text-accent hover:underline"
             >
               Adjust location
             </Link>
@@ -305,7 +305,7 @@ export function OverviewPage() {
             </h3>
             <Link
               to="/dashboard/planner"
-              className="text-xs font-medium text-[#16A34A] hover:underline"
+              className="text-xs font-medium as-text-accent hover:underline"
             >
               Open Planner
             </Link>

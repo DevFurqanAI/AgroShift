@@ -16,26 +16,26 @@ const TONE_STYLES: Record<
 > = {
   info: {
     container:
-      'border-[#E2E8F0] bg-white text-[#172B22] dark:border-[#1E2E26] dark:bg-[#111D18] dark:text-[#E8F1EC]',
-    iconColor: 'text-[#16A34A]',
+      'border-[#D9E2EC] bg-white text-[#172B22] dark:border-[#23362D] dark:bg-[#111D18] dark:text-[#E8F1EC]',
+    iconColor: 'as-text-accent',
     Icon: Info,
   },
   success: {
     container:
-      'border-[#16A34A]/30 bg-[#16A34A]/5 text-[#172B22] dark:border-[#10B981]/30 dark:bg-[#10B981]/10 dark:text-[#E8F1EC]',
-    iconColor: 'text-[#16A34A] dark:text-[#10B981]',
+      'border-[#15803D]/35 bg-[#15803D]/8 text-[#172B22] dark:border-[#34D399]/35 dark:bg-[#10B981]/12 dark:text-[#E8F1EC]',
+    iconColor: 'as-text-accent',
     Icon: CheckCircle2,
   },
   warning: {
     container:
-      'border-[#D97706]/35 bg-[#D97706]/5 text-[#172B22] dark:border-[#D97706]/40 dark:bg-[#D97706]/10 dark:text-[#E8F1EC]',
-    iconColor: 'text-[#D97706]',
+      'border-[#B45309]/35 bg-[#D97706]/8 text-[#172B22] dark:border-[#FBBF24]/40 dark:bg-[#F59E0B]/12 dark:text-[#E8F1EC]',
+    iconColor: 'as-text-warning',
     Icon: AlertTriangle,
   },
   error: {
     container:
-      'border-[#DC2626]/35 bg-[#DC2626]/5 text-[#172B22] dark:border-[#DC2626]/40 dark:bg-[#DC2626]/10 dark:text-[#E8F1EC]',
-    iconColor: 'text-[#DC2626]',
+      'border-[#B91C1C]/35 bg-[#DC2626]/7 text-[#172B22] dark:border-[#F87171]/45 dark:bg-[#DC2626]/14 dark:text-[#E8F1EC]',
+    iconColor: 'as-text-danger',
     Icon: AlertCircle,
   },
 };
@@ -53,7 +53,7 @@ export function StatusBanner({ tone, title, description, action }: StatusBannerP
           <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${iconColor}`} />
           <div className="space-y-1 min-w-0">
             <h3 className="text-sm font-semibold">{title}</h3>
-            <p className="text-sm text-[#64748B] dark:text-[#94A3B8] leading-relaxed">
+            <p className="text-sm text-[var(--as-text-muted)] leading-relaxed">
               {description}
             </p>
           </div>

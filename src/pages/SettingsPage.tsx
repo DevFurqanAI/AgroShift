@@ -96,21 +96,21 @@ export function SettingsPage() {
                 }
                 className={`text-left p-3 rounded-lg border flex items-center justify-between gap-2 transition-colors ${
                   selected
-                    ? 'border-[#16A34A] bg-[#16A34A]/5'
+                    ? 'border-[var(--as-primary)] bg-[#15803D]/10 dark:bg-[#34D399]/12'
                     : lang.available
-                      ? 'border-[#E2E8F0] dark:border-[#1E2E26] hover:border-[#16A34A]'
-                      : 'border-[#E2E8F0] dark:border-[#1E2E26] opacity-60 cursor-not-allowed'
+                      ? 'border-[#D9E2EC] dark:border-[#23362D] hover:border-[var(--as-accent-text)]'
+                      : 'border-[#D9E2EC] dark:border-[#23362D] opacity-60 cursor-not-allowed'
                 }`}
               >
                 <div>
                   <p className="text-sm font-semibold">
                     {lang.name} ({lang.nativeName})
                   </p>
-                  <p className="text-[11px] text-[#64748B] dark:text-[#94A3B8]">
+                  <p className="text-[11px] text-[var(--as-text-muted)]">
                     {lang.note}
                   </p>
                 </div>
-                {selected && <Check className="w-4 h-4 text-[#16A34A] shrink-0" />}
+                {selected && <Check className="w-4 h-4 as-text-accent shrink-0" />}
               </button>
             );
           })}

@@ -7,6 +7,80 @@
     --font-display: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
     --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+
+    /* Semantic AgroShift Accessibility & Contrast Tokens (Light Theme) */
+    --as-bg-page: #F8FAF7;
+    --as-bg-surface: #FFFFFF;
+    --as-bg-subtle: #F1F5F2;
+    --as-surface: #FFFFFF;
+    --as-surface-alt: #F1F5F2;
+    --as-border: #D9E2EC;
+
+    --as-text-primary: #172B22;
+    --as-text: #172B22;
+    --as-text-muted: #475569;
+
+    /* Primary action fills paired with pure white text (WCAG AA >= 4.5:1) */
+    --as-primary: #14532D;
+    --as-primary-hover: #166534;
+    --as-on-primary: #FFFFFF;
+    --as-primary-foreground: #FFFFFF;
+    --as-focus-ring: #15803D;
+
+    /* High-contrast semantic foreground text on light surfaces */
+    --as-accent-text: #15803D;
+    --as-accent-surface: rgba(21, 128, 61, 0.10);
+    --as-warning-text: #B45309;
+    --as-warning-border: rgba(180, 83, 9, 0.35);
+    --as-warning-surface: rgba(217, 119, 6, 0.08);
+    --as-danger-text: #B91C1C;
+    --as-danger-border: rgba(185, 28, 28, 0.35);
+    --as-danger-surface: rgba(220, 38, 38, 0.07);
+
+    /* Charts (Light Theme) */
+    --as-chart-temp: #14532D;
+    --as-chart-rain: #15803D;
+    --as-chart-rain-alt: #047857;
+    --as-chart-axis: #475569;
+    --as-chart-grid: #CBD5E1;
+  }
+
+  .dark {
+    /* Semantic AgroShift Accessibility & Contrast Tokens (Dark Theme) */
+    --as-bg-page: #0B1310;
+    --as-bg-surface: #111D18;
+    --as-bg-subtle: #16241E;
+    --as-surface: #111D18;
+    --as-surface-alt: #16241E;
+    --as-border: #23362D;
+
+    --as-text-primary: #E8F1EC;
+    --as-text: #E8F1EC;
+    --as-text-muted: #CBD5E1;
+
+    /* Dark-mode primary green paired with crisp white text (#15803D on #FFFFFF = 5.14:1) */
+    --as-primary: #15803D;
+    --as-primary-hover: #166534;
+    --as-on-primary: #FFFFFF;
+    --as-primary-foreground: #FFFFFF;
+    --as-focus-ring: #34D399;
+
+    /* High-contrast semantic foreground text on dark surfaces */
+    --as-accent-text: #34D399;
+    --as-accent-surface: rgba(52, 211, 153, 0.14);
+    --as-warning-text: #FBBF24;
+    --as-warning-border: rgba(251, 191, 36, 0.40);
+    --as-warning-surface: rgba(245, 158, 11, 0.12);
+    --as-danger-text: #FCA5A5;
+    --as-danger-border: rgba(248, 113, 113, 0.45);
+    --as-danger-surface: rgba(220, 38, 38, 0.14);
+
+    /* Charts (Dark Theme — legible strokes/bars on #111D18) */
+    --as-chart-temp: #34D399;
+    --as-chart-rain: #38BDF8;
+    --as-chart-rain-alt: #10B981;
+    --as-chart-axis: #CBD5E1;
+    --as-chart-grid: #2A3F35;
   }
 
   html {
@@ -20,6 +94,73 @@
 
   .font-mono {
     font-family: var(--font-mono);
+  }
+}
+
+@layer components {
+  .as-btn-primary {
+    background-color: var(--as-primary);
+    color: var(--as-on-primary);
+  }
+
+  .as-btn-primary:hover:not(:disabled) {
+    background-color: var(--as-primary-hover);
+  }
+
+  .as-btn-primary:focus-visible {
+    outline: 2px solid var(--as-accent-text);
+    outline-offset: 2px;
+  }
+
+  .as-nav-active {
+    background-color: var(--as-primary);
+    color: var(--as-on-primary);
+  }
+
+  .as-chip-selected {
+    border-color: var(--as-primary);
+    background-color: var(--as-primary);
+    color: var(--as-on-primary);
+    font-weight: 600;
+  }
+
+  .as-text-accent {
+    color: var(--as-accent-text);
+  }
+
+  .as-text-warning {
+    color: var(--as-warning-text);
+  }
+
+  .as-text-danger {
+    color: var(--as-danger-text);
+  }
+
+  .as-text-muted {
+    color: var(--as-text-muted);
+  }
+
+  .as-icon-badge {
+    background-color: var(--as-accent-surface);
+    color: var(--as-accent-text);
+  }
+
+  .as-badge-success {
+    background-color: var(--as-accent-surface);
+    color: var(--as-accent-text);
+    border: 1px solid var(--as-accent-surface);
+  }
+
+  .as-badge-warning {
+    background-color: var(--as-warning-surface);
+    color: var(--as-warning-text);
+    border: 1px solid var(--as-warning-border);
+  }
+
+  .as-badge-danger {
+    background-color: var(--as-danger-surface);
+    color: var(--as-danger-text);
+    border: 1px solid var(--as-danger-border);
   }
 }
 
@@ -39,7 +180,7 @@
 
 .dark .leaflet-control-attribution {
   background: rgba(17, 29, 24, 0.85) !important;
-  color: #94a3b8 !important;
+  color: #cbd5e1 !important;
 }
 
 .dark .leaflet-control-attribution a {

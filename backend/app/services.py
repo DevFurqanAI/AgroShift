@@ -1,6 +1,8 @@
+import hashlib
 import json
 import math
 import logging
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
@@ -19,6 +21,70 @@ groq_client = Groq(api_key=settings.GROQ_API_KEY) if (Groq and settings.GROQ_API
 
 COPERNICUS_TOKEN_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
 COPERNICUS_STATS_URL = "https://sh.dataspace.copernicus.eu/api/v1/statistics"
+
+_provider_lock = threading.Lock()
+_copernicus_token_cache: Dict[str, Any] = {
+    "cred_hash": None,
+    "access_token": None,
+    "expires_at": 0.0,
+}
+_copernicus_cooldown_until: float = 0.0
+_copernicus_cooldown_message: Optional[str] = None
+_analysis_satellite_cache: Dict[str, Dict[str, Any]] = {}
+_analysis_weather_cache: Dict[str, Dict[str, Any]] = {}
+
+SATELLITE_SUCCESS_TTL_SECONDS = 900.0
+SATELLITE_NO_SCENE_TTL_SECONDS = 180.0
+WEATHER_SUCCESS_TTL_SECONDS = 300.0
+
+
+def clear_provider_caches() -> None:
+    """Clear in-memory token, cooldown, and observation caches (used in tests)."""
+    global _copernicus_cooldown_until, _copernicus_cooldown_message
+    with _provider_lock:
+        _copernicus_token_cache["cred_hash"] = None
+        _copernicus_token_cache["access_token"] = None
+        _copernicus_token_cache["expires_at"] = 0.0
+        _copernicus_cooldown_until = 0.0
+        _copernicus_cooldown_message = None
+        _analysis_satellite_cache.clear()
+        _analysis_weather_cache.clear()
+
+
+def _parse_retry_after_seconds(headers: Any, default_seconds: float = 60.0, max_seconds: float = 300.0) -> float:
+    if not headers:
+        return default_seconds
+    raw = headers.get("Retry-After") if hasattr(headers, "get") else None
+    parsed = _safe_number(raw, 1, max_seconds)
+    if parsed is not None:
+        return float(parsed)
+    return default_seconds
+
+
+def _invalidate_copernicus_token() -> None:
+    with _provider_lock:
+        _copernicus_token_cache["access_token"] = None
+        _copernicus_token_cache["expires_at"] = 0.0
+
+
+def _set_copernicus_cooldown(seconds: float, message: str) -> None:
+    global _copernicus_cooldown_until, _copernicus_cooldown_message
+    with _provider_lock:
+        _copernicus_cooldown_until = max(_copernicus_cooldown_until, time.monotonic() + seconds)
+        _copernicus_cooldown_message = message
+
+
+def _get_active_copernicus_cooldown() -> Optional[str]:
+    global _copernicus_cooldown_until, _copernicus_cooldown_message
+    with _provider_lock:
+        now = time.monotonic()
+        if _copernicus_cooldown_until > now and _copernicus_cooldown_message:
+            return _copernicus_cooldown_message
+        if _copernicus_cooldown_until <= now:
+            _copernicus_cooldown_until = 0.0
+            _copernicus_cooldown_message = None
+        return None
+
 
 # ---------------------------------------------------------------------------
 # V1 heuristic thresholds.
@@ -117,20 +183,118 @@ def _fallback_bbox_polygon(lat: float, lng: float, delta: float = 0.001) -> Dict
     }
 
 
-def get_copernicus_token() -> Optional[str]:
-    if not settings.COPERNICUS_CLIENT_ID or not settings.COPERNICUS_CLIENT_SECRET:
-        return None
-    try:
-        data = {
-            "client_id": settings.COPERNICUS_CLIENT_ID,
-            "client_secret": settings.COPERNICUS_CLIENT_SECRET,
-            "grant_type": "client_credentials",
+def _acquire_copernicus_token(force_refresh: bool = False) -> Dict[str, Any]:
+    client_id = (settings.COPERNICUS_CLIENT_ID or "").strip()
+    client_secret = (settings.COPERNICUS_CLIENT_SECRET or "").strip()
+    if not client_id or not client_secret:
+        return {
+            "ok": False,
+            "error_kind": "missing_credentials",
+            "message": "Satellite imagery is not configured on the analysis server.",
         }
-        res = requests.post(COPERNICUS_TOKEN_URL, data=data, timeout=8)
+
+    cooldown_msg = _get_active_copernicus_cooldown()
+    if cooldown_msg:
+        return {
+            "ok": False,
+            "error_kind": "rate_limited",
+            "message": cooldown_msg,
+        }
+
+    cred_hash = hashlib.sha256(f"{client_id}:{client_secret}".encode("utf-8")).hexdigest()
+    now = time.monotonic()
+    if not force_refresh:
+        with _provider_lock:
+            if (
+                _copernicus_token_cache["cred_hash"] == cred_hash
+                and _copernicus_token_cache["access_token"]
+                and _copernicus_token_cache["expires_at"] > now
+            ):
+                return {"ok": True, "token": _copernicus_token_cache["access_token"]}
+
+    data = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "grant_type": "client_credentials",
+    }
+
+    last_status: Optional[int] = None
+    for attempt in range(2):
+        try:
+            res = requests.post(COPERNICUS_TOKEN_URL, data=data, timeout=8)
+        except requests.RequestException as exc:
+            logger.warning("Copernicus token request failed (attempt %d): %s", attempt + 1, type(exc).__name__)
+            if attempt == 0:
+                time.sleep(0.5)
+                continue
+            return {
+                "ok": False,
+                "error_kind": "network_error",
+                "message": "Satellite authentication service is temporarily unreachable. Please try again shortly.",
+            }
+
+        last_status = res.status_code
         if res.status_code == 200:
-            return res.json().get("access_token")
-    except (requests.RequestException, ValueError, TypeError, AttributeError):
-        pass
+            try:
+                payload = res.json() or {}
+                token = payload.get("access_token")
+                expires_in = _safe_number(payload.get("expires_in"), 30, 86400) or 300.0
+                if not token:
+                    return {
+                        "ok": False,
+                        "error_kind": "provider_error",
+                        "message": "Satellite authentication returned an incomplete response.",
+                    }
+                ttl = max(30.0, float(expires_in) - 60.0)
+                with _provider_lock:
+                    _copernicus_token_cache["cred_hash"] = cred_hash
+                    _copernicus_token_cache["access_token"] = token
+                    _copernicus_token_cache["expires_at"] = time.monotonic() + ttl
+                return {"ok": True, "token": token}
+            except (ValueError, TypeError, AttributeError):
+                return {
+                    "ok": False,
+                    "error_kind": "provider_error",
+                    "message": "Satellite authentication returned an unreadable response.",
+                }
+
+        if res.status_code == 429:
+            retry_after = _parse_retry_after_seconds(res.headers, default_seconds=60.0)
+            msg = (
+                f"Satellite imagery service is temporarily busy (rate limit reached). "
+                f"Please wait about {int(round(retry_after))} seconds before refreshing."
+            )
+            _set_copernicus_cooldown(retry_after, msg)
+            logger.warning("Copernicus token endpoint returned HTTP 429 (cooldown %ss)", int(round(retry_after)))
+            return {"ok": False, "error_kind": "rate_limited", "message": msg}
+
+        if res.status_code in (401, 403):
+            _invalidate_copernicus_token()
+            logger.warning("Copernicus token endpoint rejected credentials (HTTP %d)", res.status_code)
+            return {
+                "ok": False,
+                "error_kind": "invalid_credentials",
+                "message": "Satellite imagery could not be authorized on the server right now.",
+            }
+
+        if 500 <= res.status_code < 600 and attempt == 0:
+            time.sleep(0.5)
+            continue
+
+        break
+
+    logger.warning("Copernicus token request failed with HTTP %s", last_status)
+    return {
+        "ok": False,
+        "error_kind": "provider_error",
+        "message": f"Satellite imagery service is temporarily unavailable (HTTP {last_status}).",
+    }
+
+
+def get_copernicus_token() -> Optional[str]:
+    result = _acquire_copernicus_token()
+    if result.get("ok"):
+        return result.get("token")
     return None
 
 
@@ -197,20 +361,66 @@ def fetch_sentinel2_indices(polygon_geometry: Dict[str, Any], token: str) -> Dic
         },
     }
 
-    try:
-        res = requests.post(
-            COPERNICUS_STATS_URL,
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            json=request_body,
-            timeout=25,
-        )
-    except requests.RequestException as exc:
-        return {"satellite_available": False, "satellite_message": f"Satellite service request failed: {exc}"}
+    res = None
+    for attempt in range(2):
+        try:
+            res = requests.post(
+                COPERNICUS_STATS_URL,
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                json=request_body,
+                timeout=20,
+            )
+        except requests.RequestException as exc:
+            if attempt == 0:
+                time.sleep(0.5)
+                continue
+            return {
+                "satellite_available": False,
+                "satellite_error_kind": "network_error",
+                "satellite_message": f"Satellite service request failed: {type(exc).__name__}.",
+            }
 
-    if res.status_code != 200:
+        if res.status_code == 200:
+            break
+
+        if res.status_code == 429:
+            retry_after = _parse_retry_after_seconds(res.headers, default_seconds=60.0)
+            msg = (
+                f"Satellite imagery service is temporarily busy (rate limit reached). "
+                f"Please wait about {int(round(retry_after))} seconds before refreshing."
+            )
+            _set_copernicus_cooldown(retry_after, msg)
+            logger.warning("Copernicus stats API returned HTTP 429 (cooldown %ss)", int(round(retry_after)))
+            return {
+                "satellite_available": False,
+                "satellite_error_kind": "rate_limited",
+                "satellite_message": msg,
+            }
+
+        if res.status_code in (401, 403):
+            _invalidate_copernicus_token()
+            logger.warning("Copernicus stats API rejected token (HTTP %d)", res.status_code)
+            return {
+                "satellite_available": False,
+                "satellite_error_kind": "invalid_credentials",
+                "satellite_message": "Satellite imagery could not be authorized on the server right now.",
+            }
+
+        if 500 <= res.status_code < 600 and attempt == 0:
+            time.sleep(0.5)
+            continue
+
         return {
             "satellite_available": False,
+            "satellite_error_kind": "provider_error",
             "satellite_message": f"Satellite service returned HTTP {res.status_code}.",
+        }
+
+    if res is None or res.status_code != 200:
+        return {
+            "satellite_available": False,
+            "satellite_error_kind": "provider_error",
+            "satellite_message": "Satellite service is temporarily unavailable.",
         }
 
     try:
@@ -219,7 +429,11 @@ def fetch_sentinel2_indices(polygon_geometry: Dict[str, Any], token: str) -> Dic
         if not isinstance(intervals, list):
             raise ValueError("Invalid observation list")
     except (ValueError, KeyError, TypeError, AttributeError):
-        return {"satellite_available": False, "satellite_message": "Satellite service returned an unreadable response."}
+        return {
+            "satellite_available": False,
+            "satellite_error_kind": "parse_error",
+            "satellite_message": "Satellite service returned an unreadable response.",
+        }
 
     best_candidate = None
     for entry in intervals:
@@ -265,6 +479,7 @@ def fetch_sentinel2_indices(polygon_geometry: Dict[str, Any], token: str) -> Dic
     if best_candidate is None or best_candidate["ndvi"] is None:
         return {
             "satellite_available": False,
+            "satellite_error_kind": "no_clear_scene",
             "satellite_message": "No cloud-free Sentinel-2 observation was found for this area in the last 45 days.",
         }
 
@@ -278,16 +493,23 @@ def fetch_sentinel2_indices(polygon_geometry: Dict[str, Any], token: str) -> Dic
 
 
 def get_satellite_data(polygon_geojson: Optional[Dict[str, Any]], lat: float, lng: float) -> Dict[str, Any]:
-    token = get_copernicus_token()
-    if not token:
+    token_result = _acquire_copernicus_token()
+    if not token_result.get("ok"):
         return {
             "satellite_available": False,
-            "satellite_message": "Satellite data unavailable: Copernicus credentials are not configured.",
+            "satellite_message": token_result.get("message") or "Satellite imagery is temporarily unavailable.",
         }
 
     geometry = _extract_polygon_geometry(polygon_geojson) or _fallback_bbox_polygon(lat, lng)
     try:
-        return fetch_sentinel2_indices(geometry, token)
+        result = fetch_sentinel2_indices(geometry, token_result["token"])
+        # If the cached token just expired remotely, refresh once unless rate-limited
+        if result.get("satellite_error_kind") == "invalid_credentials":
+            retry_token = _acquire_copernicus_token(force_refresh=True)
+            if retry_token.get("ok"):
+                result = fetch_sentinel2_indices(geometry, retry_token["token"])
+        result.pop("satellite_error_kind", None)
+        return result
     except (TypeError, ValueError, KeyError, AttributeError, OverflowError) as exc:
         logger.warning("Invalid satellite provider response: %s", type(exc).__name__)
         return {"satellite_available": False, "satellite_message": "Satellite observations are temporarily unavailable."}
@@ -344,6 +566,12 @@ def _fetch_open_meteo(lat: float, lng: float) -> Dict[str, Any]:
                 wait_seconds = max(wait_seconds, delay)
         time.sleep(wait_seconds)
 
+    if res.status_code == 429:
+        logger.info("[WEATHER-DIAG] Open-Meteo result: failed with HTTP status code=429")
+        return {
+            "weather_available": False,
+            "weather_message": "Weather service is temporarily busy (rate limit reached). Please try again shortly.",
+        }
     if res.status_code != 200:
         logger.info("[WEATHER-DIAG] Open-Meteo result: failed with HTTP status code=%d", res.status_code)
         return {"weather_available": False, "weather_message": f"Weather service returned HTTP {res.status_code}."}
@@ -772,6 +1000,64 @@ def get_ai_explanation(lang: str, facts: Dict[str, Any]) -> Dict[str, Any]:
     return fallback
 
 
+def _analysis_coord_key(lat: float, lng: float) -> str:
+    return f"{round(float(lat), 5):.5f},{round(float(lng), 5):.5f}"
+
+
+def _analysis_satellite_key(lat: float, lng: float, polygon_geojson: Optional[Dict[str, Any]]) -> str:
+    geom = _extract_polygon_geometry(polygon_geojson)
+    geom_sig = hashlib.sha256(
+        json.dumps(geom, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()[:16] if geom else "point"
+    return f"{_analysis_coord_key(lat, lng)}:{geom_sig}"
+
+
+def _cached_weather_for_analysis(lat: float, lng: float) -> Dict[str, Any]:
+    key = _analysis_coord_key(lat, lng)
+    now = time.monotonic()
+    with _provider_lock:
+        entry = _analysis_weather_cache.get(key)
+        if entry and entry["expires_at"] > now:
+            return dict(entry["data"])
+
+    weather = get_weather_data(lat, lng)
+    if weather.get("weather_available"):
+        with _provider_lock:
+            _analysis_weather_cache[key] = {
+                "expires_at": time.monotonic() + WEATHER_SUCCESS_TTL_SECONDS,
+                "data": dict(weather),
+            }
+    return weather
+
+
+def _cached_satellite_for_analysis(
+    polygon_geojson: Optional[Dict[str, Any]],
+    lat: float,
+    lng: float,
+) -> Dict[str, Any]:
+    key = _analysis_satellite_key(lat, lng, polygon_geojson)
+    now = time.monotonic()
+    with _provider_lock:
+        entry = _analysis_satellite_cache.get(key)
+        if entry and entry["expires_at"] > now:
+            return dict(entry["data"])
+
+    satellite = get_satellite_data(polygon_geojson, lat, lng)
+    ttl: Optional[float] = None
+    if satellite.get("satellite_available"):
+        ttl = SATELLITE_SUCCESS_TTL_SECONDS
+    elif "no cloud-free" in str(satellite.get("satellite_message") or "").lower():
+        ttl = SATELLITE_NO_SCENE_TTL_SECONDS
+
+    if ttl is not None:
+        with _provider_lock:
+            _analysis_satellite_cache[key] = {
+                "expires_at": time.monotonic() + ttl,
+                "data": dict(satellite),
+            }
+    return satellite
+
+
 def process_farm_analysis(
     lat: float,
     lng: float,
@@ -781,8 +1067,8 @@ def process_farm_analysis(
 ) -> Dict[str, Any]:
     lang = (lang or "ur").strip().lower()
 
-    weather = get_weather_data(lat, lng)
-    satellite = get_satellite_data(polygon_geojson, lat, lng)
+    weather = _cached_weather_for_analysis(lat, lng)
+    satellite = _cached_satellite_for_analysis(polygon_geojson, lat, lng)
 
     ndvi = satellite.get("ndvi")
     ndmi = satellite.get("ndmi")

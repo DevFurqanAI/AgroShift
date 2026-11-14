@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertCircle,
-  AlertTriangle,
   BookmarkPlus,
   Loader2,
   PlusCircle,
@@ -14,6 +13,7 @@ import {
 import { EmptyState } from '../components/common/EmptyState';
 import { StatusBanner } from '../components/common/StatusBanner';
 import { RotationComparisonCard } from '../components/rotation/RotationComparisonCard';
+import { ScreeningLimitationsDisclosure } from '../components/rotation/ScreeningLimitationsDisclosure';
 import { useAgroShift } from '../context/AgroShiftContext';
 import {
   buildCropCatalog,
@@ -108,7 +108,7 @@ export function PlannerPage() {
         primaryAction={
           <Link
             to="/dashboard/farms/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg bg-[#14532D] text-white"
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg as-btn-primary"
           >
             <PlusCircle className="w-4 h-4" />
             Add Farm
@@ -234,7 +234,7 @@ export function PlannerPage() {
           <h2 className="font-display text-xl font-bold">
             Crop Rotation Planner — {activeFarm.details.name}
           </h2>
-          <p className="text-sm text-[#64748B] dark:text-[#94A3B8]">
+          <p className="text-sm text-[var(--as-text-muted)]">
             Screen multi-season crop sequences against 10-year NASA POWER historical temperatures, water supply, crop family diversity, and optional soil pH.
           </p>
         </div>
@@ -243,7 +243,7 @@ export function PlannerPage() {
           type="button"
           onClick={handleRunScreening}
           disabled={rotationMutation.isPending}
-          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg bg-[#14532D] hover:bg-[#166534] text-white transition-colors disabled:opacity-60 whitespace-nowrap self-start"
+          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors disabled:opacity-60 whitespace-nowrap self-start"
         >
           {rotationMutation.isPending ? (
             <>
@@ -290,25 +290,25 @@ export function PlannerPage() {
         {/* Planner Input Form */}
         <form
           onSubmit={handleSubmitForm}
-          className="lg:col-span-7 rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 sm:p-6 space-y-5"
+          className="lg:col-span-7 rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 sm:p-6 space-y-5"
         >
           <h3 className="text-base font-semibold">Planning Parameters</h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs p-3.5 rounded-lg bg-[#F8FAF7] dark:bg-[#0B1310] border border-[#E2E8F0] dark:border-[#1E2E26]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs p-3.5 rounded-lg bg-[var(--as-bg-subtle)] border border-[var(--as-border)]">
             <div>
-              <span className="text-[#64748B]">Saved Previous Crop</span>
+              <span className="text-[var(--as-text-muted)]">Saved Previous Crop</span>
               <p className="font-semibold text-sm mt-0.5">
                 {activeFarm.history.previousCropName}
               </p>
             </div>
             <div>
-              <span className="text-[#64748B]">Active Screening Goal</span>
+              <span className="text-[var(--as-text-muted)]">Active Screening Goal</span>
               <p className="font-semibold text-sm mt-0.5">
                 {BACKEND_GOAL_LABELS[priorityMapping.activeGoal]}
               </p>
             </div>
             <div>
-              <span className="text-[#64748B]">Soil Context</span>
+              <span className="text-[var(--as-text-muted)]">Soil Context</span>
               <p className="font-semibold text-sm mt-0.5 capitalize">
                 {activeFarm.soil.texture.replace(/_/g, ' ')} ·{' '}
                 {validSoilPh !== null
@@ -317,7 +317,7 @@ export function PlannerPage() {
               </p>
             </div>
             <div>
-              <span className="text-[#64748B]">Location</span>
+              <span className="text-[var(--as-text-muted)]">Location</span>
               <p className="font-semibold text-sm mt-0.5">{locationSummary}</p>
             </div>
           </div>
@@ -457,7 +457,7 @@ export function PlannerPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedCandidateIds([])}
-                  className="text-xs text-[#14532D] dark:text-[#10B981] font-medium hover:underline"
+                  className="text-xs as-text-accent font-medium hover:underline"
                 >
                   Clear filter ({selectedCandidateIds.length})
                 </button>
@@ -473,8 +473,8 @@ export function PlannerPage() {
                     onClick={() => handleToggleCandidate(crop.id)}
                     className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
                       selected
-                        ? 'border-[#14532D] bg-[#14532D] text-white dark:border-[#10B981] dark:bg-[#10B981] dark:text-[#0B1310] font-semibold'
-                        : 'border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] hover:border-[#16A34A]'
+                        ? 'as-chip-selected'
+                        : 'border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)] hover:border-[var(--as-accent-text)]'
                     }`}
                   >
                     {crop.name}
@@ -494,19 +494,19 @@ export function PlannerPage() {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Need household grain supply in Season 1 and market legume in Season 2..."
-              className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-surface)]"
             />
           </div>
 
           {formValidationError && (
-            <div className="flex items-start gap-2 text-xs text-[#DC2626]">
+            <div className="flex items-start gap-2 text-xs as-text-danger">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>{formValidationError}</span>
             </div>
           )}
 
           {savedFeedback && (
-            <p className="text-xs font-medium text-[#16A34A]">{savedFeedback}</p>
+            <p className="text-xs font-medium as-text-accent">{savedFeedback}</p>
           )}
 
           <div className="flex flex-wrap items-center gap-3">
@@ -514,7 +514,7 @@ export function PlannerPage() {
               type="button"
               onClick={handleRunScreening}
               disabled={rotationMutation.isPending}
-              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg bg-[#14532D] hover:bg-[#166534] text-white transition-colors disabled:opacity-60"
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors disabled:opacity-60"
             >
               {rotationMutation.isPending ? (
                 <>
@@ -531,21 +531,21 @@ export function PlannerPage() {
 
             <button
               type="submit"
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] hover:border-[#16A34A] transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg border border-[var(--as-border)] hover:border-[var(--as-accent-text)] transition-colors"
             >
-              <BookmarkPlus className="w-4 h-4 text-[#16A34A]" />
+              <BookmarkPlus className="w-4 h-4 as-text-accent" />
               Save Plan Snapshot
             </button>
           </div>
         </form>
 
         {/* Saved Plans List */}
-        <section className="lg:col-span-5 rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 sm:p-6 space-y-4">
+        <section className="lg:col-span-5 rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 sm:p-6 space-y-4">
           <h3 className="text-base font-semibold">
             Saved Farm Plans ({farmPlans.length})
           </h3>
           {farmPlans.length === 0 ? (
-            <p className="text-sm text-[#64748B] dark:text-[#94A3B8]">
+            <p className="text-sm text-[var(--as-text-muted)]">
               No rotation plans saved yet for {activeFarm.details.name}. Run screening and save any option you want to compare or export in your Farm Dossier.
             </p>
           ) : (
@@ -553,7 +553,7 @@ export function PlannerPage() {
               {farmPlans.map((plan) => (
                 <div
                   key={plan.id}
-                  className="p-3.5 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] space-y-1.5"
+                  className="p-3.5 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] space-y-1.5"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-semibold">{plan.title}</p>
@@ -561,12 +561,12 @@ export function PlannerPage() {
                       type="button"
                       onClick={() => deleteRotationPlan(plan.id)}
                       aria-label={`Delete plan ${plan.title}`}
-                      className="p-1 text-[#64748B] hover:text-[#DC2626]"
+                      className="p-1 text-[var(--as-text-muted)] hover:as-text-danger"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
+                  <p className="text-xs text-[var(--as-text-muted)]">
                     {plan.horizonSeasons} seasons · {plan.localSeasonLabel} · Prev:{' '}
                     {plan.previousCropName}
                     {plan.topPlanSnapshot
@@ -574,7 +574,7 @@ export function PlannerPage() {
                       : ''}
                   </p>
                   {plan.notes && (
-                    <p className="text-xs text-[#64748B] dark:text-[#94A3B8] italic">
+                    <p className="text-xs text-[var(--as-text-muted)] italic">
                       &ldquo;{plan.notes}&rdquo;
                     </p>
                   )}
@@ -595,7 +595,7 @@ export function PlannerPage() {
             <button
               type="button"
               onClick={handleRunScreening}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#DC2626] text-white"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#B91C1C] text-white"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               Retry
@@ -621,7 +621,7 @@ export function PlannerPage() {
             <button
               type="button"
               onClick={handleRunScreening}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#D97706] text-[#D97706]"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--as-warning-border)] as-text-warning"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               Retry
@@ -638,11 +638,20 @@ export function PlannerPage() {
               <h3 className="font-display text-lg font-bold">
                 Ranked Rotation Options ({liveResult.plans.length})
               </h3>
-              <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
+              <p className="text-xs text-[var(--as-text-muted)]">
                 Climate basis: {liveResult.climate_source || 'NASA POWER historical observations'} ({startYear}–{endYear}) · Goal: {BACKEND_GOAL_LABELS[priorityMapping.activeGoal]}
               </p>
             </div>
           </div>
+
+          <ScreeningLimitationsDisclosure
+            method={liveResult.method}
+            catalogWarning={liveResult.catalog_warning}
+            limitations={liveResult.limitations}
+            extraNotes={
+              liveResult.plans[0]?.diagnostics?.missing_data_notes ?? []
+            }
+          />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {liveResult.plans.map((opt, idx) => (
@@ -657,27 +666,31 @@ export function PlannerPage() {
           </div>
 
           {/* Side-by-Side Summary Table */}
-          <div className="overflow-x-auto rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]">
+          <div className="overflow-x-auto rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)]">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310]">
+              <thead className="border-b border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Option</th>
                   <th className="px-4 py-3 font-semibold">Sequence</th>
+                  <th className="px-4 py-3 font-semibold">Screening Match</th>
                   <th className="px-4 py-3 font-semibold">Overall Score</th>
                   <th className="px-4 py-3 font-semibold">Soil pH Scored</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E2E8F0] dark:divide-[#1E2E26]">
+              <tbody className="divide-y divide-[var(--as-border)]">
                 {liveResult.plans.map((opt, idx) => (
                   <tr key={opt.crop_ids.join('-') + '-row-' + idx}>
                     <td className="px-4 py-3 font-semibold">Option #{idx + 1}</td>
                     <td className="px-4 py-3">
                       {opt.seasons.map((s) => s.name).join(' → ')}
                     </td>
-                    <td className="px-4 py-3 font-mono tabular-nums font-semibold text-[#14532D] dark:text-[#10B981]">
+                    <td className="px-4 py-3 text-[var(--as-text-muted)]">
+                      {opt.compatibility_band || 'Screening match'}
+                    </td>
+                    <td className="px-4 py-3 font-mono tabular-nums font-semibold as-text-accent">
                       {opt.score.toFixed(1)} / 100
                     </td>
-                    <td className="px-4 py-3 text-[#64748B] dark:text-[#94A3B8]">
+                    <td className="px-4 py-3 text-[var(--as-text-muted)]">
                       {opt.seasons[0]?.soil_ph_compatibility_score !== null
                         ? `Yes (pH ${validSoilPh})`
                         : 'No (pH not provided)'}
@@ -686,23 +699,6 @@ export function PlannerPage() {
                 ))}
               </tbody>
             </table>
-          </div>
-
-          {/* Method, Catalog Warning & Limitations Transparency Box */}
-          <div className="rounded-xl border border-[#D97706]/30 bg-[#D97706]/5 p-4 sm:p-5 space-y-2 text-xs text-[#64748B] dark:text-[#94A3B8]">
-            <div className="flex items-center gap-2 font-semibold text-[#172B22] dark:text-[#E8F1EC]">
-              <AlertTriangle className="w-4 h-4 text-[#D97706]" />
-              <span>Important Method &amp; Regional Validation Notes</span>
-            </div>
-            {liveResult.method && <p>{liveResult.method}</p>}
-            {liveResult.catalog_warning && <p>{liveResult.catalog_warning}</p>}
-            {liveResult.limitations && liveResult.limitations.length > 0 && (
-              <ul className="list-disc pl-5 space-y-1">
-                {liveResult.limitations.map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
-              </ul>
-            )}
           </div>
         </section>
       )}

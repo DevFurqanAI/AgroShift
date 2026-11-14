@@ -22,7 +22,7 @@ export function ReportsPage() {
         primaryAction={
           <Link
             to="/dashboard/farms/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg bg-[#14532D] text-white"
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors"
           >
             <PlusCircle className="w-4 h-4" />
             Add Farm
@@ -97,7 +97,7 @@ export function ReportsPage() {
           <button
             type="button"
             onClick={handleExportJson}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-[#14532D] text-white"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg as-btn-primary transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
             Export JSON
@@ -105,10 +105,10 @@ export function ReportsPage() {
         </div>
       </div>
 
-      <article className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-6 space-y-6">
-        <header className="border-b border-[#E2E8F0] dark:border-[#1E2E26] pb-4 flex flex-wrap justify-between gap-4">
+      <article className="rounded-xl border border-[#D9E2EC] dark:border-[#23362D] bg-white dark:bg-[#111D18] p-6 space-y-6">
+        <header className="border-b border-[#D9E2EC] dark:border-[#23362D] pb-4 flex flex-wrap justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold text-[#16A34A]">AgroShift Farm Record</p>
+            <p className="text-xs font-semibold as-text-accent">AgroShift Farm Record</p>
             <h3 className="text-xl font-bold mt-1">{activeFarm.details.name}</h3>
             <p className="text-xs text-[#64748B] mt-0.5">{locationDisplay}</p>
           </div>

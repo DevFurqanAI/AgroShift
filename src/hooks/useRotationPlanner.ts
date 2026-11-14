@@ -3,12 +3,15 @@ import { useAgroShift } from '../context/AgroShiftContext';
 import {
   fetchRotationCrops,
   fetchRotationPlan,
+  fetchScenarioComparison,
   resolveApiBaseUrl,
 } from '../services/api/agroshiftApi';
 import type {
   RotationCropsResponse,
   RotationPlanRequest,
   RotationPlanResponse,
+  ScenarioComparisonResponse,
+  ScenarioRotationRequest,
 } from '../types/api';
 
 export function useRotationCrops() {
@@ -32,5 +35,12 @@ export function useRotationPlanMutation(farmId: string | undefined) {
       }
       return result;
     },
+  });
+}
+
+export function useScenarioComparisonMutation() {
+  return useMutation<ScenarioComparisonResponse, Error, ScenarioRotationRequest>({
+    mutationFn: async (request) =>
+      fetchScenarioComparison(request, undefined, resolveApiBaseUrl()),
   });
 }

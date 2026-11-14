@@ -41,8 +41,15 @@ import {
   fetchClimateHistory,
   fetchRotationCrops,
   fetchRotationPlan,
+  fetchScenarioComparison,
   resolveApiBaseUrl,
 } from '../src/services/api/agroshiftApi.ts';
+import {
+  DEFAULT_GEMINI_MODEL,
+  getAssistantStatus,
+  handleAssistantRequest,
+  resolveGeminiModel,
+} from '../server/assistantService.ts';
 import {
   farmRepository,
   settingsRepository,
@@ -819,4 +826,258 @@ test('20. No user-editable FastAPI backend settings or technical backend status 
     assert.equal('customApiBaseUrl' in loaded, false);
     assert.equal(loaded.areaUnit, 'acres');
   });
+});
+
+test('21. Ask AgroShift server service resolves configurable model and classifies errors safely', async () => {
+  assert.equal(resolveGeminiModel({} as NodeJS.ProcessEnv), DEFAULT_GEMINI_MODEL);
+  assert.equal(
+    resolveGeminiModel({ GEMINI_MODEL: 'gemini-2.5-pro' } as NodeJS.ProcessEnv),
+    'gemini-2.5-pro'
+  );
+
+  const missingStatus = getAssistantStatus({} as NodeJS.ProcessEnv);
+  assert.equal(missingStatus.available, false);
+  assert.ok(missingStatus.reason?.includes('GEMINI_API_KEY'));
+
+  const missingResp = await handleAssistantRequest(
+    { messages: [{ role: 'user', content: 'Hello' }], farmContext: null },
+    { env: {} as NodeJS.ProcessEnv }
+  );
+  assert.equal(missingResp.status, 503);
+  assert.equal(missingResp.body.code, 'ASSISTANT_UNAVAILABLE');
+
+  const okResp = await handleAssistantRequest(
+    { messages: [{ role: 'user', content: 'Explain NDVI' }], farmContext: null },
+    {
+      env: { GEMINI_API_KEY: 'test-key-value' } as NodeJS.ProcessEnv,
+      clientFactory: () => ({
+        models: {
+          generateContent: async ({ model }) => ({
+            text: `Using ${model}: NDVI measures canopy greenness.`,
+          }),
+        },
+      }),
+    }
+  );
+  assert.equal(okResp.status, 200);
+  assert.equal(okResp.body.model, DEFAULT_GEMINI_MODEL);
+  assert.match(String(okResp.body.reply), /NDVI/);
+
+  const invalidKeyResp = await handleAssistantRequest(
+    { messages: [{ role: 'user', content: 'Hi' }], farmContext: null },
+    {
+      env: { GEMINI_API_KEY: 'bad-key' } as NodeJS.ProcessEnv,
+      clientFactory: () => ({
+        models: {
+          generateContent: async () => {
+            const e = new Error('API_KEY_INVALID') as Error & { status?: number };
+            e.status = 401;
+            throw e;
+          },
+        },
+      }),
+    }
+  );
+  assert.equal(invalidKeyResp.status, 502);
+  assert.equal(invalidKeyResp.body.code, 'ASSISTANT_AUTH_ERROR');
+  assert.ok(!String(invalidKeyResp.body.error).includes('bad-key'));
+
+  const unsupportedModelResp = await handleAssistantRequest(
+    { messages: [{ role: 'user', content: 'Hi' }], farmContext: null },
+    {
+      env: { GEMINI_API_KEY: 'k', GEMINI_MODEL: 'bad-model' } as NodeJS.ProcessEnv,
+      clientFactory: () => ({
+        models: {
+          generateContent: async () => {
+            const e = new Error('Model is not found for API version') as Error & {
+              status?: number;
+            };
+            e.status = 404;
+            throw e;
+          },
+        },
+      }),
+    }
+  );
+  assert.equal(unsupportedModelResp.status, 502);
+  assert.equal(unsupportedModelResp.body.code, 'ASSISTANT_MODEL_UNSUPPORTED');
+
+  const quotaResp = await handleAssistantRequest(
+    { messages: [{ role: 'user', content: 'Hi' }], farmContext: null },
+    {
+      env: { GEMINI_API_KEY: 'k' } as NodeJS.ProcessEnv,
+      clientFactory: () => ({
+        models: {
+          generateContent: async () => {
+            const e = new Error('429 RESOURCE_EXHAUSTED') as Error & { status?: number };
+            e.status = 429;
+            throw e;
+          },
+        },
+      }),
+    }
+  );
+  assert.equal(quotaResp.status, 429);
+  assert.equal(quotaResp.body.code, 'ASSISTANT_QUOTA_EXCEEDED');
+
+  const timeoutResp = await handleAssistantRequest(
+    { messages: [{ role: 'user', content: 'Hi' }], farmContext: null },
+    {
+      env: { GEMINI_API_KEY: 'k' } as NodeJS.ProcessEnv,
+      timeoutMs: 15,
+      clientFactory: () => ({
+        models: {
+          generateContent: async () => new Promise(() => {}),
+        },
+      }),
+    }
+  );
+  assert.equal(timeoutResp.status, 504);
+  assert.equal(timeoutResp.body.code, 'ASSISTANT_TIMEOUT');
+
+  const emptyResp = await handleAssistantRequest(
+    { messages: [{ role: 'user', content: 'Hi' }], farmContext: null },
+    {
+      env: { GEMINI_API_KEY: 'k' } as NodeJS.ProcessEnv,
+      clientFactory: () => ({
+        models: {
+          generateContent: async () => ({ text: '   ' }),
+        },
+      }),
+    }
+  );
+  assert.equal(emptyResp.status, 502);
+  assert.equal(emptyResp.body.code, 'EMPTY_RESPONSE');
+});
+
+test('22. Vercel serverless assistant endpoints, SPA rewrite exclusions, and bundled landing images exist', () => {
+  assert.equal(fs.existsSync(path.resolve(process.cwd(), 'api/assistant.ts')), true);
+  assert.equal(fs.existsSync(path.resolve(process.cwd(), 'api/assistant/status.ts')), true);
+  const vercelConfig = JSON.parse(
+    fs.readFileSync(path.resolve(process.cwd(), 'vercel.json'), 'utf8')
+  ) as { rewrites?: Array<{ source: string; destination: string }> };
+  assert.ok(
+    vercelConfig.rewrites?.some(
+      (r) => r.source.includes('(?!api/)') && r.destination === '/index.html'
+    )
+  );
+
+  const landingSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/LandingPage.tsx'),
+    'utf8'
+  );
+  assert.ok(!landingSource.includes('/src/assets/'));
+  assert.match(landingSource, /from '\.\.\/assets\/images\//);
+  assert.match(landingSource, /ResilientImage/);
+});
+
+test('23. /api/v1/rotation/scenario parses comparison metrics, deltas, and non-forecast disclaimer', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        status: 'ok',
+        data_available: true,
+        climate_source: 'NASA POWER historical gridded observations',
+        historical_not_forecast: true,
+        is_hypothetical_sensitivity: true,
+        scenario_label: 'Warmer Conditions',
+        assumptions: {
+          temperature_delta_c: 1.5,
+          precipitation_shift_percent: 0,
+          baseline_water_availability: 'medium',
+          scenario_water_availability: 'medium',
+          water_shift_note: 'Unchanged.',
+        },
+        climate_metrics: {
+          baseline_avg_temp_c: 22.0,
+          scenario_avg_temp_c: 23.5,
+          baseline_avg_monthly_precip_mm: 50,
+          scenario_avg_monthly_precip_mm: 50,
+        },
+        baseline_plans: [],
+        scenario_plans: [],
+        comparisons: [
+          {
+            crop_ids: ['chickpea', 'maize'],
+            crop_names: ['Chickpea', 'Maize'],
+            baseline_rank: 1,
+            scenario_rank: 1,
+            rank_change: 0,
+            baseline_score: 86.2,
+            scenario_score: 84.5,
+            score_delta: -1.7,
+            baseline_band: 'Good Screening Match',
+            scenario_band: 'Good Screening Match',
+            reason: 'Temperature fit -2.4 pts.',
+          },
+        ],
+        disclaimer: 'Sensitivity screening only — not a weather forecast or yield prediction.',
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    )) as typeof fetch;
+
+  try {
+    const res = await fetchScenarioComparison(
+      {
+        latitude: 30.2,
+        longitude: 71.5,
+        previous_crop: 'wheat',
+        soil_ph: null,
+        water_availability: 'medium',
+        goal: 'water',
+        planting_month: 1,
+        seasons: 2,
+        start_year: 2016,
+        end_year: 2025,
+        max_results: 3,
+        scenario_label: 'Warmer Conditions',
+        temperature_delta_c: 1.5,
+        precipitation_shift_percent: 0,
+      },
+      undefined,
+      'https://api.example.com'
+    );
+    assert.equal(res.status, 'ok');
+    assert.equal(res.is_hypothetical_sensitivity, true);
+    assert.equal(res.comparisons.length, 1);
+    assert.equal(res.comparisons[0].score_delta, -1.7);
+    assert.match(res.disclaimer.toLowerCase(), /not a weather forecast/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('24. Farmer limitations disclosure and WCAG AA dark-mode contrast tokens are enforced', () => {
+  const plannerSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/PlannerPage.tsx'),
+    'utf8'
+  );
+  const scenariosSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/ScenariosPage.tsx'),
+    'utf8'
+  );
+  const disclosureSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/rotation/ScreeningLimitationsDisclosure.tsx'),
+    'utf8'
+  );
+  const layoutSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/layout/DashboardLayout.tsx'),
+    'utf8'
+  );
+  const chartSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/charts/ClimateCharts.tsx'),
+    'utf8'
+  );
+
+  assert.match(plannerSource, /ScreeningLimitationsDisclosure/);
+  assert.match(scenariosSource, /ScreeningLimitationsDisclosure/);
+  assert.match(
+    disclosureSource,
+    /These crop plans are preliminary comparisons based on available climate information and your farm details\. Check local growing seasons and conditions before planting\./
+  );
+  assert.match(disclosureSource, /How were these plans compared\?/);
+  assert.ok(!layoutSource.includes('dark:bg-[#16A34A]'));
+  assert.match(chartSource, /var\(--as-chart-temp\)/);
+  assert.match(chartSource, /var\(--as-chart-axis\)/);
 });

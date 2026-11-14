@@ -124,45 +124,47 @@ export function ClimateCharts({ monthlyData, temperatureUnit }: ClimateChartsPro
   return (
     <div className="space-y-6">
       {/* Temperature Trend Over Selected Period */}
-      <section className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5">
+      <section className="rounded-xl border border-[#D9E2EC] dark:border-[#23362D] bg-white dark:bg-[#111D18] p-5">
         <div className="mb-4">
           <h3 className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
             Historical Monthly Mean Temperature ({tempUnitLabel})
           </h3>
-          <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-1">
+          <p className="text-xs text-[var(--as-text-muted)] mt-1">
             NASA POWER historical surface air temperature observations across selected months. Gaps indicate missing observations.
           </p>
         </div>
         <div className="h-[280px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chronologicalSeries} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.5} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--as-chart-grid)" opacity={0.7} />
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 11, fill: '#64748B' }}
+                tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                stroke="var(--as-chart-grid)"
                 minTickGap={28}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: '#64748B' }}
+                tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                stroke="var(--as-chart-grid)"
                 unit={` ${tempUnitLabel}`}
                 width={54}
               />
               <Tooltip
                 contentStyle={{
                   backgroundColor: '#111D18',
-                  borderColor: '#1E2E26',
+                  borderColor: '#23362D',
                   borderRadius: '8px',
                   color: '#E8F1EC',
                   fontSize: '12px',
                 }}
               />
-              <Legend wrapperStyle={{ fontSize: '12px' }} />
+              <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--as-text-primary)' }} />
               <Line
                 type="monotone"
                 dataKey="avgTemp"
                 name={`Mean Temp (${tempUnitLabel})`}
-                stroke="#14532D"
-                strokeWidth={2}
+                stroke="var(--as-chart-temp)"
+                strokeWidth={2.25}
                 dot={false}
                 connectNulls={false}
               />
@@ -173,12 +175,12 @@ export function ClimateCharts({ monthlyData, temperatureUnit }: ClimateChartsPro
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Precipitation Trend */}
-        <section className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5">
+        <section className="rounded-xl border border-[#D9E2EC] dark:border-[#23362D] bg-white dark:bg-[#111D18] p-5">
           <div className="mb-4">
             <h3 className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
               Historical Precipitation Pattern
             </h3>
-            <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-1">
+            <p className="text-xs text-[var(--as-text-muted)] mt-1">
               Displayed unit:{' '}
               <span className="font-medium text-[#172B22] dark:text-[#E8F1EC]">
                 {precipLabel}
@@ -188,17 +190,22 @@ export function ClimateCharts({ monthlyData, temperatureUnit }: ClimateChartsPro
           <div className="h-[260px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chronologicalSeries} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.5} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--as-chart-grid)" opacity={0.7} />
                 <XAxis
                   dataKey="label"
-                  tick={{ fontSize: 11, fill: '#64748B' }}
+                  tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                  stroke="var(--as-chart-grid)"
                   minTickGap={28}
                 />
-                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} width={48} />
+                <YAxis
+                  tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                  stroke="var(--as-chart-grid)"
+                  width={48}
+                />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: '#111D18',
-                    borderColor: '#1E2E26',
+                    borderColor: '#23362D',
                     borderRadius: '8px',
                     color: '#E8F1EC',
                     fontSize: '12px',
@@ -207,7 +214,7 @@ export function ClimateCharts({ monthlyData, temperatureUnit }: ClimateChartsPro
                 <Bar
                   dataKey="precipValue"
                   name={precipLabel}
-                  fill="#16A34A"
+                  fill="var(--as-chart-rain)"
                   radius={[4, 4, 0, 0]}
                 />
               </BarChart>
@@ -216,12 +223,12 @@ export function ClimateCharts({ monthlyData, temperatureUnit }: ClimateChartsPro
         </section>
 
         {/* Monthly Climatology Profile */}
-        <section className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5">
+        <section className="rounded-xl border border-[#D9E2EC] dark:border-[#23362D] bg-white dark:bg-[#111D18] p-5">
           <div className="mb-4">
             <h3 className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
               Average Seasonal Cycle by Month
             </h3>
-            <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-1">
+            <p className="text-xs text-[var(--as-text-muted)] mt-1">
               Multi-year historical monthly average from NASA POWER (
               {hasEstimatedMonthlyMm ? 'mm est.' : 'mm/day rate'}).
             </p>
@@ -229,25 +236,35 @@ export function ClimateCharts({ monthlyData, temperatureUnit }: ClimateChartsPro
           <div className="h-[260px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyClimatology} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.5} />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748B' }} />
-                <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#64748B' }} width={42} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--as-chart-grid)" opacity={0.7} />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                  stroke="var(--as-chart-grid)"
+                />
+                <YAxis
+                  yAxisId="left"
+                  tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                  stroke="var(--as-chart-grid)"
+                  width={42}
+                />
                 <YAxis
                   yAxisId="right"
                   orientation="right"
-                  tick={{ fontSize: 11, fill: '#64748B' }}
+                  tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                  stroke="var(--as-chart-grid)"
                   width={42}
                 />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: '#111D18',
-                    borderColor: '#1E2E26',
+                    borderColor: '#23362D',
                     borderRadius: '8px',
                     color: '#E8F1EC',
                     fontSize: '12px',
                   }}
                 />
-                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--as-text-primary)' }} />
                 <Bar
                   yAxisId="left"
                   dataKey="meanPrecip"
@@ -256,14 +273,14 @@ export function ClimateCharts({ monthlyData, temperatureUnit }: ClimateChartsPro
                       ? 'Avg Monthly Rain (mm est.)'
                       : 'Avg Rain Rate (mm/day)'
                   }
-                  fill="#10B981"
+                  fill="var(--as-chart-rain)"
                   radius={[4, 4, 0, 0]}
                 />
                 <Bar
                   yAxisId="right"
                   dataKey="meanTemp"
                   name={`Avg Temp (${tempUnitLabel})`}
-                  fill="#14532D"
+                  fill="var(--as-chart-temp)"
                   radius={[4, 4, 0, 0]}
                 />
               </BarChart>

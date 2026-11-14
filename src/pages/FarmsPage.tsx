@@ -27,7 +27,7 @@ export function FarmsPage() {
         primaryAction={
           <Link
             to="/dashboard/farms/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg bg-[#14532D] text-white hover:bg-[#166534] transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors"
           >
             <PlusCircle className="w-4 h-4" />
             Add New Farm
@@ -48,7 +48,7 @@ export function FarmsPage() {
         </div>
         <Link
           to="/dashboard/farms/new"
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg bg-[#14532D] hover:bg-[#166534] text-white transition-colors whitespace-nowrap self-start"
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors whitespace-nowrap self-start"
         >
           <PlusCircle className="w-4 h-4" />
           Add Farm
@@ -88,7 +88,7 @@ export function FarmsPage() {
                     </p>
                   </div>
                   {isActive && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#16A34A] shrink-0">
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold as-text-accent shrink-0">
                       <Check className="w-3.5 h-3.5" />
                       Active
                     </span>
@@ -143,7 +143,7 @@ export function FarmsPage() {
                         selectFarm(farm.id);
                         navigate('/dashboard');
                       }}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#14532D] text-white hover:bg-[#166534] transition-colors"
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg as-btn-primary transition-colors"
                     >
                       Select Farm
                     </button>
