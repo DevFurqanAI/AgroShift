@@ -1320,4 +1320,150 @@ test('28. FieldHealthPage distinguishes availability, pixel quality, screening c
   assert.match(pageSource, /crop type, growth stage, soil background, season/);
 });
 
+test('29. RotationComparisonCard renders timeline, soil-health reasoning, rainfall summary, and unverified calendar state', async () => {
+  const { RotationComparisonCard } = await import(
+    '../src/components/rotation/RotationComparisonCard.tsx'
+  );
+
+  const html = renderToStaticMarkup(
+    React.createElement(RotationComparisonCard, {
+      rank: 1,
+      temperatureUnit: 'celsius',
+      plan: {
+        crop_ids: ['rice', 'chickpea'],
+        score: 84.5,
+        compatibility_band: 'Good Screening Match',
+        feasibility: {
+          status: 'feasible',
+          total_cycle_months: 9,
+          timeline_summary: 'S1: Rice (Jun–Oct) → S2: Chickpea (Nov–Feb (crosses Dec–Jan))',
+          warnings: [],
+        },
+        seasons: [
+          {
+            crop_id: 'rice',
+            name: 'Rice',
+            family: 'poaceae',
+            is_legume: false,
+            planting_month: 6,
+            harvest_month: 10,
+            duration_months: 5,
+            window_label: 'Jun–Oct',
+            wraps_year: false,
+            local_season_name: 'Kharif (Monsoon)',
+            calendar_status: 'aligned',
+            avg_historical_temperature_c: 31.2,
+            temperature_fit_score: 88,
+            water_category: 'high',
+            water_compatibility_score: 82,
+            season_rainfall_mm: 340,
+            soil_ph_compatibility_score: 91,
+            family_diversity_score: 96,
+            screening_score: 86,
+          },
+          {
+            crop_id: 'chickpea',
+            name: 'Chickpea',
+            family: 'fabaceae',
+            is_legume: true,
+            planting_month: 11,
+            harvest_month: 2,
+            duration_months: 4,
+            window_label: 'Nov–Feb (crosses Dec–Jan)',
+            wraps_year: true,
+            local_season_name: 'Rabi (Winter)',
+            calendar_status: 'aligned',
+            avg_historical_temperature_c: 17.5,
+            temperature_fit_score: 90,
+            water_category: 'low',
+            water_compatibility_score: 92,
+            season_rainfall_mm: 48,
+            soil_ph_compatibility_score: 88,
+            family_diversity_score: 96,
+            screening_score: 89,
+          },
+        ],
+        soil_health_summary: {
+          soil_health_score: 87.5,
+          soil_ph_compatibility: 89.5,
+          soil_ph_evaluated: true,
+          has_legume: true,
+          legume_crops: ['Chickpea'],
+          distinct_families: 2,
+          strengths: [
+            'Includes legume crop (Chickpea), offering potential biological nitrogen fixation (not a guaranteed nitrogen credit).',
+          ],
+          cautions: [],
+          evaluated_factors: ['botanical_family_sequence', 'legume_presence', 'soil_ph'],
+          missing_factors: [],
+          evidence_caveat: 'Qualitative screening only.',
+        },
+        diagnostics: {
+          climate_compatibility: 89,
+          water_compatibility: 87,
+          family_rotation: 96,
+          soil_compatibility: 89.5,
+          soil_evaluated: true,
+          soil_health_score: 87.5,
+          regional_calendar_score: 94,
+          regional_calendar_evaluated: true,
+          rainfall_evaluated: true,
+          data_completeness: {
+            evaluated_count: 6,
+            total_count: 6,
+            label: 'High',
+          },
+          distinct_families: 2,
+          distinct_crops: 2,
+          goal_applied: 'soil',
+          goal_weights_applied: { climate: 0.2, water: 0.16, soil_health: 0.32, diversity: 0.18, calendar: 0.14 },
+          missing_data_notes: [],
+          tie_note: null,
+        },
+        explanation: 'Balanced Kharif cereal to Rabi legume sequence.',
+      },
+    })
+  );
+
+  assert.match(html, /Nov–Feb \(crosses Dec–Jan\)/);
+  assert.match(html, /Legume/);
+  assert.match(html, /Soil-Health Considerations/);
+  assert.match(html, /not a guaranteed nitrogen credit/);
+  assert.match(html, /340 mm/);
+  assert.match(html, /Evidence: High \(6\/6\)/);
+  assert.match(html, /94\.0\/100/);
+});
+
+test('30. PlannerPage and ScenariosPage forward identical agronomic context and render regional/source disclosures', () => {
+  const plannerSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/PlannerPage.tsx'),
+    'utf8'
+  );
+  const scenariosSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/ScenariosPage.tsx'),
+    'utf8'
+  );
+  const disclosureSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/rotation/ScreeningLimitationsDisclosure.tsx'),
+    'utf8'
+  );
+
+  for (const field of [
+    'country:',
+    'country_code:',
+    'region:',
+    'soil_texture:',
+    'drainage:',
+    'salinity_concern:',
+    'irrigation_method:',
+  ]) {
+    assert.ok(plannerSource.includes(field), `PlannerPage missing ${field}`);
+    assert.ok(scenariosSource.includes(field), `ScenariosPage missing ${field}`);
+  }
+
+  assert.match(plannerSource, /NASA POWER Historical Rainfall Context/);
+  assert.match(plannerSource, /Regional Planting Calendar Not Verified/);
+  assert.match(plannerSource, /Sequences Excluded by Regional Timing Checks/);
+  assert.match(disclosureSource, /Agronomic &amp; Earth Observation References/);
+});
 

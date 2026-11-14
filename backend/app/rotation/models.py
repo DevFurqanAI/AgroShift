@@ -1,9 +1,10 @@
-from pydantic import BaseModel, Field, model_validator
-from typing import Literal
 from datetime import date
+from typing import Literal
+from pydantic import BaseModel, Field, model_validator
 
-Water = Literal['low','medium','high']
-Goal = Literal['water','diversity','climate','soil']
+Water = Literal['low', 'medium', 'high']
+Goal = Literal['water', 'diversity', 'climate', 'soil']
+
 
 class RotationRequest(BaseModel):
     latitude: float = Field(ge=-90, le=90, allow_inf_nan=False)
@@ -18,6 +19,14 @@ class RotationRequest(BaseModel):
     start_year: int = Field(default=2015, ge=1981, le=2100)
     end_year: int = Field(default=2025, ge=1981, le=2100)
     max_results: int = Field(default=3, ge=1, le=10)
+    # Optional Phase 3 agronomic & regional context (strictly optional for backwards compatibility)
+    country: str | None = Field(default=None, max_length=64)
+    country_code: str | None = Field(default=None, max_length=8)
+    region: str | None = Field(default=None, max_length=120)
+    soil_texture: str | None = Field(default=None, max_length=32)
+    drainage: str | None = Field(default=None, max_length=32)
+    salinity_concern: str | None = Field(default=None, max_length=32)
+    irrigation_method: str | None = Field(default=None, max_length=32)
     # Allow supplied observations for deterministic testing and offline analysis;
     # never claim that these came from NASA.
     climate_monthly: list['ClimateMonth'] | None = Field(default=None, max_length=1000)
@@ -32,6 +41,7 @@ class RotationRequest(BaseModel):
             raise ValueError('At least two candidate crops are required')
         return self
 
+
 class ClimateMonth(BaseModel):
     month: str = Field(pattern=r'^\d{6}$')
     temperature_c: float | None = Field(default=None, ge=-100, le=80, allow_inf_nan=False)
@@ -43,6 +53,7 @@ class ClimateMonth(BaseModel):
         if not 1 <= int(self.month[4:]) <= 12:
             raise ValueError('Invalid month')
         return self
+
 
 class ScenarioRotationRequest(RotationRequest):
     scenario_label: str = Field(default='Custom Sensitivity', min_length=1, max_length=80)

@@ -179,6 +179,13 @@ export function PlannerPage() {
       start_year: startYear,
       end_year: endYear,
       max_results: 4,
+      country: activeFarm.location.country || null,
+      country_code: activeFarm.location.countryCode || null,
+      region: activeFarm.location.region || null,
+      soil_texture: activeFarm.soil.texture || null,
+      drainage: activeFarm.soil.drainage || null,
+      salinity_concern: activeFarm.soil.salinityConcern || null,
+      irrigation_method: activeFarm.details.irrigationMethod || null,
     });
   };
 
@@ -630,6 +637,20 @@ export function PlannerPage() {
         />
       )}
 
+      {/* No Feasible Plans Under Verified Regional Calendar */}
+      {liveResult &&
+        liveResult.status === 'ok' &&
+        liveResult.plans.length === 0 && (
+          <StatusBanner
+            tone="warning"
+            title="No Regionally Feasible Sequences Matched This Planting Month"
+            description={
+              liveResult.message ||
+              'Proposed candidate sequences conflicted with verified regional planting windows. Try another planting month or widen candidate crops.'
+            }
+          />
+        )}
+
       {/* Ranked Rotation Screening Results */}
       {liveResult && liveResult.status === 'ok' && liveResult.plans.length > 0 && (
         <section className="space-y-5">
@@ -644,6 +665,42 @@ export function PlannerPage() {
             </div>
           </div>
 
+          {liveResult.regional_context && (
+            <StatusBanner
+              tone={liveResult.regional_context.verified ? 'info' : 'warning'}
+              title={
+                liveResult.regional_context.verified
+                  ? `Regional Calendar Context: ${liveResult.regional_context.country_name}${
+                      liveResult.regional_context.agroecological_zone
+                        ? ` (${liveResult.regional_context.agroecological_zone})`
+                        : ''
+                    }`
+                  : 'Regional Planting Calendar Not Verified for This Location'
+              }
+              description={
+                liveResult.regional_context.warning ||
+                'Crop planting windows were screened against documented regional cropping calendars alongside NASA POWER historical climate.'
+              }
+            />
+          )}
+
+          {liveResult.rainfall_intelligence && (
+            <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 text-xs space-y-1">
+              <p className="font-semibold text-[var(--as-text-primary)]">
+                NASA POWER Historical Rainfall Context
+              </p>
+              <p className="text-[var(--as-text-muted)]">
+                {liveResult.rainfall_intelligence.seasonal_contrast_note}
+                {liveResult.rainfall_intelligence.annual_mean_mm != null
+                  ? ` Annual historical mean: ~${liveResult.rainfall_intelligence.annual_mean_mm} mm/yr.`
+                  : ''}
+              </p>
+              <p className="text-[11px] text-[var(--as-text-muted)]">
+                {liveResult.rainfall_intelligence.note}
+              </p>
+            </div>
+          )}
+
           <ScreeningLimitationsDisclosure
             method={liveResult.method}
             catalogWarning={liveResult.catalog_warning}
@@ -651,6 +708,7 @@ export function PlannerPage() {
             extraNotes={
               liveResult.plans[0]?.diagnostics?.missing_data_notes ?? []
             }
+            sources={liveResult.sources ?? []}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -700,6 +758,24 @@ export function PlannerPage() {
               </tbody>
             </table>
           </div>
+
+          {liveResult.rejected_sequences && liveResult.rejected_sequences.length > 0 && (
+            <details className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 text-xs">
+              <summary className="cursor-pointer font-semibold text-[var(--as-text-primary)]">
+                Sequences Excluded by Regional Timing Checks ({liveResult.rejected_sequences.length})
+              </summary>
+              <ul className="mt-2.5 space-y-1.5 text-[var(--as-text-muted)] list-disc pl-5">
+                {liveResult.rejected_sequences.map((rej, idx) => (
+                  <li key={`rej-${idx}`}>
+                    <strong className="text-[var(--as-text-primary)]">
+                      {rej.crop_names.join(' → ')}:
+                    </strong>{' '}
+                    {rej.reasons.join(' ')}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </section>
       )}
     </div>

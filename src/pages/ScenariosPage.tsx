@@ -144,6 +144,13 @@ export function ScenariosPage() {
       start_year: startYear,
       end_year: endYear,
       max_results: 4,
+      country: activeFarm.location.country || null,
+      country_code: activeFarm.location.countryCode || null,
+      region: activeFarm.location.region || null,
+      soil_texture: activeFarm.soil.texture || null,
+      drainage: activeFarm.soil.drainage || null,
+      salinity_concern: activeFarm.soil.salinityConcern || null,
+      irrigation_method: activeFarm.details.irrigationMethod || null,
       scenario_label: label,
       temperature_delta_c: tempDelta,
       precipitation_shift_percent: precipShift,
@@ -486,7 +493,13 @@ export function ScenariosPage() {
             method={comparisonResult.method}
             catalogWarning={comparisonResult.catalog_warning}
             limitations={comparisonResult.limitations}
-            extraNotes={[comparisonResult.disclaimer]}
+            extraNotes={[
+              comparisonResult.disclaimer,
+              ...(comparisonResult.regional_context?.warning
+                ? [comparisonResult.regional_context.warning]
+                : []),
+            ]}
+            sources={comparisonResult.sources ?? []}
           />
         </div>
       )}

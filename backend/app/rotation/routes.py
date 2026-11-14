@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from .catalog import CROPS, CATALOG_NOTE
 from .engine import calculate_plan, calculate_scenario_comparison
 from .models import RotationRequest, ScenarioRotationRequest
+from .sources import get_sources_for_context
 from app.nasa_power import fetch_climate_summary, NASAClimateError
 
 router = APIRouter(prefix='/api/v1/rotation', tags=['rotation'])
@@ -38,7 +39,11 @@ def _resolve_climate_series(req: RotationRequest) -> tuple[list[dict] | None, st
 
 @router.get('/crops')
 def crops():
-    return {'crops':[CROPS[k].public() for k in sorted(CROPS)], 'catalog_warning':CATALOG_NOTE}
+    return {
+        'crops': [CROPS[k].public() for k in sorted(CROPS)],
+        'catalog_warning': CATALOG_NOTE,
+        'sources': get_sources_for_context(['fao_crop_calendar', 'fao_land_water', 'fao_gaez'], has_nasa_data=False),
+    }
 
 @router.post('/plan')
 def rotation_plan(req: RotationRequest):

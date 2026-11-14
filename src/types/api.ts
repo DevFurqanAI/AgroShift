@@ -84,9 +84,21 @@ export interface RotationCatalogCrop {
   duration_months: number;
 }
 
+export interface AgronomicSourceItem {
+  id: string;
+  title: string;
+  organization: string;
+  url: string;
+  geographic_applicability: string;
+  crop_applicability: string;
+  limitations: string;
+  last_reviewed: string;
+}
+
 export interface RotationCropsResponse {
   crops: RotationCatalogCrop[];
   catalog_warning: string;
+  sources?: AgronomicSourceItem[];
 }
 
 export type BackendRotationGoal = 'water' | 'diversity' | 'climate' | 'soil';
@@ -105,20 +117,53 @@ export interface RotationPlanRequest {
   start_year: number;
   end_year: number;
   max_results: number;
+  country?: string | null;
+  country_code?: string | null;
+  region?: string | null;
+  soil_texture?: string | null;
+  drainage?: string | null;
+  salinity_concern?: string | null;
+  irrigation_method?: string | null;
 }
 
 export interface RotationSeasonDetail {
   crop_id: string;
   name: string;
+  family?: string;
+  is_legume?: boolean;
   planting_month: number;
+  harvest_month?: number;
   duration_months: number;
+  window_label?: string;
+  wraps_year?: boolean;
+  local_season_name?: string | null;
+  calendar_status?: string;
+  calendar_note?: string;
   avg_historical_temperature_c: number;
   temperature_fit_score: number;
   water_category: 'low' | 'medium' | 'high';
   water_compatibility_score: number;
+  season_rainfall_mm?: number | null;
+  rainfall_variability_level?: string;
+  rainfall_fit_status?: string;
+  rainfall_note?: string;
   soil_ph_compatibility_score: number | null;
   family_diversity_score: number;
   screening_score: number;
+}
+
+export interface SoilHealthSummary {
+  soil_health_score: number;
+  soil_ph_compatibility: number | null;
+  soil_ph_evaluated: boolean;
+  has_legume: boolean;
+  legume_crops: string[];
+  distinct_families: number;
+  strengths: string[];
+  cautions: string[];
+  evaluated_factors: string[];
+  missing_factors: string[];
+  evidence_caveat: string;
 }
 
 export interface RotationPlanDiagnostics {
@@ -127,6 +172,17 @@ export interface RotationPlanDiagnostics {
   family_rotation: number;
   soil_compatibility: number | null;
   soil_evaluated: boolean;
+  soil_health_score?: number;
+  regional_calendar_score?: number | null;
+  regional_calendar_evaluated?: boolean;
+  rainfall_evaluated?: boolean;
+  evaluated_dimensions?: string[];
+  unevaluated_dimensions?: string[];
+  data_completeness?: {
+    evaluated_count: number;
+    total_count: number;
+    label: string;
+  };
   distinct_families: number;
   distinct_crops: number;
   goal_applied: BackendRotationGoal;
@@ -139,15 +195,52 @@ export interface RotationPlanOption {
   crop_ids: string[];
   score: number;
   compatibility_band?: string;
+  feasibility?: {
+    status: string;
+    total_cycle_months: number;
+    timeline_summary: string;
+    warnings: string[];
+  };
   seasons: RotationSeasonDetail[];
+  soil_health_summary?: SoilHealthSummary;
   diagnostics?: RotationPlanDiagnostics;
   explanation: string;
+}
+
+export interface RegionalCalendarContext {
+  verified: boolean;
+  evidence_status: string;
+  location_resolution: string;
+  country_code: string | null;
+  country_name: string | null;
+  region: string | null;
+  hemisphere: string;
+  agroecological_zone: string | null;
+  source_ids: string[];
+  warning: string | null;
+}
+
+export interface RainfallIntelligenceSummary {
+  rainfall_available: boolean;
+  annual_mean_mm: number | null;
+  wettest_3mo_mm: number | null;
+  driest_3mo_mm: number | null;
+  seasonal_contrast_note: string;
+  note: string;
 }
 
 export interface RotationPlanResponse {
   status: 'ok' | 'insufficient_data' | 'invalid_crops';
   data_available: boolean;
   plans: RotationPlanOption[];
+  rejected_sequences?: Array<{
+    crop_ids: string[];
+    crop_names: string[];
+    reasons: string[];
+  }>;
+  regional_context?: RegionalCalendarContext;
+  rainfall_intelligence?: RainfallIntelligenceSummary | null;
+  sources?: AgronomicSourceItem[];
   climate_source?: string;
   historical_not_forecast?: boolean;
   screening_disclaimer?: string;
@@ -184,6 +277,8 @@ export interface ScenarioComparisonResponse {
   historical_not_forecast?: boolean;
   is_hypothetical_sensitivity?: boolean;
   scenario_label: string;
+  regional_context?: RegionalCalendarContext | null;
+  sources?: AgronomicSourceItem[];
   assumptions: {
     temperature_delta_c: number;
     precipitation_shift_percent: number;
