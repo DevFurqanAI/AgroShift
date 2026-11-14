@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import {
+  CheckCircle2,
   Info,
   Loader2,
   PlusCircle,
@@ -12,8 +13,17 @@ import { useAgroShift } from '../context/AgroShiftContext';
 import { useFieldHealthAnalysis } from '../hooks/useFieldHealth';
 import { formatAreaDual, formatCoordinate, formatTemperature } from '../utils/units';
 
+function formatStatusBand(band: string | null | undefined): string {
+  if (!band) return 'Not available';
+  return band
+    .toLowerCase()
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 export function FieldHealthPage() {
-  const { activeFarm, backendStatus, settings, latestFieldHealthByFarm } = useAgroShift();
+  const { activeFarm, settings, latestFieldHealthByFarm } = useAgroShift();
   const analyzeMutation = useFieldHealthAnalysis(activeFarm);
 
   if (!activeFarm) {
@@ -54,7 +64,7 @@ export function FieldHealthPage() {
         <button
           type="button"
           onClick={() => analyzeMutation.mutate()}
-          disabled={!backendStatus.connection.configured || analyzeMutation.isPending}
+          disabled={analyzeMutation.isPending}
           className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg bg-[#14532D] hover:bg-[#166534] text-white disabled:opacity-50 transition-colors whitespace-nowrap self-start"
         >
           {analyzeMutation.isPending ? (
@@ -78,7 +88,7 @@ export function FieldHealthPage() {
             <strong className="text-[#172B22] dark:text-[#E8F1EC]">
               ESA / Copernicus Sentinel-2
             </strong>{' '}
-            optical imagery (separate from NASA POWER climate records). Weather observations come from Open-Meteo / configured weather providers.
+            optical imagery (separate from NASA POWER climate records). Weather observations come from Open-Meteo / fallback weather providers.
           </p>
           <p>
             NDVI and NDMI are canopy vegetation and moisture indicators—not direct soil fertility lab tests or confirmed agronomic diagnoses.
@@ -86,26 +96,10 @@ export function FieldHealthPage() {
         </div>
       </div>
 
-      {!backendStatus.connection.configured && (
-        <StatusBanner
-          tone="warning"
-          title="FastAPI Field Analysis Service Not Configured"
-          description="Analyzing Copernicus Sentinel-2 vegetation indices (POST /api/v1/analyze) requires a connected FastAPI backend. Configure VITE_API_BASE_URL or enter your backend URL in Settings."
-          action={
-            <Link
-              to="/dashboard/settings"
-              className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#14532D] text-white whitespace-nowrap"
-            >
-              Open Settings
-            </Link>
-          }
-        />
-      )}
-
       {analyzeMutation.isError && (
         <StatusBanner
           tone="error"
-          title="Field Analysis Request Failed"
+          title="Field Analysis Temporarily Unavailable"
           description={analyzeMutation.error.message}
           action={
             <button
@@ -120,7 +114,7 @@ export function FieldHealthPage() {
         />
       )}
 
-      {!result && backendStatus.connection.configured && !analyzeMutation.isPending && !analyzeMutation.isError && (
+      {!result && !analyzeMutation.isPending && !analyzeMutation.isError && (
         <EmptyState
           icon={<Satellite className="w-6 h-6" />}
           title="No Field Analysis Loaded Yet"
@@ -128,32 +122,47 @@ export function FieldHealthPage() {
         />
       )}
 
-      {result && result.data_available === false && (
-        <StatusBanner
-          tone="warning"
-          title="Field Observations Currently Unavailable"
-          description={
-            result.message ||
-            'The backend reported that satellite or weather observations were unavailable for this field at this time. No placeholder measurements are shown.'
-          }
-        />
-      )}
-
-      {result && result.data_available !== false && (
+      {result && (
         <div className="space-y-6">
+          {/* Partial availability alerts when satellite or weather was unavailable */}
+          {!result.satellite_available && (
+            <StatusBanner
+              tone="warning"
+              title="Satellite Imagery Currently Unavailable"
+              description={
+                result.satellite_message ||
+                'No cloud-free Sentinel-2 observation was available for this field recently. No synthetic vegetation values are shown.'
+              }
+            />
+          )}
+
+          {!result.weather_available && (
+            <StatusBanner
+              tone="warning"
+              title="Current Weather Observations Unavailable"
+              description={
+                result.weather_message ||
+                'Current weather readings could not be retrieved for this location right now.'
+              }
+            />
+          )}
+
+          {/* Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 space-y-1">
               <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
                 NDVI Vegetation Indicator
               </p>
               <p className="text-2xl font-mono font-bold tabular-nums text-[#172B22] dark:text-[#E8F1EC]">
-                {result.ndvi !== null && result.ndvi !== undefined
+                {result.satellite_available &&
+                result.ndvi !== null &&
+                result.ndvi !== undefined
                   ? result.ndvi.toFixed(3)
                   : 'Unavailable'}
               </p>
               <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
-                {result.ndvi_category
-                  ? `Indicator band: ${result.ndvi_category} (not a soil diagnosis)`
+                {result.ndvi_status
+                  ? `Indicator band: ${formatStatusBand(result.ndvi_status)}`
                   : 'Copernicus Sentinel-2 canopy vigor indicator'}
               </p>
             </div>
@@ -163,71 +172,103 @@ export function FieldHealthPage() {
                 NDMI Moisture Indicator
               </p>
               <p className="text-2xl font-mono font-bold tabular-nums text-[#172B22] dark:text-[#E8F1EC]">
-                {result.ndmi !== null && result.ndmi !== undefined
+                {result.satellite_available &&
+                result.ndmi !== null &&
+                result.ndmi !== undefined
                   ? result.ndmi.toFixed(3)
                   : 'Unavailable'}
               </p>
               <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
-                {result.ndmi_category
-                  ? `Indicator band: ${result.ndmi_category}`
+                {result.ndmi_status
+                  ? `Indicator band: ${formatStatusBand(result.ndmi_status)}`
                   : 'Canopy water content indicator'}
               </p>
             </div>
 
             <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 space-y-1">
               <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
-                Latest Imagery Date
+                Latest Satellite Date
               </p>
               <p className="text-base font-semibold tabular-nums text-[#172B22] dark:text-[#E8F1EC]">
-                {result.observation_date || 'Not reported'}
+                {result.satellite_observation_date || 'Unavailable'}
               </p>
               <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
                 {result.cloud_cover_percent !== null &&
                 result.cloud_cover_percent !== undefined
                   ? `Approx. unusable sampled pixels: ${result.cloud_cover_percent.toFixed(
                       1
-                    )}% (not meteorological cloud cover)`
+                    )}%`
                   : 'Pixel usability rate not reported'}
               </p>
             </div>
 
             <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 space-y-1">
               <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
-                Current Weather Context
+                Recent Weather Context
               </p>
               <p className="text-base font-semibold tabular-nums text-[#172B22] dark:text-[#E8F1EC]">
-                {result.weather?.temperature_c !== null &&
-                result.weather?.temperature_c !== undefined
-                  ? formatTemperature(result.weather.temperature_c, settings.temperatureUnit)
+                {result.weather_available &&
+                result.temperature_c !== null &&
+                result.temperature_c !== undefined
+                  ? formatTemperature(result.temperature_c, settings.temperatureUnit)
                   : 'Unavailable'}
               </p>
               <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
-                {result.weather?.condition || result.weather?.source || 'Weather provider context'}
+                {result.weather_available
+                  ? [
+                      result.humidity_percent !== null &&
+                      result.humidity_percent !== undefined
+                        ? `Humidity ${result.humidity_percent}%`
+                        : null,
+                      result.recent_rainfall_mm !== null &&
+                      result.recent_rainfall_mm !== undefined
+                        ? `Rain ${result.recent_rainfall_mm} mm`
+                        : null,
+                      result.heat_risk ? `Heat risk: ${formatStatusBand(result.heat_risk)}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || 'Weather context loaded'
+                  : 'Weather provider unavailable'}
               </p>
             </div>
           </div>
 
+          {/* Summary, Recommendations & Confidence */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <section className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 space-y-3">
-              <h3 className="text-base font-semibold">Field Condition Summary</h3>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-base font-semibold">Field Condition Summary</h3>
+                <span className="text-xs font-medium text-[#64748B] dark:text-[#94A3B8]">
+                  Confidence: {formatStatusBand(result.analysis_confidence)}
+                </span>
+              </div>
               <p className="text-sm text-[#64748B] dark:text-[#94A3B8] leading-relaxed">
-                {result.field_explanation ||
-                  'No narrative field explanation was returned by the backend.'}
+                {result.ai_explanation ||
+                  'No field explanation was returned.'}
               </p>
+              {result.possible_water_stress !== null &&
+                result.possible_water_stress !== undefined && (
+                  <p className="text-xs font-medium text-[#172B22] dark:text-[#E8F1EC]">
+                    Moisture stress signal:{' '}
+                    {result.possible_water_stress
+                      ? 'Possible moisture stress detected — inspect field moisture'
+                      : 'No acute moisture-stress signal flagged'}
+                  </p>
+                )}
             </section>
 
             <section className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 space-y-3">
-              <h3 className="text-base font-semibold">Confidence & Limitations</h3>
-              <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
-                Reported confidence:{' '}
-                <span className="font-semibold text-[#172B22] dark:text-[#E8F1EC]">
-                  {result.confidence || 'Not specified'}
-                </span>
-              </p>
-              {result.limitations && result.limitations.length > 0 ? (
-                <ul className="list-disc pl-4 space-y-1 text-xs text-[#64748B] dark:text-[#94A3B8]">
-                  {result.limitations.map((lim, i) => (
-                    <li key={i}>{lim}</li>
+              <h3 className="text-base font-semibold">Practical Next Checks</h3>
+              {result.recommendations && result.recommendations.length > 0 ? (
+                <ul className="space-y-2">
+                  {result.recommendations.map((rec, i) => (
+                    <li
+                      key={i}
+                      className="flex items-start gap-2 text-xs text-[#64748B] dark:text-[#94A3B8]"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-[#16A34A] shrink-0 mt-0.5" />
+                      <span>{rec}</span>
+                    </li>
                   ))}
                 </ul>
               ) : (

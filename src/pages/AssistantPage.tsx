@@ -27,6 +27,7 @@ export function AssistantPage() {
     settings,
     latestClimateByFarm,
     latestFieldHealthByFarm,
+    latestRotationByFarm,
   } = useAgroShift();
 
   const [status, setStatus] = useState<AssistantStatusResponse | null>(null);
@@ -55,11 +56,12 @@ export function AssistantPage() {
     if (!activeFarm) return null;
     const climate = latestClimateByFarm[activeFarm.id];
     const fieldHealth = latestFieldHealthByFarm[activeFarm.id];
+    const rotation = latestRotationByFarm[activeFarm.id];
 
     return {
       farmName: activeFarm.details.name,
-      country: activeFarm.location.country,
-      region: activeFarm.location.region,
+      country: activeFarm.location.country || 'Unresolved',
+      region: activeFarm.location.region || 'Unresolved',
       coordinates: {
         latitude: activeFarm.location.latitude,
         longitude: activeFarm.location.longitude,
@@ -68,26 +70,42 @@ export function AssistantPage() {
       farmType: activeFarm.details.farmType,
       irrigationMethod: activeFarm.details.irrigationMethod,
       waterAvailability: activeFarm.details.waterAvailability,
+      rainfallReliability: activeFarm.details.rainfallReliability ?? null,
       soil: activeFarm.soil,
       previousCrop: activeFarm.history.previousCropName,
-      earlierCrops: activeFarm.history.earlierCrops,
+      orderedCropHistory: activeFarm.history.seasons ?? [],
       priorities: activeFarm.priorities,
       loadedClimateSummary: climate?.data_available
         ? {
             source: climate.source || 'NASA POWER',
             startYear: climate.start_year,
             endYear: climate.end_year,
-            monthsCount: climate.monthly_data?.length ?? 0,
-            seasonalSummary: climate.seasonal_summary ?? null,
+            monthsCount: climate.monthly?.length ?? 0,
+            historicalNotForecast: climate.historical_not_forecast ?? true,
           }
         : 'Not loaded in current session',
       loadedFieldHealth: fieldHealth
         ? {
-            source: 'ESA / Copernicus Sentinel-2 & configured weather provider',
+            satelliteAvailable: fieldHealth.satellite_available,
             ndvi: fieldHealth.ndvi ?? null,
+            ndviStatus: fieldHealth.ndvi_status ?? null,
             ndmi: fieldHealth.ndmi ?? null,
-            observationDate: fieldHealth.observation_date ?? null,
-            weather: fieldHealth.weather ?? null,
+            ndmiStatus: fieldHealth.ndmi_status ?? null,
+            observationDate: fieldHealth.satellite_observation_date ?? null,
+            weatherAvailable: fieldHealth.weather_available,
+            temperatureC: fieldHealth.temperature_c ?? null,
+            humidityPercent: fieldHealth.humidity_percent ?? null,
+            recentRainfallMm: fieldHealth.recent_rainfall_mm ?? null,
+            possibleWaterStress: fieldHealth.possible_water_stress ?? null,
+          }
+        : 'Not loaded in current session',
+      loadedRotationScreening: rotation
+        ? {
+            status: rotation.status,
+            topPlans: rotation.plans.slice(0, 3).map((p) => ({
+              crops: p.crop_ids,
+              score: p.score,
+            })),
           }
         : 'Not loaded in current session',
     };
@@ -147,7 +165,7 @@ export function AssistantPage() {
           <h2 className="font-display text-xl font-bold">Ask AgroShift</h2>
           <p className="text-sm text-[#64748B] dark:text-[#94A3B8] mt-0.5">
             {activeFarm
-              ? `Contextualized for ${activeFarm.details.name} (${activeFarm.location.country})`
+              ? `Contextualized for ${activeFarm.details.name}${activeFarm.location.country ? ` (${activeFarm.location.country})` : ''}`
               : 'General farming and Earth observation guidance (select a farm for farm-specific context)'}
           </p>
         </div>
@@ -167,7 +185,7 @@ export function AssistantPage() {
         <StatusBanner
           tone="warning"
           title="Ask AgroShift AI Service Is Currently Unavailable"
-          description="The server-side AI assistant endpoint is not active in this environment. AgroShift never exposes or prompts for API keys in the browser. Other farm management and Earth observation features continue working normally."
+          description="The server-side AI assistant endpoint is not active in this environment. Other farm management and Earth observation features continue working normally."
         />
       )}
 

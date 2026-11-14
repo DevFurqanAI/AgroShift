@@ -1,109 +1,22 @@
 import { useState } from 'react';
-import { Check, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { Check, Trash2 } from 'lucide-react';
 import { useAgroShift } from '../context/AgroShiftContext';
 import { SUPPORTED_LANGUAGES } from '../i18n/languages';
 import type { AreaUnit, SupportedLanguageCode, TemperatureUnit } from '../types/farm';
 
 export function SettingsPage() {
-  const {
-    settings,
-    updateSettings,
-    backendStatus,
-    refreshBackendHealth,
-    clearLocalData,
-  } = useAgroShift();
+  const { settings, updateSettings, clearLocalData } = useAgroShift();
 
-  const [apiUrlInput, setApiUrlInput] = useState(settings.customApiBaseUrl);
   const [confirmReset, setConfirmReset] = useState(false);
-  const [savedNotice, setSavedNotice] = useState<string | null>(null);
-
-  const handleSaveBackendUrl = async (e: React.FormEvent) => {
-    e.preventDefault();
-    updateSettings({ customApiBaseUrl: apiUrlInput.trim() });
-    setSavedNotice('Backend URL preference updated. Testing connection...');
-    window.setTimeout(() => {
-      refreshBackendHealth();
-    }, 50);
-  };
 
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h2 className="font-display text-xl font-bold">Settings & Connections</h2>
+        <h2 className="font-display text-xl font-bold">Preferences & Device Data</h2>
         <p className="text-sm text-[#64748B] dark:text-[#94A3B8] mt-1">
-          Configure units, appearance, language preferences, and your FastAPI Earth observation server connection.
+          Choose your measurement units, display theme, language, and manage farms saved on this device.
         </p>
       </div>
-
-      {/* FastAPI Backend Connection */}
-      <section className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 sm:p-6 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h3 className="text-base font-semibold">FastAPI Earth Observation Backend</h3>
-            <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-0.5">
-              Connects to GET /, GET /api/v1/climate/history (NASA POWER), and POST /api/v1/analyze (Copernicus Sentinel-2 & Weather).
-            </p>
-          </div>
-          <span
-            className={`text-xs font-semibold ${
-              backendStatus.state === 'connected'
-                ? 'text-[#16A34A]'
-                : backendStatus.state === 'checking'
-                  ? 'text-[#64748B]'
-                  : 'text-[#D97706]'
-            }`}
-          >
-            {backendStatus.state === 'connected'
-              ? 'Connected'
-              : backendStatus.state === 'checking'
-                ? 'Checking...'
-                : backendStatus.state === 'not_configured'
-                  ? 'Not Configured'
-                  : 'Unreachable'}
-          </span>
-        </div>
-
-        <form onSubmit={handleSaveBackendUrl} className="space-y-3">
-          <div>
-            <label htmlFor="fastapi-url" className="block text-xs font-semibold mb-1">
-              FastAPI Base URL Override (Optional — defaults to VITE_API_BASE_URL)
-            </label>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                id="fastapi-url"
-                type="url"
-                value={apiUrlInput}
-                onChange={(e) => setApiUrlInput(e.target.value)}
-                placeholder={
-                  import.meta.env.VITE_API_BASE_URL || 'https://your-fastapi-service.example.com'
-                }
-                className="flex-1 px-3 py-2 text-sm font-mono rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310]"
-              />
-              <button
-                type="submit"
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-[#14532D] hover:bg-[#166534] text-white whitespace-nowrap"
-              >
-                {backendStatus.state === 'checking' ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-3.5 h-3.5" />
-                )}
-                Save & Test
-              </button>
-            </div>
-          </div>
-
-          {savedNotice && <p className="text-xs text-[#16A34A]">{savedNotice}</p>}
-          {backendStatus.errorMessage && (
-            <p className="text-xs text-[#D97706]">{backendStatus.errorMessage}</p>
-          )}
-          {backendStatus.state === 'connected' && backendStatus.healthData && (
-            <p className="text-xs font-mono text-[#16A34A]">
-              Health check passed: {JSON.stringify(backendStatus.healthData)}
-            </p>
-          )}
-        </form>
-      </section>
 
       {/* Units & Theme */}
       <section className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 sm:p-6 space-y-5">
@@ -206,9 +119,9 @@ export function SettingsPage() {
 
       {/* Local Browser Persistence */}
       <section className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 sm:p-6 space-y-3">
-        <h3 className="text-base font-semibold">Local Browser Storage</h3>
+        <h3 className="text-base font-semibold">Saved Farm Data on This Device</h3>
         <p className="text-xs text-[#64748B] dark:text-[#94A3B8] leading-relaxed">
-          Farm profiles and draft plans are stored locally in this browser&apos;s localStorage. They are not uploaded to a cloud database. Clearing browser data or clicking below will remove saved farms from this device.
+          Your farm profiles and saved plans are stored locally in this browser without requiring an account. Clearing browser data or clicking below will remove saved farms from this device.
         </p>
 
         {!confirmReset ? (

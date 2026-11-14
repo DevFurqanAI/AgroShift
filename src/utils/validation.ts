@@ -1,4 +1,5 @@
 import type { GeoJSONPolygon } from '../types/farm';
+import { validatePolygonGeometry } from './geo';
 
 export function isValidLatitude(lat: number): boolean {
   return Number.isFinite(lat) && lat >= -90 && lat <= 90;
@@ -28,20 +29,7 @@ export function validateCoordinates(
 }
 
 export function isValidPolygon(polygon: GeoJSONPolygon | null | undefined): boolean {
-  if (!polygon || polygon.type !== 'Polygon' || !Array.isArray(polygon.coordinates)) {
-    return false;
-  }
-  const ring = polygon.coordinates[0];
-  if (!Array.isArray(ring) || ring.length < 4) {
-    return false;
-  }
-  return ring.every(
-    (coord) =>
-      Array.isArray(coord) &&
-      coord.length >= 2 &&
-      isValidLongitude(coord[0]) &&
-      isValidLatitude(coord[1])
-  );
+  return validatePolygonGeometry(polygon).valid;
 }
 
 export function normalizeBaseUrl(raw: string): string {

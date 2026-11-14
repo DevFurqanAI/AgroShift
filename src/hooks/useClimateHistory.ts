@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useAgroShift } from '../context/AgroShiftContext';
-import { fetchClimateHistory } from '../services/api/agroshiftApi';
+import { fetchClimateHistory, resolveApiBaseUrl } from '../services/api/agroshiftApi';
 import type { ClimateHistoryResponse } from '../types/api';
 
 interface UseClimateHistoryParams {
@@ -21,11 +21,10 @@ export function useClimateHistory({
   endYear,
   enabled,
 }: UseClimateHistoryParams) {
-  const { backendStatus, recordClimateObservation } = useAgroShift();
-  const baseUrl = backendStatus.connection.baseUrl;
+  const { recordClimateObservation } = useAgroShift();
+  const baseUrl = resolveApiBaseUrl();
   const canQuery =
     enabled &&
-    backendStatus.connection.configured &&
     Boolean(farmId) &&
     typeof latitude === 'number' &&
     typeof longitude === 'number';
@@ -37,9 +36,9 @@ export function useClimateHistory({
         throw new Error('Farm coordinates are required.');
       }
       return fetchClimateHistory(
-        baseUrl,
         { latitude, longitude, startYear, endYear },
-        signal
+        signal,
+        baseUrl
       );
     },
     enabled: canQuery,

@@ -1,7 +1,9 @@
+import { normalizeCropIdForBackend } from '../../data/crops';
 import type {
   AppSettings,
   FarmActivityItem,
   FarmProfile,
+  SeasonCropEntry,
 } from '../../types/farm';
 import type { RotationPlanDraft } from '../../types/planner';
 
@@ -41,6 +43,68 @@ function safeWriteJson<T>(key: string, value: T): string | null {
   }
 }
 
+function normalizeFarmProfile(farm: FarmProfile): FarmProfile {
+  const normalizedPrevId = normalizeCropIdForBackend(farm.history?.previousCropId || 'custom');
+  const existingSeasons = farm.history?.seasons;
+
+  const seasons: SeasonCropEntry[] =
+    Array.isArray(existingSeasons) && existingSeasons.length > 0
+      ? existingSeasons.map((s) => ({
+          ...s,
+          cropId: normalizeCropIdForBackend(s.cropId),
+        }))
+      : [
+          {
+            id: 'season-1',
+            cropId: normalizedPrevId,
+            cropName: farm.history?.previousCropName || 'Unknown',
+            isCustomOther: normalizedPrevId === 'custom',
+            plantingDate: farm.history?.typicalPlantingWindow || undefined,
+            harvestDate: farm.history?.typicalHarvestWindow || undefined,
+          },
+          ...(farm.history?.earlierCrops || []).map((name, idx) => ({
+            id: `season-legacy-${idx + 2}`,
+            cropId: 'custom',
+            cropName: name,
+            isCustomOther: true,
+          })),
+        ];
+
+  return {
+    ...farm,
+    location: {
+      ...farm.location,
+      resolutionStatus:
+        farm.location.resolutionStatus ??
+        (farm.location.country ? 'resolved' : 'unresolved'),
+    },
+    details: {
+      ...farm.details,
+      areaSource: farm.details.areaSource ?? 'manual',
+      rainfallReliability: farm.details.rainfallReliability ?? 'unknown',
+    },
+    soil: {
+      ...farm.soil,
+      knowledgeLevel:
+        farm.soil.knowledgeLevel ??
+        (farm.soil.hasLabSoilTest
+          ? 'lab_test'
+          : farm.soil.texture !== 'unknown' ||
+              farm.soil.drainage !== 'unknown' ||
+              farm.soil.ph !== null ||
+              Boolean(farm.soil.observations)
+            ? 'some_details'
+            : 'unsure'),
+      salinityConcern: farm.soil.salinityConcern ?? 'unknown',
+    },
+    history: {
+      ...farm.history,
+      previousCropId: normalizedPrevId,
+      seasons,
+    },
+  };
+}
+
 export interface FarmRepository {
   listFarms(): StorageResult<FarmProfile[]>;
   saveFarm(farm: FarmProfile): StorageResult<FarmProfile[]>;
@@ -56,15 +120,19 @@ export const farmRepository: FarmRepository = {
     if (!Array.isArray(result.data)) {
       return { data: [], storageError: result.storageError };
     }
-    return result;
+    return {
+      data: result.data.map(normalizeFarmProfile),
+      storageError: result.storageError,
+    };
   },
 
   saveFarm(farm: FarmProfile) {
+    const normalized = normalizeFarmProfile(farm);
     const current = this.listFarms();
-    const exists = current.data.some((item) => item.id === farm.id);
+    const exists = current.data.some((item) => item.id === normalized.id);
     const updated = exists
-      ? current.data.map((item) => (item.id === farm.id ? farm : item))
-      : [farm, ...current.data];
+      ? current.data.map((item) => (item.id === normalized.id ? normalized : item))
+      : [normalized, ...current.data];
     const err = safeWriteJson(FARMS_STORAGE_KEY, updated);
     return { data: updated, storageError: err };
   },
@@ -166,19 +234,32 @@ export const DEFAULT_SETTINGS: AppSettings = {
   areaUnit: 'hectares',
   temperatureUnit: 'celsius',
   theme: 'light',
-  customApiBaseUrl: '',
 };
 
 export const settingsRepository = {
   load(): AppSettings {
-    const res = safeReadJson<Partial<AppSettings>>(SETTINGS_STORAGE_KEY, {});
-    return {
+    const res = safeReadJson<Partial<AppSettings & { customApiBaseUrl?: string }>>(
+      SETTINGS_STORAGE_KEY,
+      {}
+    );
+    const merged = {
       ...DEFAULT_SETTINGS,
       ...res.data,
+    };
+    return {
+      language: merged.language,
+      areaUnit: merged.areaUnit,
+      temperatureUnit: merged.temperatureUnit,
+      theme: merged.theme,
     };
   },
 
   save(settings: AppSettings): string | null {
-    return safeWriteJson(SETTINGS_STORAGE_KEY, settings);
+    return safeWriteJson(SETTINGS_STORAGE_KEY, {
+      language: settings.language,
+      areaUnit: settings.areaUnit,
+      temperatureUnit: settings.temperatureUnit,
+      theme: settings.theme,
+    });
   },
 };

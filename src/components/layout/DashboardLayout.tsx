@@ -15,8 +15,6 @@ import {
   X,
   Sun,
   Moon,
-  Wifi,
-  WifiOff,
 } from 'lucide-react';
 import { useAgroShift } from '../../context/AgroShiftContext';
 import { LogoMark } from './LogoMark';
@@ -56,7 +54,6 @@ export function DashboardLayout() {
     selectFarm,
     settings,
     updateSettings,
-    backendStatus,
     storageError,
   } = useAgroShift();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -66,15 +63,6 @@ export function DashboardLayout() {
   const toggleTheme = () => {
     updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' });
   };
-
-  const connectionLabel =
-    backendStatus.state === 'connected'
-      ? 'FastAPI connected'
-      : backendStatus.state === 'checking'
-        ? 'Checking backend'
-        : backendStatus.state === 'not_configured'
-          ? 'Backend not configured'
-          : 'Backend unreachable';
 
   const SidebarContent = (
     <div className="flex flex-col h-full">
@@ -116,23 +104,6 @@ export function DashboardLayout() {
           </NavLink>
         ))}
       </nav>
-
-      <div className="p-4 border-t border-[#E2E8F0] dark:border-[#1E2E26] space-y-3 text-xs">
-        <Link
-          to="/dashboard/settings"
-          onClick={() => setMobileOpen(false)}
-          className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] hover:bg-[#F8FAF7] dark:hover:bg-[#182821] transition-colors"
-        >
-          <span className="inline-flex items-center gap-2 text-[#172B22] dark:text-[#E8F1EC] font-medium truncate">
-            {backendStatus.state === 'connected' ? (
-              <Wifi className="w-3.5 h-3.5 text-[#16A34A] shrink-0" />
-            ) : (
-              <WifiOff className="w-3.5 h-3.5 text-[#D97706] shrink-0" />
-            )}
-            <span className="truncate">{connectionLabel}</span>
-          </span>
-        </Link>
-      </div>
     </div>
   );
 
@@ -196,7 +167,8 @@ export function DashboardLayout() {
                 >
                   {farms.map((farm) => (
                     <option key={farm.id} value={farm.id}>
-                      {farm.details.name} ({farm.location.country})
+                      {farm.details.name}
+                      {farm.location.country ? ` (${farm.location.country})` : ''}
                     </option>
                   ))}
                 </select>

@@ -1,24 +1,33 @@
 import type { AreaUnit, TemperatureUnit } from '../types/farm';
 
-export const HECTARES_TO_ACRES = 2.47105381;
-export const ACRES_TO_HECTARES = 0.404685642;
+/** Exact international conversion factor: 1 hectare = 2.4710538147 acres */
+export const ACRES_PER_HECTARE = 2.4710538147;
+export const HECTARES_TO_ACRES = ACRES_PER_HECTARE;
+export const ACRES_TO_HECTARES = 1 / ACRES_PER_HECTARE;
 
 export function acresToHectares(acres: number): number {
   if (!Number.isFinite(acres) || acres < 0) return 0;
-  return Number((acres * ACRES_TO_HECTARES).toFixed(4));
+  return acres * ACRES_TO_HECTARES;
 }
 
 export function hectaresToAcres(hectares: number): number {
   if (!Number.isFinite(hectares) || hectares < 0) return 0;
-  return Number((hectares * HECTARES_TO_ACRES).toFixed(4));
+  return hectares * HECTARES_TO_ACRES;
 }
 
 export function toHectares(value: number, unit: AreaUnit): number {
-  return unit === 'acres' ? acresToHectares(value) : Number(value.toFixed(4));
+  if (!Number.isFinite(value) || value < 0) return 0;
+  return unit === 'acres' ? acresToHectares(value) : value;
 }
 
 export function fromHectares(hectares: number, unit: AreaUnit): number {
-  return unit === 'acres' ? hectaresToAcres(hectares) : Number(hectares.toFixed(4));
+  if (!Number.isFinite(hectares) || hectares < 0) return 0;
+  return unit === 'acres' ? hectaresToAcres(hectares) : hectares;
+}
+
+export function formatAreaInputValue(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '';
+  return String(Number(value.toFixed(4)));
 }
 
 export function formatArea(

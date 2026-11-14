@@ -8,20 +8,15 @@ import React, {
 } from 'react';
 import { getLanguageMeta } from '../i18n/languages';
 import {
-  checkBackendHealth,
-  resolveApiConnection,
-} from '../services/api/agroshiftApi';
-import {
   activityRepository,
   farmRepository,
   rotationPlanRepository,
   settingsRepository,
 } from '../services/farms/farmRepository';
 import type {
-  ApiConnectionInfo,
-  BackendHealthResponse,
   ClimateHistoryResponse,
   FieldAnalyzeResponse,
+  RotationPlanResponse,
 } from '../types/api';
 import type {
   AppSettings,
@@ -29,14 +24,6 @@ import type {
   FarmProfile,
 } from '../types/farm';
 import type { RotationPlanDraft } from '../types/planner';
-
-interface BackendStatusState {
-  connection: ApiConnectionInfo;
-  state: 'not_configured' | 'checking' | 'connected' | 'unreachable';
-  healthData: BackendHealthResponse | null;
-  errorMessage: string | null;
-  checkedAt: string | null;
-}
 
 interface AgroShiftContextValue {
   farms: FarmProfile[];
@@ -46,9 +33,9 @@ interface AgroShiftContextValue {
   plans: RotationPlanDraft[];
   activities: FarmActivityItem[];
   settings: AppSettings;
-  backendStatus: BackendStatusState;
   latestClimateByFarm: Record<string, ClimateHistoryResponse>;
   latestFieldHealthByFarm: Record<string, FieldAnalyzeResponse>;
+  latestRotationByFarm: Record<string, RotationPlanResponse>;
   selectFarm: (farmId: string | null) => void;
   saveFarm: (farm: FarmProfile, isEdit?: boolean) => boolean;
   deleteFarm: (farmId: string) => void;
@@ -56,9 +43,9 @@ interface AgroShiftContextValue {
   deleteRotationPlan: (planId: string) => void;
   updateSettings: (partial: Partial<AppSettings>) => void;
   clearLocalData: () => void;
-  refreshBackendHealth: () => Promise<void>;
   recordClimateObservation: (farmId: string, data: ClimateHistoryResponse) => void;
   recordFieldHealthObservation: (farmId: string, data: FieldAnalyzeResponse) => void;
+  recordRotationResult: (farmId: string, data: RotationPlanResponse) => void;
 }
 
 const AgroShiftContext = createContext<AgroShiftContextValue | null>(null);
@@ -87,19 +74,9 @@ export function AgroShiftProvider({ children }: { children: React.ReactNode }) {
   const [latestFieldHealthByFarm, setLatestFieldHealthByFarm] = useState<
     Record<string, FieldAnalyzeResponse>
   >({});
-
-  const connection = useMemo(
-    () => resolveApiConnection(settings.customApiBaseUrl),
-    [settings.customApiBaseUrl]
-  );
-
-  const [backendStatus, setBackendStatus] = useState<BackendStatusState>({
-    connection,
-    state: connection.configured ? 'checking' : 'not_configured',
-    healthData: null,
-    errorMessage: null,
-    checkedAt: null,
-  });
+  const [latestRotationByFarm, setLatestRotationByFarm] = useState<
+    Record<string, RotationPlanResponse>
+  >({});
 
   // Sync light/dark class and language direction on document.documentElement
   useEffect(() => {
@@ -113,52 +90,6 @@ export function AgroShiftProvider({ children }: { children: React.ReactNode }) {
     root.lang = langMeta.code;
     root.dir = langMeta.dir;
   }, [settings.theme, settings.language]);
-
-  const refreshBackendHealth = useCallback(async () => {
-    const conn = resolveApiConnection(settings.customApiBaseUrl);
-    if (!conn.configured) {
-      setBackendStatus({
-        connection: conn,
-        state: 'not_configured',
-        healthData: null,
-        errorMessage:
-          'FastAPI backend URL is not configured (VITE_API_BASE_URL is unset).',
-        checkedAt: new Date().toISOString(),
-      });
-      return;
-    }
-
-    setBackendStatus((prev) => ({
-      ...prev,
-      connection: conn,
-      state: 'checking',
-      errorMessage: null,
-    }));
-
-    try {
-      const data = await checkBackendHealth(conn.baseUrl);
-      setBackendStatus({
-        connection: conn,
-        state: 'connected',
-        healthData: data,
-        errorMessage: null,
-        checkedAt: new Date().toISOString(),
-      });
-    } catch (err) {
-      setBackendStatus({
-        connection: conn,
-        state: 'unreachable',
-        healthData: null,
-        errorMessage:
-          err instanceof Error ? err.message : 'Unable to reach FastAPI backend.',
-        checkedAt: new Date().toISOString(),
-      });
-    }
-  }, [settings.customApiBaseUrl]);
-
-  useEffect(() => {
-    refreshBackendHealth();
-  }, [refreshBackendHealth]);
 
   const activeFarm = useMemo(
     () => farms.find((f) => f.id === activeFarmId) ?? farms[0] ?? null,
@@ -216,7 +147,7 @@ export function AgroShiftProvider({ children }: { children: React.ReactNode }) {
     activityRepository.logActivity({
       farmId: plan.farmId,
       farmName: plan.farmName,
-      action: `Saved rotation planning draft: ${plan.title}`,
+      action: `Saved rotation plan: ${plan.title}`,
     });
     setActivities(activityRepository.listActivity().data);
     return !res.storageError;
@@ -246,6 +177,7 @@ export function AgroShiftProvider({ children }: { children: React.ReactNode }) {
     setActivities([]);
     setLatestClimateByFarm({});
     setLatestFieldHealthByFarm({});
+    setLatestRotationByFarm({});
   }, []);
 
   const recordClimateObservation = useCallback(
@@ -262,6 +194,13 @@ export function AgroShiftProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const recordRotationResult = useCallback(
+    (farmId: string, data: RotationPlanResponse) => {
+      setLatestRotationByFarm((prev) => ({ ...prev, [farmId]: data }));
+    },
+    []
+  );
+
   const value: AgroShiftContextValue = {
     farms,
     activeFarm,
@@ -270,9 +209,9 @@ export function AgroShiftProvider({ children }: { children: React.ReactNode }) {
     plans,
     activities,
     settings,
-    backendStatus,
     latestClimateByFarm,
     latestFieldHealthByFarm,
+    latestRotationByFarm,
     selectFarm,
     saveFarm,
     deleteFarm,
@@ -280,9 +219,9 @@ export function AgroShiftProvider({ children }: { children: React.ReactNode }) {
     deleteRotationPlan,
     updateSettings,
     clearLocalData,
-    refreshBackendHealth,
     recordClimateObservation,
     recordFieldHealthObservation,
+    recordRotationResult,
   };
 
   return (

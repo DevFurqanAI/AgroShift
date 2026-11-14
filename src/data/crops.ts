@@ -1,175 +1,220 @@
+import type { RotationCatalogCrop } from '../types/api';
+
 export interface CropCatalogItem {
   id: string;
   name: string;
   commonAliases: string[];
-  category: 'Cereal' | 'Legume' | 'Oilseed & Fiber' | 'Root & Tuber' | 'Horticulture' | 'Forage & Cover';
+  category:
+    | 'Cereal'
+    | 'Legume'
+    | 'Oilseed & Fiber'
+    | 'Root & Tuber'
+    | 'Horticulture'
+    | 'Forage & Cover';
   botanicalFamily: string;
   nitrogenFixing: boolean;
   typicalWaterProfile: 'Low' | 'Moderate' | 'High';
+  supportedByRotationEngine: boolean;
+  durationMonths?: number;
 }
+
+/**
+ * Backend catalog IDs from /api/v1/rotation/crops:
+ * canola, chickpea, cotton, cowpea, lentil, maize, millet,
+ * potato, rice, sorghum, soybean, sunflower, tomato, wheat.
+ */
+export const BACKEND_SUPPORTED_CROP_IDS = new Set([
+  'canola',
+  'chickpea',
+  'cotton',
+  'cowpea',
+  'lentil',
+  'maize',
+  'millet',
+  'potato',
+  'rice',
+  'sorghum',
+  'soybean',
+  'sunflower',
+  'tomato',
+  'wheat',
+]);
 
 export const GLOBAL_CROPS: CropCatalogItem[] = [
   {
     id: 'wheat',
     name: 'Wheat',
-    commonAliases: ['Winter Wheat', 'Spring Wheat', 'Durum'],
+    commonAliases: ['Winter Wheat', 'Spring Wheat', 'Durum', 'Gandum'],
     category: 'Cereal',
     botanicalFamily: 'Poaceae',
     nitrogenFixing: false,
     typicalWaterProfile: 'Moderate',
+    supportedByRotationEngine: true,
+    durationMonths: 5,
   },
   {
     id: 'maize',
-    name: 'Maize (Corn)',
-    commonAliases: ['Corn', 'Field Corn', 'Sweet Corn'],
+    name: 'Maize',
+    commonAliases: ['Corn', 'Field Corn', 'Sweet Corn', 'Makai'],
     category: 'Cereal',
     botanicalFamily: 'Poaceae',
     nitrogenFixing: false,
-    typicalWaterProfile: 'High',
+    typicalWaterProfile: 'Moderate',
+    supportedByRotationEngine: true,
+    durationMonths: 4,
   },
   {
     id: 'rice',
     name: 'Rice',
-    commonAliases: ['Paddy', 'Upland Rice'],
+    commonAliases: ['Paddy', 'Upland Rice', 'Chawal'],
     category: 'Cereal',
     botanicalFamily: 'Poaceae',
     nitrogenFixing: false,
     typicalWaterProfile: 'High',
+    supportedByRotationEngine: true,
+    durationMonths: 5,
   },
   {
     id: 'sorghum',
     name: 'Sorghum',
-    commonAliases: ['Jowar', 'Milo'],
+    commonAliases: ['Jowar', 'Milo', 'Guinea Corn'],
     category: 'Cereal',
     botanicalFamily: 'Poaceae',
     nitrogenFixing: false,
     typicalWaterProfile: 'Low',
+    supportedByRotationEngine: true,
+    durationMonths: 4,
   },
   {
-    id: 'pearl_millet',
-    name: 'Pearl Millet',
-    commonAliases: ['Bajra', 'Millet'],
+    id: 'millet',
+    name: 'Pearl millet',
+    commonAliases: ['Bajra', 'Millet', 'Pearl Millet'],
     category: 'Cereal',
     botanicalFamily: 'Poaceae',
     nitrogenFixing: false,
     typicalWaterProfile: 'Low',
-  },
-  {
-    id: 'barley',
-    name: 'Barley',
-    commonAliases: ['Spring Barley', 'Winter Barley'],
-    category: 'Cereal',
-    botanicalFamily: 'Poaceae',
-    nitrogenFixing: false,
-    typicalWaterProfile: 'Low',
+    supportedByRotationEngine: true,
+    durationMonths: 4,
   },
   {
     id: 'soybean',
     name: 'Soybean',
-    commonAliases: ['Soya'],
+    commonAliases: ['Soya', 'Soya Bean'],
     category: 'Legume',
     botanicalFamily: 'Fabaceae',
     nitrogenFixing: true,
     typicalWaterProfile: 'Moderate',
+    supportedByRotationEngine: true,
+    durationMonths: 4,
   },
   {
     id: 'chickpea',
     name: 'Chickpea',
-    commonAliases: ['Garbanzo', 'Chana'],
+    commonAliases: ['Garbanzo', 'Chana', 'Gram'],
     category: 'Legume',
     botanicalFamily: 'Fabaceae',
     nitrogenFixing: true,
     typicalWaterProfile: 'Low',
+    supportedByRotationEngine: true,
+    durationMonths: 4,
   },
   {
     id: 'lentil',
     name: 'Lentil',
-    commonAliases: ['Masoor'],
+    commonAliases: ['Masoor', 'Red Lentil'],
     category: 'Legume',
     botanicalFamily: 'Fabaceae',
     nitrogenFixing: true,
     typicalWaterProfile: 'Low',
+    supportedByRotationEngine: true,
+    durationMonths: 4,
   },
   {
     id: 'cowpea',
     name: 'Cowpea',
-    commonAliases: ['Black-eyed Pea', 'Niebe'],
+    commonAliases: ['Black-eyed Pea', 'Niebe', 'Lobia'],
     category: 'Legume',
     botanicalFamily: 'Fabaceae',
     nitrogenFixing: true,
     typicalWaterProfile: 'Low',
-  },
-  {
-    id: 'groundnut',
-    name: 'Groundnut (Peanut)',
-    commonAliases: ['Peanut'],
-    category: 'Legume',
-    botanicalFamily: 'Fabaceae',
-    nitrogenFixing: true,
-    typicalWaterProfile: 'Moderate',
-  },
-  {
-    id: 'mung_bean',
-    name: 'Mung Bean',
-    commonAliases: ['Green Gram'],
-    category: 'Legume',
-    botanicalFamily: 'Fabaceae',
-    nitrogenFixing: true,
-    typicalWaterProfile: 'Low',
-  },
-  {
-    id: 'faba_bean',
-    name: 'Faba Bean',
-    commonAliases: ['Broad Bean', 'Ful'],
-    category: 'Legume',
-    botanicalFamily: 'Fabaceae',
-    nitrogenFixing: true,
-    typicalWaterProfile: 'Moderate',
+    supportedByRotationEngine: true,
+    durationMonths: 3,
   },
   {
     id: 'cotton',
     name: 'Cotton',
-    commonAliases: ['Upland Cotton'],
+    commonAliases: ['Upland Cotton', 'Kapas'],
     category: 'Oilseed & Fiber',
     botanicalFamily: 'Malvaceae',
     nitrogenFixing: false,
     typicalWaterProfile: 'High',
+    supportedByRotationEngine: true,
+    durationMonths: 6,
   },
   {
     id: 'canola',
-    name: 'Canola / Rapeseed',
-    commonAliases: ['Rapeseed', 'Mustard Oilseed'],
+    name: 'Canola',
+    commonAliases: ['Rapeseed', 'Mustard Oilseed', 'Sarson'],
     category: 'Oilseed & Fiber',
     botanicalFamily: 'Brassicaceae',
     nitrogenFixing: false,
     typicalWaterProfile: 'Moderate',
+    supportedByRotationEngine: true,
+    durationMonths: 4,
   },
   {
     id: 'sunflower',
     name: 'Sunflower',
-    commonAliases: ['Oil Sunflower'],
+    commonAliases: ['Oil Sunflower', 'Surajmukhi'],
     category: 'Oilseed & Fiber',
     botanicalFamily: 'Asteraceae',
     nitrogenFixing: false,
-    typicalWaterProfile: 'Low',
-  },
-  {
-    id: 'sesame',
-    name: 'Sesame',
-    commonAliases: ['Til', 'Simsim'],
-    category: 'Oilseed & Fiber',
-    botanicalFamily: 'Pedaliaceae',
-    nitrogenFixing: false,
-    typicalWaterProfile: 'Low',
+    typicalWaterProfile: 'Moderate',
+    supportedByRotationEngine: true,
+    durationMonths: 4,
   },
   {
     id: 'potato',
     name: 'Potato',
-    commonAliases: ['Irish Potato'],
+    commonAliases: ['Irish Potato', 'Aloo'],
     category: 'Root & Tuber',
     botanicalFamily: 'Solanaceae',
     nitrogenFixing: false,
-    typicalWaterProfile: 'High',
+    typicalWaterProfile: 'Moderate',
+    supportedByRotationEngine: true,
+    durationMonths: 4,
+  },
+  {
+    id: 'tomato',
+    name: 'Tomato',
+    commonAliases: ['Field Tomato', 'Tamatar'],
+    category: 'Horticulture',
+    botanicalFamily: 'Solanaceae',
+    nitrogenFixing: false,
+    typicalWaterProfile: 'Moderate',
+    supportedByRotationEngine: true,
+    durationMonths: 4,
+  },
+  // Additional global crops (not yet in the 14-crop rotation engine catalog)
+  {
+    id: 'barley',
+    name: 'Barley',
+    commonAliases: ['Spring Barley', 'Winter Barley', 'Jau'],
+    category: 'Cereal',
+    botanicalFamily: 'Poaceae',
+    nitrogenFixing: false,
+    typicalWaterProfile: 'Low',
+    supportedByRotationEngine: false,
+  },
+  {
+    id: 'groundnut',
+    name: 'Groundnut (Peanut)',
+    commonAliases: ['Peanut', 'Mungphali'],
+    category: 'Legume',
+    botanicalFamily: 'Fabaceae',
+    nitrogenFixing: true,
+    typicalWaterProfile: 'Moderate',
+    supportedByRotationEngine: false,
   },
   {
     id: 'cassava',
@@ -179,33 +224,7 @@ export const GLOBAL_CROPS: CropCatalogItem[] = [
     botanicalFamily: 'Euphorbiaceae',
     nitrogenFixing: false,
     typicalWaterProfile: 'Low',
-  },
-  {
-    id: 'sweet_potato',
-    name: 'Sweet Potato',
-    commonAliases: ['Camote'],
-    category: 'Root & Tuber',
-    botanicalFamily: 'Convolvulaceae',
-    nitrogenFixing: false,
-    typicalWaterProfile: 'Moderate',
-  },
-  {
-    id: 'tomato',
-    name: 'Tomato',
-    commonAliases: ['Field Tomato'],
-    category: 'Horticulture',
-    botanicalFamily: 'Solanaceae',
-    nitrogenFixing: false,
-    typicalWaterProfile: 'High',
-  },
-  {
-    id: 'onion',
-    name: 'Onion',
-    commonAliases: ['Bulb Onion'],
-    category: 'Horticulture',
-    botanicalFamily: 'Amaryllidaceae',
-    nitrogenFixing: false,
-    typicalWaterProfile: 'Moderate',
+    supportedByRotationEngine: false,
   },
   {
     id: 'alfalfa',
@@ -215,15 +234,7 @@ export const GLOBAL_CROPS: CropCatalogItem[] = [
     botanicalFamily: 'Fabaceae',
     nitrogenFixing: true,
     typicalWaterProfile: 'Moderate',
-  },
-  {
-    id: 'crimson_clover',
-    name: 'Clover Cover Crop',
-    commonAliases: ['Berseem', 'Crimson Clover', 'Red Clover'],
-    category: 'Forage & Cover',
-    botanicalFamily: 'Fabaceae',
-    nitrogenFixing: true,
-    typicalWaterProfile: 'Moderate',
+    supportedByRotationEngine: false,
   },
   {
     id: 'fallow',
@@ -233,5 +244,75 @@ export const GLOBAL_CROPS: CropCatalogItem[] = [
     botanicalFamily: 'N/A',
     nitrogenFixing: false,
     typicalWaterProfile: 'Low',
+    supportedByRotationEngine: false,
   },
 ];
+
+const LOCAL_METADATA_BY_ID = new Map(GLOBAL_CROPS.map((c) => [c.id, c]));
+
+const FAMILY_TO_CATEGORY: Record<string, CropCatalogItem['category']> = {
+  poaceae: 'Cereal',
+  fabaceae: 'Legume',
+  malvaceae: 'Oilseed & Fiber',
+  brassicaceae: 'Oilseed & Fiber',
+  asteraceae: 'Oilseed & Fiber',
+  solanaceae: 'Horticulture',
+};
+
+const WATER_DISPLAY: Record<'low' | 'medium' | 'high', 'Low' | 'Moderate' | 'High'> = {
+  low: 'Low',
+  medium: 'Moderate',
+  high: 'High',
+};
+
+/**
+ * Merges live backend crops (/api/v1/rotation/crops) with local common aliases
+ * and appends non-engine global history crops (such as Fallow or Barley) clearly flagged.
+ */
+export function buildCropCatalog(
+  backendCrops: RotationCatalogCrop[] | null | undefined,
+  includeExtendedHistoryOptions = true
+): CropCatalogItem[] {
+  if (!backendCrops || backendCrops.length === 0) {
+    return includeExtendedHistoryOptions
+      ? GLOBAL_CROPS
+      : GLOBAL_CROPS.filter((c) => c.supportedByRotationEngine);
+  }
+
+  const fromBackend: CropCatalogItem[] = backendCrops.map((bc) => {
+    const local = LOCAL_METADATA_BY_ID.get(bc.id);
+    const familyLower = bc.family.toLowerCase();
+    const formattedFamily =
+      bc.family.charAt(0).toUpperCase() + bc.family.slice(1).toLowerCase();
+
+    return {
+      id: bc.id,
+      name: bc.name,
+      commonAliases: local?.commonAliases ?? [],
+      category:
+        local?.category ?? FAMILY_TO_CATEGORY[familyLower] ?? 'Horticulture',
+      botanicalFamily: formattedFamily,
+      nitrogenFixing: local?.nitrogenFixing ?? familyLower === 'fabaceae',
+      typicalWaterProfile: WATER_DISPLAY[bc.water_demand] ?? 'Moderate',
+      supportedByRotationEngine: true,
+      durationMonths: bc.duration_months,
+    };
+  });
+
+  if (!includeExtendedHistoryOptions) {
+    return fromBackend;
+  }
+
+  const backendIds = new Set(fromBackend.map((c) => c.id));
+  const extraHistoryCrops = GLOBAL_CROPS.filter((c) => !backendIds.has(c.id));
+  return [...fromBackend, ...extraHistoryCrops];
+}
+
+export function normalizeCropIdForBackend(cropId: string): string {
+  if (cropId === 'pearl_millet') return 'millet';
+  return cropId;
+}
+
+export function isEngineSupportedCropId(cropId: string): boolean {
+  return BACKEND_SUPPORTED_CROP_IDS.has(normalizeCropIdForBackend(cropId));
+}

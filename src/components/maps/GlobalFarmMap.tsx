@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import turfArea from '@turf/area';
-import { polygon as turfPolygon } from '@turf/helpers';
 import {
   MapPin,
   Pentagon,
@@ -11,30 +9,32 @@ import {
   Loader2,
   AlertCircle,
   Crosshair,
+  LocateFixed,
 } from 'lucide-react';
+import {
+  searchPlaces,
+  type PlaceSearchCandidate,
+} from '../../services/geocoding/nominatimService';
 import type { GeoJSONPolygon } from '../../types/farm';
+import { computePolygonMetrics, type LatLonPoint } from '../../utils/geo';
 import { hectaresToAcres } from '../../utils/units';
-
-interface SearchResult {
-  place_id: number;
-  display_name: string;
-  lat: string;
-  lon: string;
-}
 
 interface GlobalFarmMapProps {
   latitude: number | null;
   longitude: number | null;
   polygonGeoJSON: GeoJSONPolygon | null;
   geometryType: 'point' | 'polygon';
+  searchCountryCode?: string;
   focusTarget?: { lat: number; lon: number; zoom: number } | null;
   readOnly?: boolean;
   heightClass?: string;
-  onPointChange?: (lat: number, lon: number) => void;
+  onPointChange?: (lat: number, lon: number, source: 'map_click' | 'device_geolocation') => void;
+  onSearchSelect?: (candidate: PlaceSearchCandidate) => void;
   onPolygonChange?: (
     polygon: GeoJSONPolygon | null,
     estimatedHectares: number | null,
-    centroid: { lat: number; lon: number } | null
+    representativePoint: LatLonPoint | null,
+    validationError: string | null
   ) => void;
   onModeChange?: (mode: 'point' | 'polygon') => void;
 }
@@ -57,54 +57,17 @@ function createVertexIcon() {
   });
 }
 
-function ringToGeoJSON(vertices: Array<[number, number]>): GeoJSONPolygon | null {
-  if (vertices.length < 3) return null;
-  const coords = vertices.map(([lat, lon]) => [Number(lon.toFixed(6)), Number(lat.toFixed(6))]);
-  coords.push([...coords[0]]);
-  return {
-    type: 'Polygon',
-    coordinates: [coords],
-  };
-}
-
-function computeAreaAndCentroid(vertices: Array<[number, number]>): {
-  geojson: GeoJSONPolygon | null;
-  hectares: number | null;
-  centroid: { lat: number; lon: number } | null;
-} {
-  const geojson = ringToGeoJSON(vertices);
-  if (!geojson) {
-    return { geojson: null, hectares: null, centroid: null };
-  }
-  try {
-    const sqMeters = turfArea(turfPolygon(geojson.coordinates));
-    const hectares = Number((sqMeters / 10000).toFixed(3));
-    const sum = vertices.reduce(
-      (acc, [lat, lon]) => ({ lat: acc.lat + lat, lon: acc.lon + lon }),
-      { lat: 0, lon: 0 }
-    );
-    return {
-      geojson,
-      hectares,
-      centroid: {
-        lat: Number((sum.lat / vertices.length).toFixed(6)),
-        lon: Number((sum.lon / vertices.length).toFixed(6)),
-      },
-    };
-  } catch {
-    return { geojson: null, hectares: null, centroid: null };
-  }
-}
-
 export function GlobalFarmMap({
   latitude,
   longitude,
   polygonGeoJSON,
   geometryType,
+  searchCountryCode,
   focusTarget,
   readOnly = false,
   heightClass = 'h-[380px] sm:h-[440px]',
   onPointChange,
+  onSearchSelect,
   onPolygonChange,
   onModeChange,
 }: GlobalFarmMapProps) {
@@ -124,9 +87,11 @@ export function GlobalFarmMap({
   });
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchResults, setSearchResults] = useState<PlaceSearchCandidate[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
   const [tileError, setTileError] = useState(false);
 
   const drawModeRef = useRef(drawMode);
@@ -141,6 +106,36 @@ export function GlobalFarmMap({
   useEffect(() => {
     setDrawMode(geometryType);
   }, [geometryType]);
+
+  // Sync external polygon clear (e.g. if parent resets polygonGeoJSON to null while not drawing)
+  useEffect(() => {
+    if (polygonGeoJSON === null && geometryType === 'point' && vertices.length > 0) {
+      setVertices([]);
+    }
+  }, [polygonGeoJSON, geometryType, vertices.length]);
+
+  const emitPolygonUpdate = (nextVertices: Array<[number, number]>) => {
+    if (nextVertices.length === 0) {
+      onPolygonChangeRef.current?.(null, null, null, null);
+      return;
+    }
+    if (nextVertices.length < 3) {
+      onPolygonChangeRef.current?.(
+        null,
+        null,
+        null,
+        'Add at least 3 boundary corners to complete the field polygon.'
+      );
+      return;
+    }
+    const metrics = computePolygonMetrics(nextVertices);
+    onPolygonChangeRef.current?.(
+      metrics.geojson,
+      metrics.estimatedHectares,
+      metrics.representativePoint,
+      metrics.error
+    );
+  };
 
   // Initialize Leaflet map once
   useEffect(() => {
@@ -162,13 +157,8 @@ export function GlobalFarmMap({
       maxZoom: 19,
     });
 
-    tileLayer.on('tileerror', () => {
-      setTileError(true);
-    });
-    tileLayer.on('tileload', () => {
-      setTileError(false);
-    });
-
+    tileLayer.on('tileerror', () => setTileError(true));
+    tileLayer.on('tileload', () => setTileError(false));
     tileLayer.addTo(map);
 
     map.on('click', (e: L.LeafletMouseEvent) => {
@@ -177,12 +167,11 @@ export function GlobalFarmMap({
       const lon = Number(e.latlng.lng.toFixed(6));
 
       if (drawModeRef.current === 'point') {
-        onPointChangeRef.current?.(lat, lon);
+        onPointChangeRef.current?.(lat, lon, 'map_click');
       } else {
         setVertices((prev) => {
           const next = [...prev, [lat, lon] as [number, number]];
-          const { geojson, hectares, centroid } = computeAreaAndCentroid(next);
-          onPolygonChangeRef.current?.(geojson, hectares, centroid);
+          emitPolygonUpdate(next);
           return next;
         });
       }
@@ -197,7 +186,7 @@ export function GlobalFarmMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Pan map when focusTarget changes explicitly (e.g. country select or search pick)
+  // Pan map when focusTarget changes explicitly
   useEffect(() => {
     if (!mapRef.current || !focusTarget) return;
     mapRef.current.setView([focusTarget.lat, focusTarget.lon], focusTarget.zoom, {
@@ -231,7 +220,8 @@ export function GlobalFarmMap({
           const pos = marker.getLatLng();
           onPointChangeRef.current?.(
             Number(pos.lat.toFixed(6)),
-            Number(pos.lng.toFixed(6))
+            Number(pos.lng.toFixed(6)),
+            'map_click'
           );
         });
       }
@@ -239,6 +229,8 @@ export function GlobalFarmMap({
       markerRef.current = marker;
     }
   }, [latitude, longitude, readOnly, drawMode]);
+
+  const polygonMetrics = computePolygonMetrics(vertices);
 
   // Sync polygon + editable vertices
   useEffect(() => {
@@ -253,11 +245,12 @@ export function GlobalFarmMap({
     vertexMarkersRef.current = [];
 
     if (vertices.length >= 2) {
+      const isInvalid = vertices.length >= 3 && !polygonMetrics.valid;
       const poly = L.polygon(vertices, {
-        color: '#16A34A',
+        color: isInvalid ? '#DC2626' : '#16A34A',
         weight: 2.5,
-        fillColor: '#10B981',
-        fillOpacity: 0.2,
+        fillColor: isInvalid ? '#DC2626' : '#10B981',
+        fillOpacity: isInvalid ? 0.14 : 0.2,
       }).addTo(map);
       polygonLayerRef.current = poly;
     }
@@ -280,8 +273,7 @@ export function GlobalFarmMap({
                   ])
                 : pt
             );
-            const { geojson, hectares, centroid } = computeAreaAndCentroid(next);
-            onPolygonChangeRef.current?.(geojson, hectares, centroid);
+            emitPolygonUpdate(next);
             return next;
           });
         });
@@ -289,7 +281,7 @@ export function GlobalFarmMap({
         return vm;
       });
     }
-  }, [vertices, readOnly, drawMode]);
+  }, [vertices, readOnly, drawMode, polygonMetrics.valid]);
 
   const handleModeSwitch = (mode: 'point' | 'polygon') => {
     setDrawMode(mode);
@@ -299,15 +291,14 @@ export function GlobalFarmMap({
   const handleUndoVertex = () => {
     setVertices((prev) => {
       const next = prev.slice(0, -1);
-      const { geojson, hectares, centroid } = computeAreaAndCentroid(next);
-      onPolygonChange?.(geojson, hectares, centroid);
+      emitPolygonUpdate(next);
       return next;
     });
   };
 
   const handleClearPolygon = () => {
     setVertices([]);
-    onPolygonChange?.(null, null, null);
+    onPolygonChange?.(null, null, null, null);
   };
 
   const handleCenterOnSelection = () => {
@@ -319,6 +310,40 @@ export function GlobalFarmMap({
     }
   };
 
+  const handleUseDeviceLocation = () => {
+    if (readOnly) return;
+    setGeoError(null);
+
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setGeoError('Device location is not supported in this browser. Search or click on the map instead.');
+      return;
+    }
+
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setGeoLoading(false);
+        const lat = Number(position.coords.latitude.toFixed(6));
+        const lon = Number(position.coords.longitude.toFixed(6));
+        if (mapRef.current) {
+          mapRef.current.setView([lat, lon], 15, { animate: true });
+        }
+        setDrawMode('point');
+        onModeChange?.('point');
+        onPointChange?.(lat, lon, 'device_geolocation');
+      },
+      (err) => {
+        setGeoLoading(false);
+        if (err.code === err.PERMISSION_DENIED) {
+          setGeoError('Location permission was declined. You can search for a place or click on the map.');
+        } else {
+          setGeoError('Could not read your current device location. Please search or click on the map.');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
   const handlePlaceSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     const q = searchQuery.trim();
@@ -327,49 +352,43 @@ export function GlobalFarmMap({
     setIsSearching(true);
     setSearchError(null);
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(
-          q
-        )}`,
-        {
-          headers: { Accept: 'application/json' },
-        }
-      );
-      if (!res.ok) throw new Error('Place search service unavailable');
-      const data = (await res.json()) as SearchResult[];
-      setSearchResults(data);
-      if (data.length === 0) {
-        setSearchError('No matching locations found. Try a broader city, district, or region name.');
+      const results = await searchPlaces(q, { countryCode: searchCountryCode });
+      setSearchResults(results);
+      if (results.length === 0) {
+        setSearchError(
+          'No matching locations found. Try a nearby town, district, or clear the country filter.'
+        );
       }
-    } catch {
+    } catch (err) {
+      console.error('[AgroShift Map] Place search failed:', err);
       setSearchError(
-        'Location search could not reach OpenStreetMap Nominatim. You can click the map or enter coordinates manually.'
+        'Location search could not be reached right now. You can click the map or enter coordinates manually.'
       );
     } finally {
       setIsSearching(false);
     }
   };
 
-  const handleSelectSearchResult = (item: SearchResult) => {
-    const lat = Number(parseFloat(item.lat).toFixed(6));
-    const lon = Number(parseFloat(item.lon).toFixed(6));
+  const handleSelectSearchResult = (item: PlaceSearchCandidate) => {
     if (mapRef.current) {
-      mapRef.current.setView([lat, lon], 13, { animate: true });
+      mapRef.current.setView([item.latitude, item.longitude], 13, { animate: true });
     }
-    if (!readOnly && drawMode === 'point') {
-      onPointChange?.(lat, lon);
+    if (!readOnly) {
+      if (onSearchSelect) {
+        onSearchSelect(item);
+      } else if (drawMode === 'point') {
+        onPointChange?.(item.latitude, item.longitude, 'map_click');
+      }
     }
     setSearchResults([]);
   };
 
-  const polygonStats = computeAreaAndCentroid(vertices);
-
   return (
     <div className="space-y-3">
       {!readOnly && (
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Place Search */}
-          <form onSubmit={handlePlaceSearch} className="relative flex-1 max-w-md">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+          {/* Place Search (Submitted explicitly, never per keystroke) */}
+          <form onSubmit={handlePlaceSearch} className="relative flex-1 max-w-lg">
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="w-4 h-4 text-[#64748B] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -377,34 +396,43 @@ export function GlobalFarmMap({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search village, town, district, or country..."
+                  placeholder="Search village, town, district, or address..."
                   aria-label="Search location on map"
                   className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310] text-[#172B22] dark:text-[#E8F1EC] focus:outline-none focus:ring-2 focus:ring-[#16A34A]"
                 />
               </div>
               <button
                 type="submit"
-                disabled={isSearching}
+                disabled={isSearching || !searchQuery.trim()}
                 className="px-3.5 py-2 text-sm font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] text-[#172B22] dark:text-[#E8F1EC] hover:bg-[#F8FAF7] dark:hover:bg-[#182821] transition-colors whitespace-nowrap shrink-0 disabled:opacity-60"
               >
-                {isSearching ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
+              </button>
+              <button
+                type="button"
+                onClick={handleUseDeviceLocation}
+                disabled={geoLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] text-[#14532D] dark:text-[#10B981] hover:bg-[#F8FAF7] dark:hover:bg-[#182821] transition-colors whitespace-nowrap shrink-0 disabled:opacity-60"
+              >
+                {geoLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
-                  'Find'
+                  <LocateFixed className="w-3.5 h-3.5" />
                 )}
+                Use My Location
               </button>
             </div>
 
             {searchResults.length > 0 && (
               <ul className="absolute z-30 left-0 right-0 mt-1 rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] shadow-lg divide-y divide-[#E2E8F0] dark:divide-[#1E2E26] max-h-56 overflow-y-auto">
                 {searchResults.map((res) => (
-                  <li key={res.place_id}>
+                  <li key={res.placeId}>
                     <button
                       type="button"
                       onClick={() => handleSelectSearchResult(res)}
                       className="w-full text-left px-3.5 py-2.5 text-xs text-[#172B22] dark:text-[#E8F1EC] hover:bg-[#F8FAF7] dark:hover:bg-[#182821] transition-colors"
                     >
-                      {res.display_name}
+                      {res.displayName}
                     </button>
                   </li>
                 ))}
@@ -477,10 +505,24 @@ export function GlobalFarmMap({
         </div>
       )}
 
+      {geoError && (
+        <div className="flex items-center gap-2 text-xs text-[#D97706]">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{geoError}</span>
+        </div>
+      )}
+
       {searchError && (
         <div className="flex items-center gap-2 text-xs text-[#D97706]">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{searchError}</span>
+        </div>
+      )}
+
+      {!readOnly && drawMode === 'polygon' && polygonMetrics.error && vertices.length >= 3 && (
+        <div role="alert" className="flex items-center gap-2 text-xs font-medium text-[#DC2626]">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{polygonMetrics.error}</span>
         </div>
       )}
 
@@ -505,14 +547,14 @@ export function GlobalFarmMap({
               ? 'Showing saved field boundary polygon and farm reference point.'
               : 'Showing saved farm reference point.'
             : drawMode === 'point'
-              ? 'Click anywhere on the map or drag the pin to place your farm point.'
-              : 'Click on the map to add field boundary corners (minimum 3 points). Drag white corners to adjust.'}
+              ? 'Click on the map, drag the pin, search a place, or click Use My Location.'
+              : 'Click on the map to add boundary corners (minimum 3 points, non-crossing). Drag corners to adjust.'}
         </span>
 
-        {polygonStats.hectares !== null && (
+        {polygonMetrics.valid && polygonMetrics.estimatedHectares !== null && (
           <span className="font-mono tabular-nums text-[#14532D] dark:text-[#10B981]">
-            Estimated boundary area: ~{polygonStats.hectares.toFixed(2)} ha (
-            {hectaresToAcres(polygonStats.hectares).toFixed(2)} ac)
+            Estimated land area: ~{polygonMetrics.estimatedHectares.toFixed(2)} ha (
+            {hectaresToAcres(polygonMetrics.estimatedHectares).toFixed(2)} ac)
           </span>
         )}
       </div>

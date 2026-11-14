@@ -1,48 +1,71 @@
 import type {
-  ApiConnectionInfo,
   AssistantStatusResponse,
-  BackendHealthResponse,
   ClimateHistoryResponse,
   FieldAnalyzeRequest,
   FieldAnalyzeResponse,
+  RotationCropsResponse,
+  RotationPlanRequest,
+  RotationPlanResponse,
 } from '../../types/api';
 import { normalizeBaseUrl } from '../../utils/validation';
 
+export const DEFAULT_PRODUCTION_API_URL = 'https://agroshift-backend-o6kr.onrender.com';
+
+export const FARMER_ERROR_MESSAGES = {
+  generic:
+    "We couldn't retrieve the latest environmental information. Your farm details are safe. Please try again.",
+  climate:
+    'Climate information is temporarily unavailable. Your farm details are safe. Please try again.',
+  fieldHealth:
+    "We couldn't analyze this field right now. Your farm details are safe. Please try again.",
+  rotation:
+    "We couldn't retrieve rotation options right now. Your farm details are safe. Please try again.",
+  catalog:
+    'Live crop catalog could not be loaded. Showing standard crop options.',
+} as const;
+
+export function resolveApiBaseUrl(overrideUrl?: string): string {
+  if (overrideUrl) {
+    const clean = normalizeBaseUrl(overrideUrl);
+    if (clean) return clean;
+  }
+  const metaEnv = (import.meta as { env?: Record<string, string | undefined> }).env;
+  const envUrl = normalizeBaseUrl(metaEnv?.VITE_API_BASE_URL || '');
+  return envUrl || DEFAULT_PRODUCTION_API_URL;
+}
+
 export class ApiClientError extends Error {
   readonly status?: number;
-  readonly code: 'NOT_CONFIGURED' | 'TIMEOUT' | 'NETWORK_ERROR' | 'HTTP_ERROR' | 'INVALID_RESPONSE';
+  readonly code: 'TIMEOUT' | 'NETWORK_ERROR' | 'HTTP_ERROR' | 'INVALID_RESPONSE';
+  readonly technicalDetail?: string;
 
   constructor(
-    message: string,
+    farmerMessage: string,
     code: ApiClientError['code'],
-    status?: number
+    status?: number,
+    technicalDetail?: string
   ) {
-    super(message);
+    super(farmerMessage);
     this.name = 'ApiClientError';
     this.code = code;
     this.status = status;
+    this.technicalDetail = technicalDetail;
   }
-}
-
-export function resolveApiConnection(customUrl?: string): ApiConnectionInfo {
-  const custom = normalizeBaseUrl(customUrl || '');
-  if (custom) {
-    return { configured: true, baseUrl: custom, source: 'custom' };
-  }
-  const envUrl = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL || '');
-  if (envUrl) {
-    return { configured: true, baseUrl: envUrl, source: 'env' };
-  }
-  return { configured: false, baseUrl: '', source: 'none' };
 }
 
 async function fetchJsonWithTimeout<T>(
   url: string,
-  options: RequestInit & { timeoutMs?: number } = {}
+  options: RequestInit & { timeoutMs?: number; farmerErrorMessage?: string } = {}
 ): Promise<T> {
-  const { timeoutMs = 20000, signal: externalSignal, ...fetchOptions } = options;
+  const {
+    timeoutMs = 25000,
+    signal: externalSignal,
+    farmerErrorMessage = FARMER_ERROR_MESSAGES.generic,
+    ...fetchOptions
+  } = options;
+
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
 
   const onExternalAbort = () => controller.abort();
   if (externalSignal) {
@@ -63,23 +86,30 @@ async function fetchJsonWithTimeout<T>(
     const isJson = contentType.includes('application/json');
 
     if (!response.ok) {
-      let detail = `Server returned HTTP ${response.status}`;
+      let detail = `HTTP ${response.status}`;
       if (isJson) {
         try {
-          const errJson = (await response.json()) as { detail?: string; error?: string; message?: string };
+          const errJson = (await response.json()) as {
+            detail?: string;
+            error?: string;
+            message?: string;
+          };
           detail = errJson.detail || errJson.error || errJson.message || detail;
         } catch {
-          // Keep default detail
+          // Keep status detail
         }
       }
-      throw new ApiClientError(detail, 'HTTP_ERROR', response.status);
+      console.error(`[AgroShift API] Request failed (${url}):`, response.status, detail);
+      throw new ApiClientError(farmerErrorMessage, 'HTTP_ERROR', response.status, detail);
     }
 
     if (!isJson) {
+      console.error(`[AgroShift API] Non-JSON response (${url}):`, response.status);
       throw new ApiClientError(
-        'Backend returned a non-JSON response.',
+        farmerErrorMessage,
         'INVALID_RESPONSE',
-        response.status
+        response.status,
+        'Non-JSON response body'
       );
     }
 
@@ -90,59 +120,35 @@ async function fetchJsonWithTimeout<T>(
       if (externalSignal?.aborted) {
         throw err;
       }
-      throw new ApiClientError(
-        'The request timed out while waiting for the backend server.',
-        'TIMEOUT'
-      );
+      console.error(`[AgroShift API] Request timed out (${url})`);
+      throw new ApiClientError(farmerErrorMessage, 'TIMEOUT', undefined, 'Request timeout');
     }
+    console.error(`[AgroShift API] Network failure (${url}):`, err);
     throw new ApiClientError(
-      'Unable to connect to the FastAPI backend. Verify the server is running and CORS allows this origin.',
-      'NETWORK_ERROR'
+      farmerErrorMessage,
+      'NETWORK_ERROR',
+      undefined,
+      err instanceof Error ? err.message : String(err)
     );
   } finally {
-    window.clearTimeout(timeoutId);
+    globalThis.clearTimeout(timeoutId);
     if (externalSignal) {
       externalSignal.removeEventListener('abort', onExternalAbort);
     }
   }
 }
 
-export async function checkBackendHealth(
-  baseUrl: string,
-  signal?: AbortSignal
-): Promise<BackendHealthResponse> {
-  const clean = normalizeBaseUrl(baseUrl);
-  if (!clean) {
-    throw new ApiClientError(
-      'No FastAPI backend URL is configured (VITE_API_BASE_URL is empty).',
-      'NOT_CONFIGURED'
-    );
-  }
-  return fetchJsonWithTimeout<BackendHealthResponse>(`${clean}/`, {
-    method: 'GET',
-    timeoutMs: 10000,
-    signal,
-  });
-}
-
 export async function fetchClimateHistory(
-  baseUrl: string,
   params: {
     latitude: number;
     longitude: number;
     startYear: number;
     endYear: number;
   },
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  baseUrlOverride?: string
 ): Promise<ClimateHistoryResponse> {
-  const clean = normalizeBaseUrl(baseUrl);
-  if (!clean) {
-    throw new ApiClientError(
-      'No FastAPI backend URL is configured. Configure VITE_API_BASE_URL or add your backend URL in Settings.',
-      'NOT_CONFIGURED'
-    );
-  }
-
+  const baseUrl = resolveApiBaseUrl(baseUrlOverride);
   const query = new URLSearchParams({
     latitude: String(params.latitude),
     longitude: String(params.longitude),
@@ -151,54 +157,127 @@ export async function fetchClimateHistory(
   });
 
   const data = await fetchJsonWithTimeout<ClimateHistoryResponse>(
-    `${clean}/api/v1/climate/history?${query.toString()}`,
+    `${baseUrl}/api/v1/climate/history?${query.toString()}`,
     {
       method: 'GET',
-      timeoutMs: 25000,
+      timeoutMs: 30000,
+      farmerErrorMessage: FARMER_ERROR_MESSAGES.climate,
       signal,
     }
   );
 
   if (!data || typeof data !== 'object' || typeof data.data_available !== 'boolean') {
+    console.error('[AgroShift API] Invalid climate payload shape:', data);
     throw new ApiClientError(
-      'Unexpected climate response format from backend.',
-      'INVALID_RESPONSE'
+      FARMER_ERROR_MESSAGES.climate,
+      'INVALID_RESPONSE',
+      undefined,
+      'Missing data_available boolean'
+    );
+  }
+
+  return {
+    ...data,
+    monthly: Array.isArray(data.monthly) ? data.monthly : [],
+  };
+}
+
+export async function analyzeFieldHealth(
+  payload: FieldAnalyzeRequest,
+  signal?: AbortSignal,
+  baseUrlOverride?: string
+): Promise<FieldAnalyzeResponse> {
+  const baseUrl = resolveApiBaseUrl(baseUrlOverride);
+  const sanitizedPayload: FieldAnalyzeRequest = {
+    latitude: payload.latitude,
+    longitude: payload.longitude,
+    acres: Math.max(0, Number(payload.acres) || 0),
+    polygon_geojson: payload.polygon_geojson ?? null,
+    language: payload.language === 'ur' ? 'ur' : 'en',
+  };
+
+  const data = await fetchJsonWithTimeout<FieldAnalyzeResponse>(
+    `${baseUrl}/api/v1/analyze`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(sanitizedPayload),
+      timeoutMs: 35000,
+      farmerErrorMessage: FARMER_ERROR_MESSAGES.fieldHealth,
+      signal,
+    }
+  );
+
+  if (!data || typeof data !== 'object' || typeof data.satellite_available !== 'boolean') {
+    console.error('[AgroShift API] Invalid analyze payload shape:', data);
+    throw new ApiClientError(
+      FARMER_ERROR_MESSAGES.fieldHealth,
+      'INVALID_RESPONSE',
+      undefined,
+      'Unexpected /api/v1/analyze payload'
     );
   }
 
   return data;
 }
 
-export async function analyzeFieldHealth(
-  baseUrl: string,
-  payload: FieldAnalyzeRequest,
-  signal?: AbortSignal
-): Promise<FieldAnalyzeResponse> {
-  const clean = normalizeBaseUrl(baseUrl);
-  if (!clean) {
+export async function fetchRotationCrops(
+  signal?: AbortSignal,
+  baseUrlOverride?: string
+): Promise<RotationCropsResponse> {
+  const baseUrl = resolveApiBaseUrl(baseUrlOverride);
+  const data = await fetchJsonWithTimeout<RotationCropsResponse>(
+    `${baseUrl}/api/v1/rotation/crops`,
+    {
+      method: 'GET',
+      timeoutMs: 20000,
+      farmerErrorMessage: FARMER_ERROR_MESSAGES.catalog,
+      signal,
+    }
+  );
+
+  if (!data || !Array.isArray(data.crops)) {
+    console.error('[AgroShift API] Invalid rotation crops payload:', data);
     throw new ApiClientError(
-      'No FastAPI backend URL is configured. Configure VITE_API_BASE_URL or add your backend URL in Settings.',
-      'NOT_CONFIGURED'
+      FARMER_ERROR_MESSAGES.catalog,
+      'INVALID_RESPONSE',
+      undefined,
+      'Invalid /api/v1/rotation/crops payload'
     );
   }
 
-  const data = await fetchJsonWithTimeout<FieldAnalyzeResponse>(
-    `${clean}/api/v1/analyze`,
+  return data;
+}
+
+export async function fetchRotationPlan(
+  payload: RotationPlanRequest,
+  signal?: AbortSignal,
+  baseUrlOverride?: string
+): Promise<RotationPlanResponse> {
+  const baseUrl = resolveApiBaseUrl(baseUrlOverride);
+  const data = await fetchJsonWithTimeout<RotationPlanResponse>(
+    `${baseUrl}/api/v1/rotation/plan`,
     {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
-      timeoutMs: 30000,
+      timeoutMs: 35000,
+      farmerErrorMessage: FARMER_ERROR_MESSAGES.rotation,
       signal,
     }
   );
 
-  if (!data || typeof data !== 'object') {
+  if (!data || typeof data !== 'object' || typeof data.status !== 'string') {
+    console.error('[AgroShift API] Invalid rotation plan payload:', data);
     throw new ApiClientError(
-      'Unexpected field analysis response format from backend.',
-      'INVALID_RESPONSE'
+      FARMER_ERROR_MESSAGES.rotation,
+      'INVALID_RESPONSE',
+      undefined,
+      'Invalid /api/v1/rotation/plan payload'
     );
   }
 
@@ -211,6 +290,7 @@ export async function getAssistantStatus(
   return fetchJsonWithTimeout<AssistantStatusResponse>('/api/assistant/status', {
     method: 'GET',
     timeoutMs: 8000,
+    farmerErrorMessage: 'The assistant is temporarily unavailable. Please try again later.',
     signal,
   });
 }
@@ -228,6 +308,7 @@ export async function sendAssistantMessage(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
     timeoutMs: 30000,
+    farmerErrorMessage: "We couldn't get a response right now. Please try again.",
     signal,
   });
 }

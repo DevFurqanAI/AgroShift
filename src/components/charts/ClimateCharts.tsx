@@ -19,6 +19,51 @@ const MONTH_NAMES = [
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ];
 
+export interface ParsedMonthlyClimatePoint {
+  year: number;
+  monthNum: number;
+  monthKey: string;
+  label: string;
+  temperatureC: number | null;
+  precipMmDay: number | null;
+  estimatedMonthlyMm: number | null;
+}
+
+export function parseClimateMonthlyRecord(
+  pt: ClimateHistoryMonthlyPoint
+): ParsedMonthlyClimatePoint | null {
+  if (!pt || typeof pt.month !== 'string' || !/^\d{6}$/.test(pt.month)) {
+    return null;
+  }
+  const year = Number(pt.month.slice(0, 4));
+  const monthNum = Number(pt.month.slice(4, 6));
+  if (!Number.isFinite(year) || monthNum < 1 || monthNum > 12) return null;
+
+  const mName = MONTH_NAMES[monthNum - 1] ?? `M${monthNum}`;
+  return {
+    year,
+    monthNum,
+    monthKey: pt.month,
+    label: `${mName} ${year}`,
+    temperatureC:
+      pt.temperature_c !== null && pt.temperature_c !== undefined && Number.isFinite(pt.temperature_c)
+        ? pt.temperature_c
+        : null,
+    precipMmDay:
+      pt.precipitation_mm_per_day !== null &&
+      pt.precipitation_mm_per_day !== undefined &&
+      Number.isFinite(pt.precipitation_mm_per_day)
+        ? pt.precipitation_mm_per_day
+        : null,
+    estimatedMonthlyMm:
+      pt.estimated_monthly_precipitation_mm !== null &&
+      pt.estimated_monthly_precipitation_mm !== undefined &&
+      Number.isFinite(pt.estimated_monthly_precipitation_mm)
+        ? pt.estimated_monthly_precipitation_mm
+        : null,
+  };
+}
+
 interface ClimateChartsProps {
   monthlyData: ClimateHistoryMonthlyPoint[];
   temperatureUnit: TemperatureUnit;
@@ -28,50 +73,38 @@ export function ClimateCharts({ monthlyData, temperatureUnit }: ClimateChartsPro
   const isF = temperatureUnit === 'fahrenheit';
   const tempUnitLabel = isF ? '°F' : '°C';
 
-  // Determine whether backend provided estimated_monthly_precipitation_mm on records
-  const hasEstimatedMonthlyMm = monthlyData.some(
-    (pt) =>
-      pt.estimated_monthly_precipitation_mm !== null &&
-      pt.estimated_monthly_precipitation_mm !== undefined
-  );
+  const parsed = monthlyData
+    .map(parseClimateMonthlyRecord)
+    .filter((x): x is ParsedMonthlyClimatePoint => x !== null)
+    .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.monthNum - b.monthNum));
+
+  const hasEstimatedMonthlyMm = parsed.some((pt) => pt.estimatedMonthlyMm !== null);
 
   // Build chronological series preserving null gaps (never turn null into 0)
-  const chronologicalSeries = monthlyData
-    .slice()
-    .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month))
-    .map((pt) => {
-      const mLabel = pt.month_label || MONTH_NAMES[(pt.month - 1) % 12] || `M${pt.month}`;
-      const toDisplayTemp = (val?: number | null) =>
-        val === null || val === undefined || !Number.isFinite(val)
-          ? null
-          : Number((isF ? celsiusToFahrenheit(val) : val).toFixed(1));
-
-      return {
-        label: `${mLabel} ${pt.year}`,
-        avgTemp: toDisplayTemp(pt.t2m_c),
-        maxTemp: toDisplayTemp(pt.t2m_max_c),
-        minTemp: toDisplayTemp(pt.t2m_min_c),
-        precipValue: hasEstimatedMonthlyMm
-          ? pt.estimated_monthly_precipitation_mm ?? null
-          : pt.prectotcorr_mm_day ?? null,
-      };
-    });
+  const chronologicalSeries = parsed.map((pt) => ({
+    label: pt.label,
+    avgTemp:
+      pt.temperatureC === null
+        ? null
+        : Number((isF ? celsiusToFahrenheit(pt.temperatureC) : pt.temperatureC).toFixed(1)),
+    precipValue: hasEstimatedMonthlyMm ? pt.estimatedMonthlyMm : pt.precipMmDay,
+  }));
 
   // Compute monthly climatology (across selected years, averaging only non-null points)
   const monthlyClimatology = MONTH_NAMES.map((name, idx) => {
     const monthNum = idx + 1;
-    const rows = monthlyData.filter((d) => d.month === monthNum);
+    const rows = parsed.filter((d) => d.monthNum === monthNum);
 
-    const avgNonNull = (vals: Array<number | null | undefined>) => {
-      const valid = vals.filter((v): v is number => v !== null && v !== undefined && Number.isFinite(v));
+    const avgNonNull = (vals: Array<number | null>) => {
+      const valid = vals.filter((v): v is number => v !== null && Number.isFinite(v));
       if (valid.length === 0) return null;
       return Number((valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(2));
     };
 
-    const meanTempC = avgNonNull(rows.map((r) => r.t2m_c));
+    const meanTempC = avgNonNull(rows.map((r) => r.temperatureC));
     const meanPrecip = hasEstimatedMonthlyMm
-      ? avgNonNull(rows.map((r) => r.estimated_monthly_precipitation_mm))
-      : avgNonNull(rows.map((r) => r.prectotcorr_mm_day));
+      ? avgNonNull(rows.map((r) => r.estimatedMonthlyMm))
+      : avgNonNull(rows.map((r) => r.precipMmDay));
 
     return {
       month: name,
@@ -94,7 +127,7 @@ export function ClimateCharts({ monthlyData, temperatureUnit }: ClimateChartsPro
       <section className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5">
         <div className="mb-4">
           <h3 className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
-            Historical Monthly Temperature ({tempUnitLabel})
+            Historical Monthly Mean Temperature ({tempUnitLabel})
           </h3>
           <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-1">
             NASA POWER historical surface air temperature observations across selected months. Gaps indicate missing observations.
@@ -133,24 +166,6 @@ export function ClimateCharts({ monthlyData, temperatureUnit }: ClimateChartsPro
                 dot={false}
                 connectNulls={false}
               />
-              <Line
-                type="monotone"
-                dataKey="maxTemp"
-                name={`Max Temp (${tempUnitLabel})`}
-                stroke="#D97706"
-                strokeWidth={1.5}
-                dot={false}
-                connectNulls={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="minTemp"
-                name={`Min Temp (${tempUnitLabel})`}
-                stroke="#10B981"
-                strokeWidth={1.5}
-                dot={false}
-                connectNulls={false}
-              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -164,7 +179,10 @@ export function ClimateCharts({ monthlyData, temperatureUnit }: ClimateChartsPro
               Historical Precipitation Pattern
             </h3>
             <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-1">
-              Displayed unit: <span className="font-medium text-[#172B22] dark:text-[#E8F1EC]">{precipLabel}</span>
+              Displayed unit:{' '}
+              <span className="font-medium text-[#172B22] dark:text-[#E8F1EC]">
+                {precipLabel}
+              </span>
             </p>
           </div>
           <div className="h-[260px] w-full">
@@ -176,10 +194,7 @@ export function ClimateCharts({ monthlyData, temperatureUnit }: ClimateChartsPro
                   tick={{ fontSize: 11, fill: '#64748B' }}
                   minTickGap={28}
                 />
-                <YAxis
-                  tick={{ fontSize: 11, fill: '#64748B' }}
-                  width={48}
-                />
+                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} width={48} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: '#111D18',
@@ -207,7 +222,8 @@ export function ClimateCharts({ monthlyData, temperatureUnit }: ClimateChartsPro
               Average Seasonal Cycle by Month
             </h3>
             <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-1">
-              Multi-year historical monthly average from NASA POWER ({hasEstimatedMonthlyMm ? 'mm est.' : 'mm/day rate'}).
+              Multi-year historical monthly average from NASA POWER (
+              {hasEstimatedMonthlyMm ? 'mm est.' : 'mm/day rate'}).
             </p>
           </div>
           <div className="h-[260px] w-full">
@@ -235,7 +251,11 @@ export function ClimateCharts({ monthlyData, temperatureUnit }: ClimateChartsPro
                 <Bar
                   yAxisId="left"
                   dataKey="meanPrecip"
-                  name={hasEstimatedMonthlyMm ? 'Avg Monthly Rain (mm est.)' : 'Avg Rain Rate (mm/day)'}
+                  name={
+                    hasEstimatedMonthlyMm
+                      ? 'Avg Monthly Rain (mm est.)'
+                      : 'Avg Rain Rate (mm/day)'
+                  }
                   fill="#10B981"
                   radius={[4, 4, 0, 0]}
                 />

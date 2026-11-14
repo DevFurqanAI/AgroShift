@@ -59,13 +59,14 @@ export function FarmsPage() {
         {farms.map((farm) => {
           const isActive = farm.id === activeFarmId;
           const isConfirming = confirmDeleteId === farm.id;
-          const locationText = [
-            farm.location.locality,
-            farm.location.region,
-            farm.location.country,
-          ]
-            .filter(Boolean)
-            .join(', ');
+          const locationText =
+            [
+              farm.location.locality,
+              farm.location.region,
+              farm.location.country,
+            ]
+              .filter(Boolean)
+              .join(', ') || 'Location coordinates saved';
 
           return (
             <article

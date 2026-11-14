@@ -10,7 +10,6 @@ import {
   Sprout,
 } from 'lucide-react';
 import { EmptyState } from '../components/common/EmptyState';
-import { StatusBanner } from '../components/common/StatusBanner';
 import { GlobalFarmMap } from '../components/maps/GlobalFarmMap';
 import { useAgroShift } from '../context/AgroShiftContext';
 import { formatAreaDual, formatCoordinate, formatTemperature } from '../utils/units';
@@ -22,10 +21,8 @@ export function OverviewPage() {
     plans,
     activities,
     settings,
-    backendStatus,
     latestClimateByFarm,
     latestFieldHealthByFarm,
-    refreshBackendHealth,
   } = useAgroShift();
 
   if (farms.length === 0 || !activeFarm) {
@@ -34,7 +31,7 @@ export function OverviewPage() {
         <EmptyState
           icon={<Sprout className="w-6 h-6" />}
           title="Welcome to AgroShift — Add Your First Farm"
-          description="Set up your farm location anywhere in the world, record your farm size, water conditions, and previous crop to start climate and crop rotation planning."
+          description="Set up your farm location anywhere in the world, record your cultivated area, water conditions, and crop history to explore climate patterns and crop rotation options."
           primaryAction={
             <Link
               to="/dashboard/farms/new"
@@ -42,14 +39,6 @@ export function OverviewPage() {
             >
               <PlusCircle className="w-4 h-4" />
               Add Your First Farm
-            </Link>
-          }
-          secondaryAction={
-            <Link
-              to="/dashboard/settings"
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
-            >
-              Check Backend Settings
             </Link>
           }
         />
@@ -79,7 +68,8 @@ export function OverviewPage() {
             {activeFarm.details.name}
           </h2>
           <p className="text-sm text-[#64748B] dark:text-[#94A3B8] mt-1">
-            {locationSummary} · Last updated {new Date(activeFarm.updatedAt).toLocaleDateString()}
+            {locationSummary || 'Coordinates saved'} · Last updated{' '}
+            {new Date(activeFarm.updatedAt).toLocaleDateString()}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -99,43 +89,6 @@ export function OverviewPage() {
         </div>
       </section>
 
-      {/* Connection Status Banner when FastAPI is absent or offline */}
-      {backendStatus.state === 'not_configured' && (
-        <StatusBanner
-          tone="info"
-          title="FastAPI Earth Observation Backend Not Configured"
-          description="Your saved farm profiles, crop history, and rotation planning workspace work offline in this browser. Live NASA POWER climate and Copernicus Sentinel-2 field analysis require setting VITE_API_BASE_URL or entering your FastAPI endpoint in Settings."
-          action={
-            <Link
-              to="/dashboard/settings"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310] whitespace-nowrap"
-            >
-              Configure Backend
-            </Link>
-          }
-        />
-      )}
-
-      {backendStatus.state === 'unreachable' && (
-        <StatusBanner
-          tone="warning"
-          title="Live Observation Backend Unreachable"
-          description={
-            backendStatus.errorMessage ||
-            'Unable to connect to the FastAPI backend. Local farm records remain available.'
-          }
-          action={
-            <button
-              type="button"
-              onClick={() => refreshBackendHealth()}
-              className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-[#14532D] text-white whitespace-nowrap"
-            >
-              Retry Connection
-            </button>
-          }
-        />
-      )}
-
       {/* B–G. Key Farm Summary Grid */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 space-y-1.5">
@@ -144,7 +97,7 @@ export function OverviewPage() {
             <span>Farm Location</span>
           </div>
           <p className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
-            {locationSummary || activeFarm.location.country}
+            {locationSummary || 'Location coordinates set'}
           </p>
           <p className="text-xs font-mono tabular-nums text-[#64748B] dark:text-[#94A3B8]">
             {formatCoordinate(activeFarm.location.latitude, 'lat')} ·{' '}
@@ -154,7 +107,7 @@ export function OverviewPage() {
 
         <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 space-y-1.5">
           <p className="text-xs font-medium text-[#64748B] dark:text-[#94A3B8]">
-            Farm Size & Geometry
+            Cultivated Area & Boundary
           </p>
           <p className="text-base font-semibold tabular-nums text-[#172B22] dark:text-[#E8F1EC]">
             {formatAreaDual(activeFarm.details.areaHectares)}
@@ -163,50 +116,58 @@ export function OverviewPage() {
             {activeFarm.location.geometryType === 'polygon'
               ? 'Field boundary polygon saved'
               : 'Single reference point saved'}
+            {activeFarm.details.areaSource === 'calculated_from_boundary'
+              ? ' · From boundary'
+              : ''}
           </p>
         </div>
 
         <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 space-y-1.5">
           <div className="flex items-center gap-2 text-xs font-medium text-[#64748B] dark:text-[#94A3B8]">
             <Sprout className="w-3.5 h-3.5 text-[#16A34A]" />
-            <span>Previous Crop</span>
+            <span>Most Recent Crop</span>
           </div>
           <p className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
             {activeFarm.history.previousCropName}
           </p>
           <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
-            {activeFarm.history.typicalPlantingWindow
-              ? `Planting: ${activeFarm.history.typicalPlantingWindow}`
-              : 'Planting window not specified'}
+            {activeFarm.history.seasons && activeFarm.history.seasons.length > 1
+              ? `${activeFarm.history.seasons.length} seasons recorded`
+              : activeFarm.history.typicalPlantingWindow
+                ? `Planting: ${activeFarm.history.typicalPlantingWindow}`
+                : 'Planting dates not specified'}
           </p>
         </div>
 
         <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 space-y-1.5">
           <div className="flex items-center gap-2 text-xs font-medium text-[#64748B] dark:text-[#94A3B8]">
             <Droplets className="w-3.5 h-3.5 text-[#16A34A]" />
-            <span>Water Availability</span>
+            <span>Water & Irrigation</span>
           </div>
           <p className="text-base font-semibold capitalize text-[#172B22] dark:text-[#E8F1EC]">
             {activeFarm.details.waterAvailability.replace(/_/g, ' ')}
           </p>
           <p className="text-xs text-[#64748B] dark:text-[#94A3B8] capitalize">
-            Irrigation: {activeFarm.details.irrigationMethod.replace(/_/g, ' ')}
+            Method: {activeFarm.details.irrigationMethod.replace(/_/g, ' ')}
+            {activeFarm.details.irrigationMethod === 'rainfed_only' &&
+            activeFarm.details.rainfallReliability &&
+            activeFarm.details.rainfallReliability !== 'unknown'
+              ? ` · Rainfall: ${activeFarm.details.rainfallReliability}`
+              : ''}
           </p>
         </div>
 
         <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 space-y-1.5">
           <div className="flex items-center gap-2 text-xs font-medium text-[#64748B] dark:text-[#94A3B8]">
             <CloudSun className="w-3.5 h-3.5 text-[#16A34A]" />
-            <span>NASA POWER Climate Status</span>
+            <span>NASA POWER Climate</span>
           </div>
           <p className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
             {climateObs
               ? climateObs.data_available
-                ? `${climateObs.monthly_data?.length ?? 0} monthly records loaded`
+                ? `${climateObs.monthly?.length ?? 0} monthly records loaded`
                 : 'No records returned'
-              : backendStatus.state === 'connected'
-                ? 'Ready to fetch'
-                : 'Backend required'}
+              : 'Ready to inspect'}
           </p>
           <Link
             to="/dashboard/climate"
@@ -220,16 +181,16 @@ export function OverviewPage() {
         <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 space-y-1.5">
           <div className="flex items-center gap-2 text-xs font-medium text-[#64748B] dark:text-[#94A3B8]">
             <Satellite className="w-3.5 h-3.5 text-[#16A34A]" />
-            <span>Latest Field Analysis</span>
+            <span>Field Health</span>
           </div>
           <p className="text-base font-semibold tabular-nums text-[#172B22] dark:text-[#E8F1EC]">
             {fieldObs
               ? fieldObs.ndvi !== null && fieldObs.ndvi !== undefined
-                ? `NDVI ${fieldObs.ndvi.toFixed(2)} (${fieldObs.observation_date || 'Recent'})`
-                : 'Analysis returned without NDVI'
-              : backendStatus.state === 'connected'
-                ? 'Not yet run in this session'
-                : 'Backend required'}
+                ? `NDVI ${fieldObs.ndvi.toFixed(2)} (${fieldObs.satellite_observation_date || 'Recent'})`
+                : fieldObs.weather_available && fieldObs.temperature_c !== null
+                  ? `Weather ${formatTemperature(fieldObs.temperature_c, settings.temperatureUnit)}`
+                  : 'Checked in this session'
+              : 'Not yet analyzed in session'}
           </p>
           <Link
             to="/dashboard/field-health"
@@ -278,19 +239,31 @@ export function OverviewPage() {
                 Copernicus Sentinel-2 & Weather Snapshot
               </p>
               <p className="tabular-nums">
-                NDVI: {fieldObs.ndvi !== null && fieldObs.ndvi !== undefined ? fieldObs.ndvi.toFixed(3) : 'Unavailable'} · NDMI:{' '}
-                {fieldObs.ndmi !== null && fieldObs.ndmi !== undefined ? fieldObs.ndmi.toFixed(3) : 'Unavailable'}
+                NDVI:{' '}
+                {fieldObs.ndvi !== null && fieldObs.ndvi !== undefined
+                  ? fieldObs.ndvi.toFixed(3)
+                  : 'Unavailable'}{' '}
+                · NDMI:{' '}
+                {fieldObs.ndmi !== null && fieldObs.ndmi !== undefined
+                  ? fieldObs.ndmi.toFixed(3)
+                  : 'Unavailable'}
               </p>
-              {fieldObs.weather?.temperature_c !== null &&
-                fieldObs.weather?.temperature_c !== undefined && (
+              {fieldObs.weather_available &&
+                fieldObs.temperature_c !== null &&
+                fieldObs.temperature_c !== undefined && (
                   <p className="tabular-nums">
-                    Observed weather: {formatTemperature(fieldObs.weather.temperature_c, settings.temperatureUnit)}
+                    Observed weather:{' '}
+                    {formatTemperature(fieldObs.temperature_c, settings.temperatureUnit)}
+                    {fieldObs.humidity_percent !== null &&
+                    fieldObs.humidity_percent !== undefined
+                      ? ` · ${fieldObs.humidity_percent}% humidity`
+                      : ''}
                   </p>
                 )}
             </div>
           ) : (
             <div className="p-3.5 rounded-lg bg-[#F8FAF7] dark:bg-[#0B1310] border border-[#E2E8F0] dark:border-[#1E2E26] text-xs text-[#64748B] dark:text-[#94A3B8]">
-              No live satellite or weather measurements loaded for this farm yet. Run Field Health or Climate Intelligence when your FastAPI backend is connected.
+              Run Field Health or Climate Intelligence to view the latest satellite and historical climate context for this farm.
             </div>
           )}
 
@@ -298,23 +271,24 @@ export function OverviewPage() {
             <p className="font-semibold text-[#172B22] dark:text-[#E8F1EC]">
               Recorded Soil Information
             </p>
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-2">
               <span className="text-[#64748B]">Texture</span>
-              <span className="capitalize">
-                {activeFarm.soil.texture.replace(/_/g, ' ')} ({activeFarm.soil.textureProvenance.replace(/_/g, ' ')})
+              <span className="capitalize text-right">
+                {activeFarm.soil.texture.replace(/_/g, ' ')} (
+                {activeFarm.soil.textureProvenance.replace(/_/g, ' ')})
               </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-2">
               <span className="text-[#64748B]">Soil pH</span>
-              <span className="tabular-nums">
+              <span className="tabular-nums text-right">
                 {activeFarm.soil.ph !== null
                   ? `${activeFarm.soil.ph} (${activeFarm.soil.phProvenance.replace(/_/g, ' ')})`
-                  : 'Unknown'}
+                  : 'Not recorded'}
               </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-2">
               <span className="text-[#64748B]">Drainage</span>
-              <span className="capitalize">
+              <span className="capitalize text-right">
                 {activeFarm.soil.drainage.replace(/_/g, ' ')}
               </span>
             </div>
@@ -333,12 +307,12 @@ export function OverviewPage() {
               to="/dashboard/planner"
               className="text-xs font-medium text-[#16A34A] hover:underline"
             >
-              Create draft plan
+              Open Planner
             </Link>
           </div>
           {farmPlans.length === 0 ? (
             <p className="text-sm text-[#64748B] dark:text-[#94A3B8]">
-              No rotation planning drafts saved for {activeFarm.details.name} yet.
+              No rotation plans saved for {activeFarm.details.name} yet.
             </p>
           ) : (
             <ul className="divide-y divide-[#E2E8F0] dark:divide-[#1E2E26]">
@@ -347,7 +321,7 @@ export function OverviewPage() {
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{plan.title}</p>
                     <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
-                      {plan.horizonSeasons} seasons · {plan.localSeasonLabel || 'Custom calendar'}
+                      {plan.horizonSeasons} seasons · {plan.localSeasonLabel || 'Custom schedule'}
                     </p>
                   </div>
                   <Link
@@ -368,7 +342,7 @@ export function OverviewPage() {
           </h3>
           {farmActivity.length === 0 ? (
             <p className="text-sm text-[#64748B] dark:text-[#94A3B8]">
-              Activity for this farm will appear here as you update profiles or save planning drafts.
+              Activity for this farm will appear here as you update profiles or save rotation plans.
             </p>
           ) : (
             <ul className="divide-y divide-[#E2E8F0] dark:divide-[#1E2E26]">
