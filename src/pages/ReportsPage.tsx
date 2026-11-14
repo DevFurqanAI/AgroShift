@@ -2,7 +2,12 @@ import { Link } from 'react-router-dom';
 import { Download, FileText, PlusCircle, Printer } from 'lucide-react';
 import { EmptyState } from '../components/common/EmptyState';
 import { useAgroShift } from '../context/AgroShiftContext';
-import { formatAreaDual, formatCoordinate } from '../utils/units';
+import {
+  formatArea,
+  formatAreaDual,
+  formatCoordinate,
+  formatTemperature,
+} from '../utils/units';
 
 function formatTimestamp(iso?: string | null): string {
   if (!iso) return 'Timestamp unavailable';
@@ -11,14 +16,23 @@ function formatTimestamp(iso?: string | null): string {
   return d.toLocaleString();
 }
 
+function getObservationAgeHours(iso?: string | null): number | null {
+  if (!iso) return null;
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  return Math.max(0, (Date.now() - ms) / 3_600_000);
+}
+
 export function ReportsPage() {
   const {
     activeFarm,
     plans,
+    settings,
     latestClimateByFarm,
     latestFieldHealthByFarm,
     latestRotationByFarm,
     observationTimestampsByFarm,
+    observationFreshFlagsByFarm,
   } = useAgroShift();
 
   if (!activeFarm) {
@@ -45,6 +59,11 @@ export function ReportsPage() {
   const fieldObs = latestFieldHealthByFarm[activeFarm.id] ?? null;
   const rotationObs = latestRotationByFarm[activeFarm.id] ?? null;
   const obsTimestamps = observationTimestampsByFarm[activeFarm.id] ?? {};
+  const obsFreshFlags = observationFreshFlagsByFarm[activeFarm.id] ?? {};
+
+  const climateAgeHours = getObservationAgeHours(obsTimestamps.climateFetchedAt);
+  const fieldAgeHours = getObservationAgeHours(obsTimestamps.fieldHealthFetchedAt);
+  const rotationAgeHours = getObservationAgeHours(obsTimestamps.rotationScreenedAt);
 
   const locationDisplay =
     [
@@ -59,12 +78,18 @@ export function ReportsPage() {
     const payload = {
       exportedAt: new Date().toISOString(),
       sourceApplication: 'AgroShift',
+      displayUnits: {
+        areaUnit: settings.areaUnit,
+        temperatureUnit: settings.temperatureUnit,
+      },
       farm: activeFarm,
       savedRotationPlans: farmPlans,
       latestComputedRotationScreening: rotationObs
         ? {
             savedByFarmer: false,
+            retrievedInCurrentSession: Boolean(obsFreshFlags.rotation),
             screenedAt: obsTimestamps.rotationScreenedAt ?? null,
+            source: rotationObs.climate_source || 'NASA POWER historical screening',
             result: rotationObs,
           }
         : null,
@@ -72,12 +97,16 @@ export function ReportsPage() {
         nasaPowerClimate: climateObs
           ? {
               retrievedAt: obsTimestamps.climateFetchedAt ?? null,
+              retrievedInCurrentSession: Boolean(obsFreshFlags.climate),
+              source: climateObs.source || 'NASA POWER',
               data: climateObs,
             }
           : null,
         fieldAnalysis: fieldObs
           ? {
               retrievedAt: obsTimestamps.fieldHealthFetchedAt ?? null,
+              retrievedInCurrentSession: Boolean(obsFreshFlags.fieldHealth),
+              source: 'Copernicus Sentinel-2 + Weather Provider',
               data: fieldObs,
             }
           : null,
@@ -150,7 +179,7 @@ export function ReportsPage() {
           <div className="space-y-1">
             <p className="text-xs font-semibold text-[var(--as-text-muted)]">Area &amp; Operation</p>
             <p className="font-mono tabular-nums font-medium">
-              {formatAreaDual(activeFarm.details.areaHectares)}
+              {formatArea(activeFarm.details.areaHectares, settings.areaUnit)} ({formatAreaDual(activeFarm.details.areaHectares)})
             </p>
             <p className="text-xs text-[var(--as-text-muted)] capitalize">
               Area source: {(activeFarm.details.areaSource ?? 'manual').replace(/_/g, ' ')} ·{' '}
@@ -249,9 +278,16 @@ export function ReportsPage() {
             <h4 className="text-sm font-semibold">
               2. Latest Computed Rotation Screening (Current Session)
             </h4>
-            <span className="px-2 py-0.5 rounded text-[11px] font-semibold as-badge-warning">
-              Unsaved screening output
-            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {rotationObs && (
+                <span className="px-2 py-0.5 rounded text-[11px] font-semibold border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-muted)]">
+                  {obsFreshFlags.rotation ? 'Fresh in this session' : 'Cached from prior session'}
+                </span>
+              )}
+              <span className="px-2 py-0.5 rounded text-[11px] font-semibold as-badge-warning">
+                Unsaved screening output
+              </span>
+            </div>
           </div>
 
           {rotationObs ? (
@@ -265,6 +301,11 @@ export function ReportsPage() {
                     Computed: {formatTimestamp(obsTimestamps.rotationScreenedAt)}
                   </span>
                 </div>
+                {rotationAgeHours !== null && rotationAgeHours > 168 && (
+                  <p className="text-[11px] as-text-warning">
+                    Cached screening is over 7 days old — rerun in Planner to refresh against current farm settings.
+                  </p>
+                )}
                 <ul className="space-y-1 font-mono tabular-nums text-[var(--as-text-primary)]">
                   {rotationObs.plans.slice(0, 3).map((opt, idx) => (
                     <li key={`screen-${idx}`}>
@@ -286,7 +327,7 @@ export function ReportsPage() {
             )
           ) : (
             <p className="text-[var(--as-text-muted)]">
-              No crop rotation screening run during this browser session.
+              No crop rotation screening recorded for this farm yet.
             </p>
           )}
         </section>
@@ -298,32 +339,47 @@ export function ReportsPage() {
           </h4>
 
           <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3 space-y-1">
-            <div className="flex flex-wrap justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-semibold text-[var(--as-text-primary)]">
                 NASA POWER Historical Climate
               </span>
               {climateObs && (
-                <span className="font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
-                  Retrieved: {formatTimestamp(obsTimestamps.climateFetchedAt)}
-                </span>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--as-text-muted)]">
+                  <span className="px-1.5 py-0.5 rounded border border-[var(--as-border)] bg-[var(--as-bg-surface)] font-medium">
+                    {obsFreshFlags.climate ? 'Fresh in session' : 'Cached on device'}
+                  </span>
+                  <span className="font-mono tabular-nums">
+                    Retrieved: {formatTimestamp(obsTimestamps.climateFetchedAt)}
+                  </span>
+                </div>
               )}
             </div>
             <p className="text-[var(--as-text-muted)] font-mono tabular-nums">
               {climateObs?.data_available
-                ? `${climateObs.monthly?.length ?? 0} historical monthly records (${climateObs.start_year}–${climateObs.end_year}) · Historical archive only (not a forecast)`
-                : 'Not retrieved in this session'}
+                ? `${climateObs.monthly?.length ?? 0} historical monthly records (${climateObs.start_year}–${climateObs.end_year}) · Source: ${climateObs.source || 'NASA POWER'} · Historical archive only (not a forecast)`
+                : 'Not yet retrieved for this farm'}
             </p>
+            {climateAgeHours !== null && climateAgeHours > 168 && !obsFreshFlags.climate && (
+              <p className="text-[11px] as-text-warning">
+                Cached climate archive is over 7 days old — open Climate History to refresh if needed.
+              </p>
+            )}
           </div>
 
           <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3 space-y-1">
-            <div className="flex flex-wrap justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-semibold text-[var(--as-text-primary)]">
                 Sentinel-2 Satellite &amp; Weather Snapshot
               </span>
               {fieldObs && (
-                <span className="font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
-                  Retrieved: {formatTimestamp(obsTimestamps.fieldHealthFetchedAt)}
-                </span>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--as-text-muted)]">
+                  <span className="px-1.5 py-0.5 rounded border border-[var(--as-border)] bg-[var(--as-bg-surface)] font-medium">
+                    {obsFreshFlags.fieldHealth ? 'Fresh in session' : 'Cached snapshot'}
+                  </span>
+                  <span className="font-mono tabular-nums">
+                    Retrieved: {formatTimestamp(obsTimestamps.fieldHealthFetchedAt)}
+                  </span>
+                </div>
               )}
             </div>
             <p className="text-[var(--as-text-muted)] font-mono tabular-nums">
@@ -331,12 +387,14 @@ export function ReportsPage() {
                 ? fieldObs.satellite_available
                   ? `NDVI ${fieldObs.ndvi !== null ? fieldObs.ndvi.toFixed(3) : 'N/A'} / NDMI ${fieldObs.ndmi !== null ? fieldObs.ndmi.toFixed(3) : 'N/A'} (Scene: ${fieldObs.satellite_observation_date ?? 'Date N/A'}${fieldObs.valid_coverage_percent != null ? ` · Valid pixels: ${fieldObs.valid_coverage_percent.toFixed(0)}%` : ''})`
                   : `Satellite unavailable (${fieldObs.satellite_message || 'No recent clear scene'})`
-                : 'Not retrieved in this session'}
+                : 'Not yet retrieved for this farm'}
             </p>
             {fieldObs?.weather_available && (
               <p className="text-[var(--as-text-muted)] font-mono tabular-nums">
                 Weather:{' '}
-                {fieldObs.temperature_c !== null ? `${fieldObs.temperature_c}°C` : 'N/A'}
+                {fieldObs.temperature_c !== null
+                  ? formatTemperature(fieldObs.temperature_c, settings.temperatureUnit)
+                  : 'N/A'}
                 {fieldObs.humidity_percent !== null
                   ? ` · ${fieldObs.humidity_percent}% humidity`
                   : ''}
@@ -356,6 +414,12 @@ export function ReportsPage() {
                     Weather data by Open-Meteo.com
                   </a>
                 )}
+                {fieldObs.weather_observation_window ? ` (${fieldObs.weather_observation_window})` : ''}
+              </p>
+            )}
+            {fieldAgeHours !== null && fieldAgeHours > 24 && !obsFreshFlags.fieldHealth && (
+              <p className="text-[11px] as-text-warning">
+                Cached weather/satellite snapshot is {Math.floor(fieldAgeHours)}h old — refresh in Field Health for current conditions.
               </p>
             )}
           </div>

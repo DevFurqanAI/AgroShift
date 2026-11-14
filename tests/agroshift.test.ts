@@ -4,7 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { AssistantMarkdown } from '../src/components/assistant/AssistantMarkdown.tsx';
+import {
+  AssistantMarkdown,
+  normalizeAssistantMath,
+} from '../src/components/assistant/AssistantMarkdown.tsx';
 import {
   describeDataAvailability,
   describeInterpretationConfidence,
@@ -15,10 +18,18 @@ import {
 import {
   ACRES_PER_HECTARE,
   acresToHectares,
+  celsiusDeltaToFahrenheit,
+  formatTemperatureDelta,
   fromHectares,
   hectaresToAcres,
   toHectares,
 } from '../src/utils/units.ts';
+import {
+  computeClimatePeriodStats,
+  daysInCalendarMonth,
+  isLeapYear,
+} from '../src/utils/climateStats.ts';
+import { formatSequenceChartLabel } from '../src/pages/PlannerPage.tsx';
 import {
   computePolygonMetrics,
   getRepresentativeInteriorPoint,
@@ -63,6 +74,7 @@ import {
 import handler from '../api/assistant.ts';
 import {
   farmRepository,
+  observationRepository,
   settingsRepository,
 } from '../src/services/farms/farmRepository.ts';
 import type { FarmProfile, GeoJSONPolygon } from '../src/types/farm.ts';
@@ -1816,6 +1828,478 @@ test('35. ReportsPage distinguishes saved vs unsaved plans with timestamps, Sett
     assert.equal(loaded[0].details.farmType, 'smallholder');
   });
 });
+
+test('36. Incomplete-year precipitation excludes partial years from complete-year annual means and respects leap years', () => {
+  assert.equal(isLeapYear(2024), true);
+  assert.equal(isLeapYear(2023), false);
+  assert.equal(daysInCalendarMonth(2024, 2), 29);
+  assert.equal(daysInCalendarMonth(2023, 2), 28);
+
+  // Build 2020-2025 complete (12 months * 100 mm/month = 1200 mm/yr) + partial 2026 (only 4 months * 100 mm/month = 400 mm)
+  const monthly: Array<{
+    month: string;
+    temperature_c: number | null;
+    precipitation_mm_per_day: number | null;
+    estimated_monthly_precipitation_mm: number | null;
+  }> = [];
+  for (let year = 2020; year <= 2025; year += 1) {
+    for (let m = 1; m <= 12; m += 1) {
+      monthly.push({
+        month: `${year}${String(m).padStart(2, '0')}`,
+        temperature_c: 20,
+        precipitation_mm_per_day: 100 / daysInCalendarMonth(year, m),
+        estimated_monthly_precipitation_mm: 100,
+      });
+    }
+  }
+  for (let m = 1; m <= 4; m += 1) {
+    monthly.push({
+      month: `2026${String(m).padStart(2, '0')}`,
+      temperature_c: 18,
+      precipitation_mm_per_day: 100 / daysInCalendarMonth(2026, m),
+      estimated_monthly_precipitation_mm: 100,
+    });
+  }
+
+  const stats = computeClimatePeriodStats(monthly);
+  assert.ok(stats);
+  assert.equal(stats.yearsWithRecords, 7);
+  assert.equal(stats.completeYearsCount, 6);
+  // Naive total/7 would give (7200+400)/7 = 1085.7 mm; complete-year mean must stay 1200.0 mm
+  assert.equal(stats.meanAnnualRainMm, 1200.0);
+  assert.equal(stats.climatologicalAnnualMeanMm, 1200.0);
+  assert.equal(stats.incompleteYears.length, 1);
+  assert.equal(stats.incompleteYears[0].year, 2026);
+  assert.equal(stats.incompleteYears[0].validMonths, 4);
+
+  // When precipitation is null/-999 sentinel for 1 month in 2025, missing month must not become 0
+  const partialOnly = [
+    {
+      month: '202501',
+      temperature_c: 15,
+      precipitation_mm_per_day: 2.0,
+      estimated_monthly_precipitation_mm: 62.0,
+    },
+    {
+      month: '202502',
+      temperature_c: 16,
+      precipitation_mm_per_day: -999,
+      estimated_monthly_precipitation_mm: null,
+    },
+    {
+      month: '202503',
+      temperature_c: 19,
+      precipitation_mm_per_day: 1.0,
+      estimated_monthly_precipitation_mm: 31.0,
+    },
+  ];
+  const partialStats = computeClimatePeriodStats(partialOnly);
+  assert.ok(partialStats);
+  assert.equal(partialStats.completeYearsCount, 0);
+  assert.equal(partialStats.meanAnnualRainMm, null);
+  assert.equal(partialStats.incompleteYears[0].validMonths, 2);
+  assert.equal(partialStats.incompleteYears[0].observedRecords, 3);
+});
+
+test('37. PlannerPage three-season chart labels show all crops so sequences stay distinguishable', () => {
+  const label1 = formatSequenceChartLabel(
+    {
+      seasons: [
+        { name: 'Cowpea' },
+        { name: 'Maize' },
+        { name: 'Chickpea' },
+      ] as Parameters<typeof formatSequenceChartLabel>[0]['seasons'],
+    },
+    1
+  );
+  const label2 = formatSequenceChartLabel(
+    {
+      seasons: [
+        { name: 'Cowpea' },
+        { name: 'Sorghum' },
+        { name: 'Chickpea' },
+      ] as Parameters<typeof formatSequenceChartLabel>[0]['seasons'],
+    },
+    2
+  );
+  assert.equal(label1, '#1 Cowpea → Maize → Chickpea');
+  assert.equal(label2, '#2 Cowpea → Sorghum → Chickpea');
+  assert.notEqual(label1, label2);
+
+  const plannerSrc = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/PlannerPage.tsx'),
+    'utf8'
+  );
+  assert.match(plannerSrc, /formatSequenceChartLabel/);
+  assert.match(plannerSrc, /unverified_plans/);
+});
+
+test('38. Observation persistence survives reloads scoped by farmId, cleans up on delete, and ReportsPage honors display units', () => {
+  withMockBrowser(() => {
+    observationRepository.saveEntry('farm-a', {
+      climate: {
+        data_available: true,
+        source: 'NASA POWER',
+        start_year: 2020,
+        end_year: 2025,
+        location: { latitude: 31.2, longitude: 72.4 },
+        monthly: [
+          {
+            month: '202401',
+            temperature_c: 24.5,
+            precipitation_mm_per_day: 1.2,
+            estimated_monthly_precipitation_mm: 37.2,
+          },
+        ],
+      },
+      climateFetchedAt: '2026-11-10T10:00:00.000Z',
+    });
+    observationRepository.saveEntry('farm-b', {
+      fieldHealth: {
+        ndvi: 0.42,
+        ndvi_status: 'MODERATE',
+        ndmi: 0.11,
+        ndmi_status: 'MODERATE',
+        temperature_c: 28,
+        humidity_percent: 50,
+        recent_rainfall_mm: 2,
+        heat_risk: 'LOW',
+        rainfall_status: 'MODERATE',
+        possible_water_stress: null,
+        analysis_confidence: 'MODERATE',
+        satellite_available: true,
+        satellite_observation_date: '2026-11-09',
+        cloud_cover_percent: 10,
+        satellite_message: null,
+        weather_available: true,
+        weather_message: null,
+        weather_source: 'open-meteo',
+        weather_data_type: 'current_observation',
+        weather_observation_window: 'Open-Meteo current reading',
+        ai_explanation: 'Screening check.',
+        recommendations: [],
+      },
+      fieldHealthFetchedAt: '2026-11-10T11:00:00.000Z',
+    });
+
+    const loaded = observationRepository.loadByFarm().data;
+    assert.equal(loaded['farm-a']?.climate?.monthly?.[0]?.temperature_c, 24.5);
+    assert.equal(loaded['farm-a']?.climateFetchedAt, '2026-11-10T10:00:00.000Z');
+    assert.equal(loaded['farm-b']?.fieldHealth?.weather_observation_window, 'Open-Meteo current reading');
+
+    observationRepository.deleteFarmObservations('farm-a');
+    const afterDelete = observationRepository.loadByFarm().data;
+    assert.equal(afterDelete['farm-a'], undefined);
+    assert.ok(afterDelete['farm-b']);
+
+    // Corrupt version returns empty safely
+    window.localStorage.setItem('agroshift.observations.v1', JSON.stringify({ version: 99, byFarm: { x: {} } }));
+    assert.deepEqual(observationRepository.loadByFarm().data, {});
+  });
+
+  const reportsSrc = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/ReportsPage.tsx'),
+    'utf8'
+  );
+  assert.match(reportsSrc, /formatTemperature\(/);
+  assert.match(reportsSrc, /Fresh in session/);
+  assert.match(reportsSrc, /Cached from prior session/);
+  assert.match(reportsSrc, /settings\.areaUnit/);
+  assert.match(reportsSrc, /settings\.temperatureUnit/);
+  assert.ok(!reportsSrc.includes('avg_temperature_c.toFixed(1)} °C'));
+});
+
+test('39. FarmWizard renders soil salinity and organic matter together in lab_test mode', () => {
+  const wizardSrc = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/farms/FarmWizard.tsx'),
+    'utf8'
+  );
+  const omIdx = wizardSrc.indexOf('id="soil-om"');
+  const salIdx = wizardSrc.indexOf('id="soil-salinity"');
+  assert.ok(omIdx > -1 && salIdx > -1);
+  // Ensure there is no guard hiding salinity from lab_test users
+  assert.ok(!wizardSrc.includes("soilKnowledge !== 'lab_test'"));
+  assert.match(wizardSrc, /soilKnowledge === 'lab_test'/);
+  assert.match(wizardSrc, /Salinity \/ Salt Crusting Concern/);
+  assert.match(wizardSrc, /Organic Matter:/);
+});
+
+test('40. ScenariosPage supports planting month, horizon seasons, and Celsius/Fahrenheit temperature deltas', () => {
+  assert.equal(Number(celsiusDeltaToFahrenheit(2).toFixed(1)), 3.6);
+  assert.equal(formatTemperatureDelta(2, 'celsius'), '+2.0 °C');
+  assert.equal(formatTemperatureDelta(2, 'fahrenheit'), '+3.6 °F');
+  assert.equal(formatTemperatureDelta(-2, 'fahrenheit'), '-3.6 °F');
+
+  const scenariosSrc = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/ScenariosPage.tsx'),
+    'utf8'
+  );
+  assert.match(scenariosSrc, /id="scenario-planting-month"/);
+  assert.match(scenariosSrc, /Planning Horizon/);
+  assert.match(scenariosSrc, /planting_month:\s*monthOverride/);
+  assert.match(scenariosSrc, /seasons:\s*seasonsOverride/);
+  assert.match(scenariosSrc, /formatTemperatureDelta\(/);
+});
+
+test('41. AssistantMarkdown normalizes \\(...\\), \\[...\\], and spaced $ ... $ math while preserving currency and code', () => {
+  assert.equal(
+    normalizeAssistantMath('Use \\( x = 1 \\) and \\[ A = \\frac{10}{2.471} \\].'),
+    'Use $x = 1$ and \n$$\nA = \\frac{10}{2.471}\n$$\n.'
+  );
+  assert.equal(
+    normalizeAssistantMath('Irrigate with $ d = 25\\text{ mm} $ per cycle.'),
+    'Irrigate with $d = 25\\text{ mm}$ per cycle.'
+  );
+  assert.equal(
+    normalizeAssistantMath('Seed budget is $50 to $100 per acre; keep `$ x = 1 $` literal.'),
+    'Seed budget is \\$50 to \\$100 per acre; keep `$ x = 1 $` literal.'
+  );
+
+  const rendered = renderToStaticMarkup(
+    React.createElement(AssistantMarkdown, {
+      content: [
+        'Inline normalized: \\( A_{\\text{ha}} = \\frac{10}{2.471} \\)',
+        '',
+        'Spaced inline: $ R_{\\text{eff}} = 0.8 \\times P $',
+        '',
+        'Display normalized:',
+        '\\[ \\text{Total} = 4 \\times 30 = 120\\text{ mm} \\]',
+        '',
+        'Budget: $50 to $100.',
+        '<script>alert(1)</script>',
+        '$\\href{javascript:alert(1)}{click}$',
+      ].join('\n'),
+    })
+  );
+  assert.match(rendered, /class="katex"/);
+  assert.match(rendered, /class="katex-display"/);
+  assert.match(rendered, /\$50 to \$100\./);
+  assert.ok(!rendered.includes('<script'));
+  assert.ok(!rendered.includes('<a '));
+  assert.ok(!rendered.includes('href="javascript:'));
+});
+
+test('42. Geocoding requests forward the selected language query parameter and partition caches per language', async () => {
+  clearGeocodingCaches();
+  const seenAcceptLanguages: string[] = [];
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async (input) => {
+      const url = new URL(String(input));
+      const lang = url.searchParams.get('accept-language') ?? '';
+      seenAcceptLanguages.push(lang);
+      return new Response(
+        JSON.stringify([
+          {
+            place_id: 101,
+            display_name: lang === 'ur' ? 'ملتان، پنجاب' : 'Multan, Punjab',
+            lat: '30.1575',
+            lon: '71.5249',
+            address: { country: 'Pakistan', country_code: 'pk', state: 'Punjab', city: 'Multan' },
+          },
+        ]),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
+    };
+
+    const enRes = await searchPlaces('Multan', { countryCode: 'PK', language: 'en' });
+    const urRes = await searchPlaces('Multan', { countryCode: 'PK', language: 'ur' });
+    // Cached repeat for ur should NOT issue a third fetch
+    const urCached = await searchPlaces('Multan', { countryCode: 'PK', language: 'ur' });
+
+    assert.equal(seenAcceptLanguages.length, 2);
+    assert.deepEqual(seenAcceptLanguages, ['en', 'ur']);
+    assert.equal(enRes[0].displayName, 'Multan, Punjab');
+    assert.equal(urRes[0].displayName, 'ملتان، پنجاب');
+    assert.equal(urCached[0].displayName, 'ملتان، پنجاب');
+
+    globalThis.fetch = async (input) => {
+      const url = new URL(String(input));
+      const lang = url.searchParams.get('accept-language') ?? '';
+      seenAcceptLanguages.push(lang);
+      return new Response(
+        JSON.stringify({
+          display_name: lang === 'sw' ? 'Nairobi, Kenya' : 'Nairobi',
+          address: { country: 'Kenya', country_code: 'ke', state: 'Nairobi' },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
+    };
+    const rev = await reverseGeocode(-1.2921, 36.8219, { language: 'sw' });
+    assert.equal(seenAcceptLanguages[2], 'sw');
+    assert.equal(rev?.countryCode, 'KE');
+  } finally {
+    globalThis.fetch = originalFetch;
+    clearGeocodingCaches();
+  }
+});
+
+test('43. RotationComparisonCard renders unverified and conditional regional timing clearly without false scores', async () => {
+  const { RotationComparisonCard } = await import(
+    '../src/components/rotation/RotationComparisonCard.tsx'
+  );
+
+  const html = renderToStaticMarkup(
+    React.createElement(RotationComparisonCard, {
+      rank: 3,
+      temperatureUnit: 'celsius',
+      plan: {
+        crop_ids: ['canola', 'lentil'],
+        score: 92.7,
+        compatibility_band: 'Unverified Timing — Confirm Locally',
+        feasibility: {
+          status: 'feasible',
+          regional_timing_evidence: 'unverified',
+          verified_calendar_seasons: 0,
+          total_seasons: 2,
+          unverified_crop_ids: ['canola', 'lentil'],
+          total_cycle_months: 8,
+          timeline_summary: 'S1: Canola (Mar–Jun) → S2: Lentil (Jul–Oct)',
+          warnings: ['Missing regional calendar for Kenya.'],
+        },
+        seasons: [
+          {
+            crop_id: 'canola',
+            name: 'Canola',
+            family: 'brassicaceae',
+            is_legume: false,
+            planting_month: 3,
+            harvest_month: 6,
+            duration_months: 4,
+            calendar_status: 'unverified',
+            avg_historical_temperature_c: 20.1,
+            temperature_fit_score: 91,
+            water_category: 'medium',
+            water_compatibility_score: 90,
+            soil_ph_compatibility_score: 92,
+            family_diversity_score: 94,
+            screening_score: 91.5,
+          },
+          {
+            crop_id: 'lentil',
+            name: 'Lentil',
+            family: 'fabaceae',
+            is_legume: true,
+            planting_month: 7,
+            harvest_month: 10,
+            duration_months: 4,
+            calendar_status: 'unverified',
+            avg_historical_temperature_c: 19.5,
+            temperature_fit_score: 93,
+            water_category: 'low',
+            water_compatibility_score: 95,
+            soil_ph_compatibility_score: 90,
+            family_diversity_score: 94,
+            screening_score: 93.8,
+          },
+        ],
+        diagnostics: {
+          climate_compatibility: 92,
+          water_compatibility: 92.5,
+          family_rotation: 94,
+          soil_compatibility: 91,
+          soil_evaluated: true,
+          soil_health_score: 90,
+          regional_calendar_score: null,
+          regional_calendar_evaluated: false,
+          regional_timing_evidence: 'unverified',
+          verified_calendar_seasons: 0,
+          total_seasons: 2,
+          unverified_calendar_crops: ['Canola', 'Lentil'],
+          rainfall_evaluated: true,
+          data_completeness: { evaluated_count: 5, total_count: 6, label: 'Moderate' },
+          distinct_families: 2,
+          distinct_crops: 2,
+          goal_applied: 'soil',
+          goal_weights_applied: { climate: 0.23, water: 0.19, soil_health: 0.37, diversity: 0.21, calendar: 0 },
+          missing_data_notes: [],
+          tie_note: null,
+        },
+        explanation: 'Unverified regional calendar fallback.',
+      },
+    })
+  );
+
+  assert.match(html, /Unverified Timing — Confirm Locally/);
+  assert.match(html, /Unverified/);
+  assert.match(html, /No verified regional calendar for this crop\/location/);
+  assert.ok(!html.includes('/100 — Regional'));
+
+  const conditionalHtml = renderToStaticMarkup(
+    React.createElement(RotationComparisonCard, {
+      rank: 2,
+      temperatureUnit: 'celsius',
+      plan: {
+        crop_ids: ['canola', 'lentil'],
+        score: 88.4,
+        compatibility_band: 'Conditional Timing — Confirm Locally',
+        feasibility: {
+          status: 'feasible',
+          regional_timing_evidence: 'conditional',
+          verified_calendar_seasons: 1,
+          total_seasons: 2,
+          unverified_crop_ids: ['lentil'],
+          total_cycle_months: 8,
+          timeline_summary: 'S1: Canola → S2: Lentil',
+          warnings: [],
+        },
+        seasons: [
+          {
+            crop_id: 'canola',
+            name: 'Canola',
+            planting_month: 5,
+            duration_months: 4,
+            avg_historical_temperature_c: 15,
+            temperature_fit_score: 89,
+            water_category: 'medium',
+            water_compatibility_score: 88,
+            soil_ph_compatibility_score: 90,
+            family_diversity_score: 92,
+            screening_score: 89,
+          },
+          {
+            crop_id: 'lentil',
+            name: 'Lentil',
+            planting_month: 9,
+            duration_months: 4,
+            avg_historical_temperature_c: 18,
+            temperature_fit_score: 88,
+            water_category: 'low',
+            water_compatibility_score: 89,
+            soil_ph_compatibility_score: 89,
+            family_diversity_score: 92,
+            screening_score: 88,
+          },
+        ],
+        diagnostics: {
+          climate_compatibility: 88.5,
+          water_compatibility: 88.5,
+          family_rotation: 92,
+          soil_compatibility: 89.5,
+          soil_evaluated: true,
+          soil_health_score: 88,
+          regional_calendar_score: null,
+          regional_calendar_evaluated: false,
+          regional_timing_evidence: 'conditional',
+          verified_calendar_seasons: 1,
+          total_seasons: 2,
+          unverified_calendar_crops: ['Lentil'],
+          rainfall_evaluated: true,
+          distinct_families: 2,
+          distinct_crops: 2,
+          goal_applied: 'soil',
+          goal_weights_applied: { climate: 0.23, water: 0.19, soil_health: 0.37, diversity: 0.21, calendar: 0 },
+          missing_data_notes: [],
+          tie_note: null,
+        },
+        explanation: 'Partially verified regional calendar.',
+      },
+    })
+  );
+  assert.match(conditionalHtml, /Conditional Timing — Confirm Locally/);
+  assert.match(conditionalHtml, /1\/2 seasons verified/);
+});
+
 
 
 

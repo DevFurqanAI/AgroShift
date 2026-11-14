@@ -12,6 +12,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { StatusBanner } from '../components/common/StatusBanner';
 import { useAgroShift } from '../context/AgroShiftContext';
 import { useClimateHistory } from '../hooks/useClimateHistory';
+import { computeClimatePeriodStats } from '../utils/climateStats';
 import { formatCoordinate, formatTemperature } from '../utils/units';
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -86,32 +87,7 @@ export function ClimatePage() {
       };
     });
 
-    const allTemps = parsed
-      .map((r) => r.temperatureC)
-      .filter((v): v is number => v !== null && Number.isFinite(v));
-    const allMonthlyRain = parsed
-      .map((r) => r.estimatedMonthlyMm)
-      .filter((v): v is number => v !== null && Number.isFinite(v));
-    const allRainRates = parsed
-      .map((r) => r.precipMmDay)
-      .filter((v): v is number => v !== null && Number.isFinite(v));
-
-    const yearsCovered = new Set(parsed.map((r) => r.year)).size;
-    const meanTempC =
-      allTemps.length > 0 ? allTemps.reduce((a, b) => a + b, 0) / allTemps.length : null;
-    const minTempC = allTemps.length > 0 ? Math.min(...allTemps) : null;
-    const maxTempC = allTemps.length > 0 ? Math.max(...allTemps) : null;
-
-    const totalObservedRainMm =
-      allMonthlyRain.length > 0 ? allMonthlyRain.reduce((a, b) => a + b, 0) : null;
-    const meanAnnualRainMm =
-      totalObservedRainMm !== null && yearsCovered > 0
-        ? totalObservedRainMm / yearsCovered
-        : null;
-    const meanDailyRate =
-      allRainRates.length > 0
-        ? allRainRates.reduce((a, b) => a + b, 0) / allRainRates.length
-        : null;
+    const stats = computeClimatePeriodStats(rawMonthly);
 
     const byMonth = MONTH_SHORT.map((name, idx) => {
       const mNum = idx + 1;
@@ -139,18 +115,7 @@ export function ClimatePage() {
     return {
       seasonalSummary: seasonal,
       monthlyTable: byMonth,
-      periodStats: {
-        totalRecords: parsed.length,
-        validTempCount: allTemps.length,
-        validPrecipCount: Math.max(allMonthlyRain.length, allRainRates.length),
-        yearsCovered,
-        meanTempC,
-        minTempC,
-        maxTempC,
-        meanAnnualRainMm,
-        totalObservedRainMm,
-        meanDailyRate,
-      },
+      periodStats: stats,
     };
   }, [data?.monthly]);
 
@@ -364,16 +329,32 @@ export function ClimatePage() {
                 {periodStats?.meanAnnualRainMm !== null &&
                 periodStats?.meanAnnualRainMm !== undefined
                   ? `~${periodStats.meanAnnualRainMm.toFixed(0)} mm/yr`
-                  : periodStats?.meanDailyRate !== null && periodStats?.meanDailyRate !== undefined
-                    ? `${periodStats.meanDailyRate.toFixed(2)} mm/day`
-                    : 'Unavailable'}
+                  : periodStats?.climatologicalAnnualMeanMm !== null &&
+                      periodStats?.climatologicalAnnualMeanMm !== undefined
+                    ? `~${periodStats.climatologicalAnnualMeanMm.toFixed(0)} mm/yr (est.)`
+                    : periodStats?.meanDailyRate !== null && periodStats?.meanDailyRate !== undefined
+                      ? `${periodStats.meanDailyRate.toFixed(2)} mm/day`
+                      : 'Unavailable'}
               </p>
               <p className="text-[11px] font-mono tabular-nums text-[var(--as-text-muted)]">
-                {periodStats?.totalObservedRainMm !== null &&
-                periodStats?.totalObservedRainMm !== undefined
-                  ? `Total observed: ${periodStats.totalObservedRainMm.toFixed(0)} mm over ${periodStats.yearsCovered} yr`
-                  : 'Monthly rainfall totals unavailable'}
+                {periodStats?.completeYearsCount && periodStats.completeYearsTotalRainMm !== null
+                  ? `Mean over ${periodStats.completeYearsCount} complete yr (${periodStats.completeYearsTotalRainMm.toFixed(0)} mm)`
+                  : periodStats?.climatologicalAnnualMeanMm !== null &&
+                      periodStats?.climatologicalAnnualMeanMm !== undefined
+                    ? '12-month climatological sum (partial years present)'
+                    : periodStats?.totalObservedRainMm !== null &&
+                        periodStats?.totalObservedRainMm !== undefined
+                      ? `Partial total: ${periodStats.totalObservedRainMm.toFixed(0)} mm (incomplete year)`
+                      : 'Monthly rainfall totals unavailable'}
               </p>
+              {periodStats && periodStats.incompleteYears.length > 0 && (
+                <p className="text-[11px] as-text-warning leading-snug">
+                  Incomplete year{periodStats.incompleteYears.length > 1 ? 's' : ''} excluded from annual mean:{' '}
+                  {periodStats.incompleteYears
+                    .map((iy) => `${iy.year} (${iy.validMonths}/12 mo)`)
+                    .join(', ')}
+                </p>
+              )}
             </div>
 
             <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-4 space-y-1">

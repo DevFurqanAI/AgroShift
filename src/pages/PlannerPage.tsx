@@ -63,6 +63,15 @@ const BACKEND_GOAL_LABELS: Record<'water' | 'soil' | 'climate' | 'diversity', st
   diversity: 'Crop family diversity',
 };
 
+export function formatSequenceChartLabel(
+  opt: Pick<RotationPlanOption, 'seasons'>,
+  rank: number
+): string {
+  const names = opt.seasons.map((s) => s.name).filter(Boolean);
+  if (names.length === 0) return `#${rank}`;
+  return `#${rank} ${names.join(' → ')}`;
+}
+
 export function PlannerPage() {
   const {
     activeFarm,
@@ -666,8 +675,7 @@ export function PlannerPage() {
       {liveResult && liveResult.status === 'ok' && liveResult.plans.length > 0 && (() => {
         const topPlanScore = liveResult.plans[0]?.score ?? 0;
         const chartData = liveResult.plans.map((opt, idx) => ({
-          option: `#${idx + 1} ${opt.seasons.map((s) => s.name).join(' → ')}`,
-          shortOption: `#${idx + 1} ${opt.seasons[0]?.name ?? ''}${opt.seasons.length > 1 ? ` → ${opt.seasons[opt.seasons.length - 1]?.name}` : ''}`,
+          option: formatSequenceChartLabel(opt, idx + 1),
           Overall: Number(opt.score.toFixed(1)),
           Climate: Number((opt.diagnostics?.climate_compatibility ?? 0).toFixed(1)),
           Water: Number((opt.diagnostics?.water_compatibility ?? 0).toFixed(1)),
@@ -807,13 +815,17 @@ export function PlannerPage() {
                     </p>
                   </div>
                 </div>
-                <div className="h-[240px] w-full">
+                <div className="h-[270px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+                    <BarChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 26 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--as-chart-grid)" opacity={0.7} />
                       <XAxis
-                        dataKey="shortOption"
-                        tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                        dataKey="option"
+                        interval={0}
+                        angle={chartData.length > 2 ? -10 : 0}
+                        textAnchor={chartData.length > 2 ? 'end' : 'middle'}
+                        height={54}
+                        tick={{ fontSize: 10.5, fill: 'var(--as-chart-axis)' }}
                         stroke="var(--as-chart-grid)"
                       />
                       <YAxis
@@ -920,8 +932,10 @@ export function PlannerPage() {
                         </td>
                         <td className="px-4 py-3 font-mono tabular-nums text-right">
                           {d?.regional_calendar_evaluated && d.regional_calendar_score != null
-                            ? `${d.regional_calendar_score.toFixed(1)}`
-                            : 'Unverified'}
+                            ? `${d.regional_calendar_score.toFixed(1)} (Verified)`
+                            : (opt.feasibility?.regional_timing_evidence || d?.regional_timing_evidence) === 'conditional'
+                              ? 'Conditional'
+                              : 'Unverified'}
                         </td>
                         <td className="px-4 py-3 text-[var(--as-text-muted)] whitespace-nowrap">
                           {opt.seasons[0]?.soil_ph_compatibility_score !== null
@@ -934,6 +948,29 @@ export function PlannerPage() {
                 </tbody>
               </table>
             </div>
+
+            {liveResult.unverified_plans && liveResult.unverified_plans.length > 0 && (
+              <details className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 text-xs space-y-4">
+                <summary className="cursor-pointer font-semibold text-[var(--as-text-primary)]">
+                  Additional Conditional or Unverified Timing Possibilities ({liveResult.unverified_plans.length}) — Confirm Sowing Windows Locally
+                </summary>
+                <p className="mt-2 text-[var(--as-text-muted)]">
+                  These sequences lack complete verified regional planting-calendar entries for this country/crop combination and were ranked below fully verified schedules. Review them with local extension guidance before sowing.
+                </p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-2">
+                  {liveResult.unverified_plans.map((opt, idx) => (
+                    <RotationComparisonCard
+                      key={`unv-${opt.crop_ids.join('-')}-${idx}`}
+                      plan={opt}
+                      rank={liveResult.plans.length + idx + 1}
+                      topScore={topPlanScore}
+                      temperatureUnit={settings.temperatureUnit}
+                      onSavePlan={(chosen) => handleSavePlan(chosen)}
+                    />
+                  ))}
+                </div>
+              </details>
+            )}
 
             {liveResult.rejected_sequences && liveResult.rejected_sequences.length > 0 && (
               <details className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 text-xs">

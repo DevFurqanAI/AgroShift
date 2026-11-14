@@ -877,6 +877,9 @@ def _fetch_open_meteo(lat: float, lng: float) -> Dict[str, Any]:
         return {
             "weather_available": True,
             "weather_source": "open-meteo",
+            "weather_data_type": "daily_summary",
+            "weather_is_forecast": True,
+            "weather_observation_window": "Current local day summary (Open-Meteo daily model)",
             "temperature_c": temperature,
             "humidity_percent": round(humidity) if humidity is not None else None,
             "recent_rainfall_mm": rainfall,
@@ -892,6 +895,10 @@ def _fetch_open_meteo(lat: float, lng: float) -> Dict[str, Any]:
 
 OPENWEATHERMAP_FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast"
 OPENWEATHERMAP_TIMEOUT_SECONDS = 6
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 def _fetch_openweathermap_fallback(lat: float, lng: float) -> Dict[str, Any]:
@@ -947,22 +954,18 @@ def _fetch_openweathermap_fallback(lat: float, lng: float) -> Dict[str, Any]:
             logger.info("[WEATHER-DIAG] OpenWeatherMap result: response parsing failure (no forecast entries)")
             return {"weather_available": False, "weather_message": "Weather service returned no usable data for this location."}
 
-        local_today = (datetime.now(timezone.utc) + timedelta(seconds=tz_offset_seconds)).date()
+        now_utc = _utc_now()
+        now_local = now_utc + timedelta(seconds=tz_offset_seconds)
+        local_today = now_local.date()
+        local_tomorrow = local_today + timedelta(days=1)
 
-        todays_temps = []
-        todays_humidity = []
-        todays_rain_mm = 0.0
-        matched_any = False
-
+        parsed_entries = []
         for entry in entries:
             dt_unix = entry.get("dt")
             if dt_unix is None:
                 continue
-            entry_local_date = (
-                datetime.fromtimestamp(dt_unix, tz=timezone.utc) + timedelta(seconds=tz_offset_seconds)
-            ).date()
-            if entry_local_date != local_today:
-                continue
+            entry_utc = datetime.fromtimestamp(dt_unix, tz=timezone.utc)
+            entry_local = entry_utc + timedelta(seconds=tz_offset_seconds)
 
             main = entry.get("main", {})
             temp = main.get("temp")
@@ -972,25 +975,58 @@ def _fetch_openweathermap_fallback(lat: float, lng: float) -> Dict[str, Any]:
             temperature = _safe_number(temp, -100, 70)
             if temperature is None:
                 continue
-            matched_any = True
-            todays_temps.append(temperature)
-            humidity = main.get("humidity")
-            if humidity is not None:
-                valid_humidity = _safe_number(humidity, 0, 100)
-                if valid_humidity is not None:
-                    todays_humidity.append(valid_humidity)
-            rain = _safe_number((entry.get("rain") or {}).get("3h", 0), 0, 2000)
-            if rain is not None:
-                todays_rain_mm += rain
 
-        if not matched_any:
-            logger.info("[WEATHER-DIAG] OpenWeatherMap result: no usable entries for local current date")
+            humidity = main.get("humidity")
+            valid_humidity = _safe_number(humidity, 0, 100) if humidity is not None else None
+            rain = _safe_number((entry.get("rain") or {}).get("3h", 0), 0, 2000)
+            parsed_entries.append({
+                "utc": entry_utc,
+                "local_date": entry_local.date(),
+                "temp": temperature,
+                "humidity": valid_humidity,
+                "rain_3h": rain if rain is not None else 0.0,
+            })
+
+        same_day_entries = [e for e in parsed_entries if e["local_date"] == local_today]
+        used_rollover = False
+        selected_entries = same_day_entries
+
+        if not selected_entries:
+            # Late-evening local-day rollover: OWM /2.5/forecast starts at the next 3-hour slot,
+            # which can fall on local_tomorrow while still within the next 24 hours.
+            rollover_entries = [
+                e for e in parsed_entries
+                if e["local_date"] == local_tomorrow
+                and timedelta(hours=-3) <= (e["utc"] - now_utc) <= timedelta(hours=24)
+            ]
+            if rollover_entries:
+                selected_entries = rollover_entries
+                used_rollover = True
+
+        if not selected_entries:
+            logger.info("[WEATHER-DIAG] OpenWeatherMap result: no usable entries for local date or near-term 24h rollover")
             return {"weather_available": False, "weather_message": "Weather service returned no usable data for this location."}
 
-        logger.info("[WEATHER-DIAG] OpenWeatherMap result: success")
+        todays_temps = [e["temp"] for e in selected_entries]
+        todays_humidity = [e["humidity"] for e in selected_entries if e["humidity"] is not None]
+        todays_rain_mm = sum(e["rain_3h"] for e in selected_entries)
+
+        if used_rollover:
+            data_type = "near_term_forecast"
+            window_label = (
+                f"Near-term forecast window (next 24h across local midnight into {local_tomorrow.isoformat()})"
+            )
+        else:
+            data_type = "forecast_3h_aggregate"
+            window_label = f"3-hour forecast aggregate for local date {local_today.isoformat()}"
+
+        logger.info("[WEATHER-DIAG] OpenWeatherMap result: success (rollover=%s)", used_rollover)
         return {
             "weather_available": True,
             "weather_source": "openweathermap",
+            "weather_data_type": data_type,
+            "weather_is_forecast": True,
+            "weather_observation_window": window_label,
             "temperature_c": round(max(todays_temps), 1),
             "humidity_percent": round(sum(todays_humidity) / len(todays_humidity)) if todays_humidity else None,
             "recent_rainfall_mm": round(todays_rain_mm, 1),
@@ -1711,6 +1747,9 @@ def process_farm_analysis(
         "weather_available": weather_available,
         "weather_message": weather.get("weather_message"),
         "weather_source": weather.get("weather_source"),
+        "weather_data_type": weather.get("weather_data_type"),
+        "weather_is_forecast": weather.get("weather_is_forecast"),
+        "weather_observation_window": weather.get("weather_observation_window"),
         "weather_error_kind": weather.get("weather_error_kind"),
         "ai_explanation": ai_result["ai_explanation"],
         "recommendations": ai_result["recommendations"],

@@ -68,6 +68,8 @@ def evaluate_sequence_feasibility(
                 warnings.append(msg)
         elif cal_eval['status'] == 'shoulder_window':
             warnings.append(f"Season {idx} ({crop.name}): {cal_eval['note']}")
+        elif cal_eval['status'] == 'crop_not_in_regional_calendar':
+            warnings.append(f"Season {idx} ({crop.name}): {cal_eval['note']}")
 
         # Direct succession checks (e.g. consecutive Solanaceae disease bridge or cotton monoculture)
         if crop.id == prev_id and crop.family in ('solanaceae', 'malvaceae'):
@@ -91,6 +93,7 @@ def evaluate_sequence_feasibility(
             'local_season_name': cal_eval['matched_season_name'],
             'calendar_status': cal_eval['status'],
             'calendar_verified': cal_eval['verified'],
+            'calendar_evidence_tier': cal_eval.get('evidence_tier', 'verified' if cal_eval['verified'] else 'unverified'),
             'calendar_score': cal_eval['score'],
             'calendar_note': cal_eval['note'],
         })
@@ -106,16 +109,37 @@ def evaluate_sequence_feasibility(
             f"Back-to-back {total_duration}-month total cycle leaves virtually zero turnaround days between harvest and sowing."
         )
 
+    verified_season_count = sum(1 for sc in season_checks if sc['calendar_verified'])
+    all_seasons_verified = len(season_checks) == len(rotation) and verified_season_count == len(rotation)
+    unverified_crop_ids = [
+        sc['crop_id'] for sc in season_checks if sc['calendar_status'] == 'crop_not_in_regional_calendar'
+    ]
+    has_off_season = any(sc['calendar_status'] == 'off_season' for sc in season_checks)
+
     if rejection_reasons:
         status = 'infeasible'
+        regional_timing_evidence = 'verified'
     elif not calendar_context.get('verified'):
         status = 'uncertain_unverified'
-    elif any(sc['calendar_status'] == 'off_season' for sc in season_checks):
+        regional_timing_evidence = 'unverified'
+    elif verified_season_count == 0:
+        status = 'unverified_crop_timing'
+        regional_timing_evidence = 'unverified'
+    elif has_off_season:
         status = 'off_season_warning'
+        regional_timing_evidence = 'conditional'
+    elif not all_seasons_verified:
+        status = 'conditional_partial_calendar'
+        regional_timing_evidence = 'conditional'
+    elif calendar_context.get('evidence_status') == 'inferred_from_coordinates':
+        status = 'feasible_with_cautions'
+        regional_timing_evidence = 'conditional'
     elif warnings:
         status = 'feasible_with_cautions'
+        regional_timing_evidence = 'verified'
     else:
         status = 'feasible'
+        regional_timing_evidence = 'verified'
 
     timeline_summary = ' → '.join(
         f"S{sc['season_index']}: {sc['crop_name']} ({sc['window_label']})"
@@ -125,10 +149,15 @@ def evaluate_sequence_feasibility(
     return {
         'status': status,
         'is_feasible': status != 'infeasible',
+        'regional_timing_evidence': regional_timing_evidence,
+        'verified_calendar_seasons': verified_season_count,
+        'total_seasons': len(rotation),
+        'unverified_crop_ids': unverified_crop_ids,
         'total_cycle_months': total_duration,
         'season_checks': season_checks,
-        'calendar_score': round(sum(calendar_scores) / len(calendar_scores), 1) if calendar_scores else None,
-        'calendar_evaluated': len(calendar_scores) == len(rotation),
+        # Never treat partial crop calendar coverage as a complete sequence calendar score
+        'calendar_score': round(sum(calendar_scores) / len(calendar_scores), 1) if all_seasons_verified and calendar_scores else None,
+        'calendar_evaluated': all_seasons_verified,
         'timeline_summary': timeline_summary,
         'warnings': warnings,
         'rejection_reasons': rejection_reasons,

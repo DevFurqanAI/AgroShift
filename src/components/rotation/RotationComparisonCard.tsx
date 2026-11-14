@@ -44,6 +44,7 @@ function formatMonthName(monthNum: number): string {
 function getBandBadgeClass(band: string | undefined): string {
   if (!band) return 'as-badge-success';
   const lower = band.toLowerCase();
+  if (lower.includes('unverified') || lower.includes('conditional')) return 'as-badge-warning';
   if (lower.includes('strong') || lower.includes('good')) return 'as-badge-success';
   if (lower.includes('moderate')) return 'as-badge-warning';
   return 'as-badge-danger';
@@ -174,9 +175,15 @@ export function RotationComparisonCard({
                 driverHint={
                   diag.regional_calendar_evaluated
                     ? 'Sowing/harvest alignment with local windows'
-                    : 'No verified regional calendar for this location'
+                    : (feasibility?.regional_timing_evidence || diag.regional_timing_evidence) === 'conditional'
+                      ? `Partial regional calendar (${feasibility?.verified_calendar_seasons ?? diag.verified_calendar_seasons ?? 0}/${feasibility?.total_seasons ?? diag.total_seasons ?? plan.seasons.length} seasons verified) — confirm locally`
+                      : 'No verified regional calendar for this crop/location'
                 }
-                unavailableLabel="Unverified"
+                unavailableLabel={
+                  (feasibility?.regional_timing_evidence || diag.regional_timing_evidence) === 'conditional'
+                    ? 'Conditional'
+                    : 'Unverified'
+                }
               />
               <ScoreProgressBar
                 label="Family Rotation"

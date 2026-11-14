@@ -60,6 +60,27 @@ export function celsiusToFahrenheit(c: number): number {
   return (c * 9) / 5 + 32;
 }
 
+export function celsiusDeltaToFahrenheit(deltaC: number): number {
+  return deltaC * 1.8;
+}
+
+export function formatTemperatureDelta(
+  deltaC: number | null | undefined,
+  unit: TemperatureUnit,
+  locale = 'en-US'
+): string {
+  if (deltaC === null || deltaC === undefined || !Number.isFinite(deltaC)) {
+    return 'Unavailable';
+  }
+  const val = unit === 'fahrenheit' ? celsiusDeltaToFahrenheit(deltaC) : deltaC;
+  const formatted = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(Math.abs(val));
+  const sign = val > 0 ? '+' : val < 0 ? '-' : '';
+  return `${sign}${formatted} ${unit === 'fahrenheit' ? '°F' : '°C'}`;
+}
+
 export function formatTemperature(
   celsius: number | null | undefined,
   unit: TemperatureUnit,

@@ -353,7 +353,7 @@ export async function handleAssistantRequest(
       '3. Never alter or fabricate NASA POWER figures, Sentinel-2 readings, or soil lab values. When required data is missing or not loaded, state the limitation clearly.',
       '4. Do not assume or diagnose a field as fallow, harvested, planted, irrigated, diseased, or moisture-stressed without supporting evidence. For example, low NDVI such as 0.123 may indicate sparse vegetation, bare soil, or early emergence, and cannot independently confirm crop growth stage.',
       '5. Do not claim guaranteed yields, fixed nitrogen credits, or field-validated agronomic outcomes.',
-      '6. Format responses clearly using Markdown headings, bullet lists, compact tables, and KaTeX math notation ($...$ inline or $$...$$ block) for agricultural formulas and unit conversions when helpful.',
+      '6. Format responses clearly using Markdown headings, bullet lists, compact tables, and KaTeX math notation ($x = 1$ inline with no spaces inside the $ signs, or $$...$$ on separate lines for block formulas — never use \\(...\\) or \\[...\\] delimiters, and escape literal currency like \\$50) for agricultural formulas and unit conversions when helpful.',
       body.language && body.language !== 'en'
         ? `Respond in ${body.language} unless the user writes in English.`
         : 'Respond in clear English.',

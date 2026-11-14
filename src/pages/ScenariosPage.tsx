@@ -36,7 +36,26 @@ import {
   type ClimateScenarioAssumption,
   type ClimateScenarioId,
 } from '../types/planner';
-import { formatTemperature } from '../utils/units';
+import {
+  celsiusDeltaToFahrenheit,
+  formatTemperature,
+  formatTemperatureDelta,
+} from '../utils/units';
+
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
 
 const SCENARIO_PRESETS: ClimateScenarioAssumption[] = [
   {
@@ -74,6 +93,8 @@ export function ScenariosPage() {
   const [selectedId, setSelectedId] = useState<ClimateScenarioId>('warmer');
   const [customTempDelta, setCustomTempDelta] = useState(1.5);
   const [customPrecipShift, setCustomPrecipShift] = useState(0);
+  const [plantingMonth, setPlantingMonth] = useState<number>(new Date().getMonth() + 1);
+  const [seasons, setSeasons] = useState<2 | 3>(2);
   const [referencePrevCropId, setReferencePrevCropId] = useState('');
 
   const cropsQuery = useRotationCrops();
@@ -107,8 +128,10 @@ export function ScenariosPage() {
     ) {
       return preset.label;
     }
-    return `Custom (${customTempDelta >= 0 ? `+${customTempDelta.toFixed(1)}` : customTempDelta.toFixed(1)} °C, ${customPrecipShift >= 0 ? `+${customPrecipShift}` : customPrecipShift}%)`;
-  }, [selectedId, customTempDelta, customPrecipShift]);
+    const tempDisplay = formatTemperatureDelta(customTempDelta, settings.temperatureUnit);
+    const rainDisplay = `${customPrecipShift >= 0 ? `+${customPrecipShift}` : customPrecipShift}%`;
+    return `Custom (${tempDisplay}, ${rainDisplay})`;
+  }, [selectedId, customTempDelta, customPrecipShift, settings.temperatureUnit]);
 
   if (!activeFarm) {
     return (
@@ -140,7 +163,13 @@ export function ScenariosPage() {
   const priorityMapping = mapPrioritiesToBackendGoal(activeFarm.priorities);
   const waterLevel = mapWaterAvailabilityToBackend(activeFarm.details.waterAvailability);
 
-  const runComparison = (tempDelta = customTempDelta, precipShift = customPrecipShift, label = selectedLabel) => {
+  const runComparison = (
+    tempDelta = customTempDelta,
+    precipShift = customPrecipShift,
+    label = selectedLabel,
+    monthOverride = plantingMonth,
+    seasonsOverride = seasons
+  ) => {
     const prevCrop = supportedPrevCrop || 'wheat';
     scenarioMutation.mutate({
       latitude: activeFarm.location.latitude,
@@ -149,8 +178,8 @@ export function ScenariosPage() {
       soil_ph: validSoilPh,
       water_availability: waterLevel,
       goal: priorityMapping.activeGoal,
-      planting_month: new Date().getMonth() + 1,
-      seasons: 2,
+      planting_month: monthOverride,
+      seasons: seasonsOverride,
       start_year: startYear,
       end_year: endYear,
       max_results: 4,
@@ -248,6 +277,19 @@ export function ScenariosPage() {
         {SCENARIO_PRESETS.map((preset) => {
           const active = preset.id === selectedId;
           const Icon = getScenarioIcon(preset.id);
+          const presetTempDeltaLabel = formatTemperatureDelta(
+            preset.temperatureDeltaC,
+            settings.temperatureUnit
+          );
+          const presetDescription =
+            preset.id === 'warmer'
+              ? `Stress-test rotation suitability under ${presetTempDeltaLabel} higher seasonal temperatures.`
+              : preset.id === 'drier'
+              ? `Explore drought-resilient crop sequences under ${presetTempDeltaLabel} and -20% rainfall.`
+              : preset.id === 'wetter'
+              ? `Compare sequences under ${presetTempDeltaLabel} and +20% rainfall (check local drainage too).`
+              : preset.description;
+
           return (
             <button
               key={preset.id}
@@ -266,7 +308,7 @@ export function ScenariosPage() {
                 {preset.label}
               </h3>
               <p className="text-xs text-[var(--as-text-muted)] leading-relaxed">
-                {preset.description}
+                {presetDescription}
               </p>
             </button>
           );
@@ -278,18 +320,61 @@ export function ScenariosPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <h3 className="text-base font-semibold">Custom Sensitivity Parameters</h3>
           <span className="text-xs as-text-accent font-medium">
-            Active: {selectedLabel}
+            Active: {selectedLabel} · {MONTH_NAMES[plantingMonth - 1]} · {seasons} Seasons
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-1.5">
+            <label htmlFor="scenario-planting-month" className="block text-xs font-semibold">
+              Planting Month
+            </label>
+            <select
+              id="scenario-planting-month"
+              value={plantingMonth}
+              onChange={(e) => setPlantingMonth(Number(e.target.value))}
+              className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)]"
+            >
+              {MONTH_NAMES.map((name, idx) => (
+                <option key={name} value={idx + 1}>
+                  {name} (Month {idx + 1})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="block text-xs font-semibold">Planning Horizon</span>
+            <div className="grid grid-cols-2 gap-2.5">
+              {([2, 3] as const).map((count) => (
+                <button
+                  key={count}
+                  type="button"
+                  onClick={() => setSeasons(count)}
+                  className={`px-3.5 py-2.5 text-sm font-medium rounded-lg border transition-colors ${
+                    seasons === count
+                      ? 'border-[var(--as-primary)] bg-[var(--as-accent-surface)] as-text-accent'
+                      : 'border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-muted)]'
+                  }`}
+                >
+                  {count} Seasons
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="space-y-2">
             <div className="flex justify-between text-xs">
               <label htmlFor="temp-delta" className="font-semibold">
                 Seasonal Temperature Shift Assumption
               </label>
               <span className="font-mono tabular-nums font-semibold as-text-accent">
-                {customTempDelta >= 0 ? `+${customTempDelta.toFixed(1)}` : customTempDelta.toFixed(1)} °C
+                {formatTemperatureDelta(customTempDelta, settings.temperatureUnit)}
+                {settings.temperatureUnit === 'fahrenheit' && (
+                  <span className="text-[11px] font-normal text-[var(--as-text-muted)] ml-1.5">
+                    ({customTempDelta > 0 ? `+${customTempDelta.toFixed(1)}` : customTempDelta.toFixed(1)} °C)
+                  </span>
+                )}
               </span>
             </div>
             <input
@@ -303,9 +388,11 @@ export function ScenariosPage() {
               className="w-full accent-[var(--as-primary)]"
             />
             <div className="flex justify-between text-[11px] text-[var(--as-text-muted)]">
-              <span>-2.0 °C</span>
-              <span>Baseline (0 °C)</span>
-              <span>+5.0 °C</span>
+              <span>{formatTemperatureDelta(-2, settings.temperatureUnit)}</span>
+              <span>
+                Baseline ({settings.temperatureUnit === 'fahrenheit' ? `${celsiusDeltaToFahrenheit(0).toFixed(1)} °F` : '0.0 °C'})
+              </span>
+              <span>{formatTemperatureDelta(5, settings.temperatureUnit)}</span>
             </div>
           </div>
 
@@ -380,7 +467,10 @@ export function ScenariosPage() {
           Baseline: row.baseline_score !== null ? Number(row.baseline_score.toFixed(1)) : null,
           Scenario: row.scenario_score !== null ? Number(row.scenario_score.toFixed(1)) : null,
         }));
-        const tempShiftStr = `${comparisonResult.assumptions.temperature_delta_c >= 0 ? '+' : ''}${comparisonResult.assumptions.temperature_delta_c.toFixed(1)} °C`;
+        const tempShiftStr = formatTemperatureDelta(
+          comparisonResult.assumptions.temperature_delta_c,
+          settings.temperatureUnit
+        );
         const rainShiftStr = `${comparisonResult.assumptions.precipitation_shift_percent >= 0 ? '+' : ''}${comparisonResult.assumptions.precipitation_shift_percent}%`;
 
         return (

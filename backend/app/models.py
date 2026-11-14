@@ -90,6 +90,9 @@ class FarmAnalyzeResponse(BaseModel):
     weather_available: bool
     weather_message: Optional[str] = None
     weather_source: Optional[str] = None
+    weather_data_type: Optional[str] = None
+    weather_is_forecast: Optional[bool] = None
+    weather_observation_window: Optional[str] = None
     weather_error_kind: Optional[str] = None
 
     ai_explanation: str

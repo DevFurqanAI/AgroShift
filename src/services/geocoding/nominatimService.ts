@@ -128,13 +128,18 @@ function extractAddressFields(address?: NominatimAddress) {
   return { country, countryCode, region, locality };
 }
 
+function normalizeLanguageCode(language?: string): string {
+  const clean = (language || 'en').trim().toLowerCase();
+  return /^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(clean) ? clean : 'en';
+}
+
 /**
  * Explicit user-submitted Nominatim forward search (never called per keystroke).
  * Only sends search query and optional country code filter — never farm names or user notes.
  */
 export async function searchPlaces(
   query: string,
-  options: { countryCode?: string; signal?: AbortSignal } = {}
+  options: { countryCode?: string; signal?: AbortSignal; language?: string } = {}
 ): Promise<PlaceSearchCandidate[]> {
   const cleanQuery = query.trim();
   if (!cleanQuery) return [];
@@ -145,8 +150,9 @@ export async function searchPlaces(
     options.countryCode.length === 2
       ? options.countryCode.toLowerCase()
       : '';
+  const lang = normalizeLanguageCode(options.language);
 
-  const cacheKey = `${filterCode}::${cleanQuery.toLowerCase()}`;
+  const cacheKey = `${lang}::${filterCode}::${cleanQuery.toLowerCase()}`;
   const cached = searchCache.get(cacheKey);
   if (cached) return cached;
 
@@ -154,7 +160,7 @@ export async function searchPlaces(
     format: 'jsonv2',
     addressdetails: '1',
     limit: '6',
-    'accept-language': 'en',
+    'accept-language': lang,
     q: cleanQuery,
   });
   if (filterCode) {
@@ -201,6 +207,11 @@ export async function searchPlaces(
   return results;
 }
 
+export interface ReverseGeocodeOptions {
+  signal?: AbortSignal;
+  language?: string;
+}
+
 /**
  * Reverse geocode geographic coordinates via Nominatim with caching & throttling.
  * Never falls back to a default country when lookup fails or returns ocean/empty.
@@ -208,8 +219,18 @@ export async function searchPlaces(
 export async function reverseGeocode(
   latitude: number,
   longitude: number,
-  signal?: AbortSignal
+  signalOrOptions?: AbortSignal | ReverseGeocodeOptions
 ): Promise<ReverseGeocodeResult> {
+  const signal =
+    signalOrOptions && 'aborted' in signalOrOptions
+      ? signalOrOptions
+      : (signalOrOptions as ReverseGeocodeOptions | undefined)?.signal;
+  const language =
+    signalOrOptions && !('aborted' in signalOrOptions)
+      ? (signalOrOptions as ReverseGeocodeOptions).language
+      : undefined;
+  const lang = normalizeLanguageCode(language);
+
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     return {
       status: 'unresolved',
@@ -222,7 +243,7 @@ export async function reverseGeocode(
     };
   }
 
-  const cacheKey = `${latitude.toFixed(4)},${longitude.toFixed(4)}`;
+  const cacheKey = `${lang}::${latitude.toFixed(4)},${longitude.toFixed(4)}`;
   const cached = reverseCache.get(cacheKey);
   if (cached) return cached;
 
@@ -230,7 +251,7 @@ export async function reverseGeocode(
     format: 'jsonv2',
     addressdetails: '1',
     zoom: '14',
-    'accept-language': 'en',
+    'accept-language': lang,
     lat: String(latitude),
     lon: String(longitude),
   });

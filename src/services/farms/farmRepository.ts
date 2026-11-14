@@ -1,5 +1,10 @@
 import { normalizeCropIdForBackend } from '../../data/crops';
 import type {
+  ClimateHistoryResponse,
+  FieldAnalyzeResponse,
+  RotationPlanResponse,
+} from '../../types/api';
+import type {
   AppSettings,
   FarmActivityItem,
   FarmProfile,
@@ -12,6 +17,18 @@ const ACTIVE_FARM_KEY = 'agroshift.activeFarmId.v1';
 const PLANS_STORAGE_KEY = 'agroshift.rotationPlans.v1';
 const ACTIVITY_STORAGE_KEY = 'agroshift.activity.v1';
 const SETTINGS_STORAGE_KEY = 'agroshift.settings.v1';
+const OBSERVATIONS_STORAGE_KEY = 'agroshift.observations.v1';
+const OBSERVATIONS_SCHEMA_VERSION = 1;
+
+export interface PersistedFarmObservations {
+  schemaVersion?: number;
+  climate?: ClimateHistoryResponse;
+  climateFetchedAt?: string;
+  fieldHealth?: FieldAnalyzeResponse;
+  fieldHealthFetchedAt?: string;
+  rotation?: RotationPlanResponse;
+  rotationScreenedAt?: string;
+}
 
 export interface StorageResult<T> {
   data: T;
@@ -141,6 +158,7 @@ export const farmRepository: FarmRepository = {
     const current = this.listFarms();
     const updated = current.data.filter((item) => item.id !== farmId);
     const err = safeWriteJson(FARMS_STORAGE_KEY, updated);
+    observationRepository.deleteFarmObservations(farmId);
     if (this.getActiveFarmId() === farmId) {
       this.setActiveFarmId(updated[0]?.id ?? null);
     }
@@ -174,10 +192,69 @@ export const farmRepository: FarmRepository = {
       window.localStorage.removeItem(ACTIVE_FARM_KEY);
       window.localStorage.removeItem(PLANS_STORAGE_KEY);
       window.localStorage.removeItem(ACTIVITY_STORAGE_KEY);
+      window.localStorage.removeItem(OBSERVATIONS_STORAGE_KEY);
       return null;
     } catch (err) {
       return err instanceof Error ? err.message : 'Unable to clear local storage.';
     }
+  },
+};
+
+interface PersistedObservationsEnvelope {
+  version: number;
+  byFarm: Record<string, PersistedFarmObservations>;
+}
+
+export const observationRepository = {
+  loadByFarm(): StorageResult<Record<string, PersistedFarmObservations>> {
+    const res = safeReadJson<Partial<PersistedObservationsEnvelope> | null>(
+      OBSERVATIONS_STORAGE_KEY,
+      null
+    );
+    if (
+      !res.data ||
+      typeof res.data !== 'object' ||
+      res.data.version !== OBSERVATIONS_SCHEMA_VERSION ||
+      !res.data.byFarm ||
+      typeof res.data.byFarm !== 'object'
+    ) {
+      return { data: {}, storageError: res.storageError };
+    }
+    return {
+      data: res.data.byFarm,
+      storageError: res.storageError,
+    };
+  },
+
+  saveEntry(
+    farmId: string,
+    patch: Partial<PersistedFarmObservations>
+  ): StorageResult<Record<string, PersistedFarmObservations>> {
+    const current = this.loadByFarm().data;
+    const updated: Record<string, PersistedFarmObservations> = {
+      ...current,
+      [farmId]: {
+        ...current[farmId],
+        ...patch,
+        schemaVersion: OBSERVATIONS_SCHEMA_VERSION,
+      },
+    };
+    const err = safeWriteJson<PersistedObservationsEnvelope>(OBSERVATIONS_STORAGE_KEY, {
+      version: OBSERVATIONS_SCHEMA_VERSION,
+      byFarm: updated,
+    });
+    return { data: updated, storageError: err };
+  },
+
+  deleteFarmObservations(farmId: string): string | null {
+    const current = this.loadByFarm().data;
+    if (!(farmId in current)) return null;
+    const next = { ...current };
+    delete next[farmId];
+    return safeWriteJson<PersistedObservationsEnvelope>(OBSERVATIONS_STORAGE_KEY, {
+      version: OBSERVATIONS_SCHEMA_VERSION,
+      byFarm: next,
+    });
   },
 };
 

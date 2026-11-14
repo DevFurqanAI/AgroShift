@@ -400,3 +400,99 @@ def test_scenario_irrigated_explains_minimal_precip_impact():
     assert d['status'] == 'ok'
     assert 'irrigation' in d['assumptions']['water_shift_note'].lower()
     assert any('irrigated' in c['reason'].lower() for c in d['comparisons'])
+
+
+def test_australia_verified_sequence_outranks_unverified_and_partial_calendars():
+    au_temps = [24, 23, 20, 16, 12, 10, 9, 11, 14, 18, 21, 23]
+    au_rain = [60, 55, 50, 40, 45, 48, 45, 42, 40, 50, 55, 65]
+    payload = {
+        'latitude': -32.2,
+        'longitude': 148.6,
+        'country': 'Australia',
+        'country_code': 'AU',
+        'previous_crop': 'wheat',
+        'planting_month': 5,
+        'seasons': 2,
+        'candidate_crop_ids': ['chickpea', 'sorghum', 'canola', 'lentil', 'millet'],
+        'water_availability': 'medium',
+        'max_results': 6,
+        'climate_monthly': seasonal_monthly(au_temps, au_rain),
+    }
+    d = client.post('/api/v1/rotation/plan', json=payload).json()
+    assert d['status'] == 'ok'
+    plans = d['plans']
+    # Verify Chickpea -> Sorghum (both AU verified) outranks partial/unverified pairs such as Lentil -> Millet
+    chickpea_sorghum = next(p for p in plans if p['crop_ids'] == ['chickpea', 'sorghum'])
+    assert chickpea_sorghum['feasibility']['regional_timing_evidence'] == 'verified'
+    assert chickpea_sorghum['diagnostics']['regional_calendar_evaluated'] is True
+
+    top_tier = plans[0]['feasibility']['regional_timing_evidence']
+    assert top_tier == 'verified'
+
+    for partial_seq in (['canola', 'lentil'], ['lentil', 'millet']):
+        match = next(
+            (p for p in plans + d.get('unverified_plans', []) if p['crop_ids'] == partial_seq),
+            None,
+        )
+        if match is not None:
+            assert match['feasibility']['regional_timing_evidence'] in ('conditional', 'unverified')
+            assert match['diagnostics']['regional_calendar_evaluated'] is False
+            assert match['diagnostics']['regional_calendar_score'] is None
+            if match in plans:
+                assert plans.index(chickpea_sorghum) < plans.index(match)
+
+
+def test_kenya_unverified_timing_cannot_mask_missing_calendar_as_strong_match():
+    ke_temps = [21, 22, 22, 21, 20, 19, 18, 19, 20, 21, 20, 20]
+    ke_rain = [40, 45, 110, 160, 120, 45, 35, 45, 50, 115, 140, 75]
+    payload = {
+        'latitude': -0.3,
+        'longitude': 36.08,
+        'country': 'Kenya',
+        'country_code': 'KE',
+        'previous_crop': 'maize',
+        'planting_month': 3,
+        'seasons': 2,
+        'candidate_crop_ids': ['cowpea', 'rice', 'canola', 'lentil'],
+        'water_availability': 'medium',
+        'max_results': 6,
+        'climate_monthly': seasonal_monthly(ke_temps, ke_rain),
+    }
+    d = client.post('/api/v1/rotation/plan', json=payload).json()
+    assert d['status'] == 'ok'
+    all_returned = d['plans'] + d.get('unverified_plans', [])
+    canola_lentil = next((p for p in all_returned if p['crop_ids'] == ['canola', 'lentil']), None)
+    assert canola_lentil is not None
+    assert canola_lentil['feasibility']['regional_timing_evidence'] == 'unverified'
+    assert canola_lentil['compatibility_band'] == 'Unverified Timing — Confirm Locally'
+    assert canola_lentil['diagnostics']['regional_calendar_score'] is None
+
+    verified_plans = [p for p in d['plans'] if p['feasibility']['regional_timing_evidence'] == 'verified']
+    assert len(verified_plans) >= 1
+    assert d['plans'][0]['feasibility']['regional_timing_evidence'] == 'verified'
+    if canola_lentil in d['plans']:
+        assert d['plans'].index(verified_plans[-1]) < d['plans'].index(canola_lentil)
+
+
+def test_pakistan_verified_plans_preserve_band_and_rank_above_unverified():
+    punjab_temps = [12, 16, 22, 28, 33, 35, 33, 32, 30, 26, 20, 14]
+    punjab_rain = [18, 22, 25, 18, 15, 35, 110, 105, 45, 8, 5, 12]
+    payload = {
+        'latitude': 30.2,
+        'longitude': 71.5,
+        'country': 'Pakistan',
+        'country_code': 'PK',
+        'region': 'Punjab',
+        'previous_crop': 'wheat',
+        'planting_month': 6,
+        'seasons': 2,
+        'candidate_crop_ids': ['rice', 'wheat', 'chickpea', 'lentil'],
+        'water_availability': 'high',
+        'max_results': 6,
+        'climate_monthly': seasonal_monthly(punjab_temps, punjab_rain),
+    }
+    d = client.post('/api/v1/rotation/plan', json=payload).json()
+    assert d['status'] == 'ok'
+    assert d['plans'][0]['feasibility']['regional_timing_evidence'] == 'verified'
+    assert d['plans'][0]['compatibility_band'].endswith('Screening Match')
+

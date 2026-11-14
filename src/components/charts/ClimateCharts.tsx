@@ -46,19 +46,25 @@ export function parseClimateMonthlyRecord(
     monthKey: pt.month,
     label: `${mName} ${year}`,
     temperatureC:
-      pt.temperature_c !== null && pt.temperature_c !== undefined && Number.isFinite(pt.temperature_c)
+      pt.temperature_c !== null &&
+      pt.temperature_c !== undefined &&
+      Number.isFinite(pt.temperature_c) &&
+      pt.temperature_c > -150 &&
+      pt.temperature_c !== -999
         ? pt.temperature_c
         : null,
     precipMmDay:
       pt.precipitation_mm_per_day !== null &&
       pt.precipitation_mm_per_day !== undefined &&
-      Number.isFinite(pt.precipitation_mm_per_day)
+      Number.isFinite(pt.precipitation_mm_per_day) &&
+      pt.precipitation_mm_per_day >= 0
         ? pt.precipitation_mm_per_day
         : null,
     estimatedMonthlyMm:
       pt.estimated_monthly_precipitation_mm !== null &&
       pt.estimated_monthly_precipitation_mm !== undefined &&
-      Number.isFinite(pt.estimated_monthly_precipitation_mm)
+      Number.isFinite(pt.estimated_monthly_precipitation_mm) &&
+      pt.estimated_monthly_precipitation_mm >= 0
         ? pt.estimated_monthly_precipitation_mm
         : null,
   };

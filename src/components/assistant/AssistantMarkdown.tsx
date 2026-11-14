@@ -115,7 +115,95 @@ const markdownComponents: Components = {
   hr: () => <hr className="my-3 border-[var(--as-border)]" />,
 };
 
+export function normalizeAssistantMath(content: string): string {
+  if (!content) return '';
+
+  // Protect fenced code blocks and inline code spans before math normalization
+  const protectedSegments: string[] = [];
+  const placeholder = (segment: string) => {
+    const idx = protectedSegments.length;
+    protectedSegments.push(segment);
+    return `\uE000CODE_SEG_${idx}\uE001`;
+  };
+
+  let working = content.replace(/(```[\s\S]*?```|~~~[\s\S]*?~~~|`[^`\n]+`)/g, (match) =>
+    placeholder(match)
+  );
+
+  // Convert \[ ... \] display math delimiters into remark-math $$ ... $$ blocks
+  working = working.replace(/\\\[([\s\S]*?)\\\]/g, (_match, inner: string) => {
+    const trimmed = inner.trim();
+    if (!trimmed) return '';
+    return `\n$$\n${trimmed}\n$$\n`;
+  });
+
+  // Convert \( ... \) inline math delimiters into $...$
+  working = working.replace(/\\\(([\s\S]*?)\\\)/g, (_match, inner: string) => {
+    const trimmed = inner.trim();
+    if (!trimmed) return '';
+    return `$${trimmed}$`;
+  });
+
+  // Tighten spaced inline math ($ x = 1 $) into $x = 1$ without touching currency pairs ($50 to $100)
+  working = working.replace(
+    /(^|[^\\$])\$([ \t]+)([^$\n]*?\S)[ \t]+\$(?![0-9$])/g,
+    (full, prefix: string, _space: string, inner: string) => {
+      const trimmed = inner.trim();
+      if (!trimmed) return full;
+      // Avoid merging across plain-text currency sentences
+      if (/^\d[\d,.\s]*(?:to|and|or|-)\s/.test(trimmed)) {
+        return full;
+      }
+      return `${prefix}$${trimmed}$`;
+    }
+  );
+
+  // Also tighten asymmetric spacing when the inner expression clearly contains LaTeX/math syntax
+  working = working.replace(
+    /(^|[^\\$])\$([ \t]*)([^$\n]*?\S)([ \t]*)\$(?![0-9A-Za-z$])/g,
+    (full, prefix: string, leftWs: string, inner: string, rightWs: string) => {
+      if (!leftWs && !rightWs) return full;
+      const trimmed = inner.trim();
+      if (!trimmed) return full;
+      const hasMathSignal =
+        /[=\\^_*/<>]/.test(trimmed) ||
+        /^(?:[A-Za-z](?:_[A-Za-z0-9]+)?|[0-9]+(?:\.[0-9]+)?)\s*[+\-]\s*/.test(trimmed);
+      if (!hasMathSignal) return full;
+      return `${prefix}$${trimmed}$`;
+    }
+  );
+
+  // Protect valid $$...$$ blocks and inline $...$ formulas, while escaping plain currency like "$50 to $100"
+  working = working
+    .split('\n')
+    .map((line) => {
+      // Skip lines containing block $$ markers
+      if (line.includes('$$')) return line;
+      // Escape standalone currency tokens like $50, $1,200.50 when not inside valid non-currency math
+      return line.replace(/(^|[^\\$])\$(\d[\d,]*(?:\.\d+)?)(?=$|[\s.,;:!?)]|\/)/g, (full, prefix: string, amount: string, offset: number, wholeLine: string) => {
+        const afterEnd = offset + full.length;
+        const rest = wholeLine.slice(afterEnd);
+        const nextDollarIdx = rest.search(/(?<!\\)\$/);
+        if (nextDollarIdx !== -1) {
+          const between = rest.slice(0, nextDollarIdx);
+          // Only treat as math if between contains genuine math operators/LaTeX commands
+          if (/[=\\^_*<>+]/.test(between)) {
+            return full;
+          }
+        }
+        return `${prefix}\\$${amount}`;
+      });
+    })
+    .join('\n');
+
+  return working.replace(/\uE000CODE_SEG_(\d+)\uE001/g, (_m, idx) => {
+    return protectedSegments[Number(idx)] ?? '';
+  });
+}
+
 export function AssistantMarkdown({ content }: AssistantMarkdownProps) {
+  const normalizedContent = normalizeAssistantMath(content);
+
   return (
     <div className="text-sm leading-relaxed break-words">
       <ReactMarkdown
@@ -125,8 +213,9 @@ export function AssistantMarkdown({ content }: AssistantMarkdownProps) {
         urlTransform={defaultUrlTransform}
         components={markdownComponents}
       >
-        {content}
+        {normalizedContent}
       </ReactMarkdown>
     </div>
   );
 }
+

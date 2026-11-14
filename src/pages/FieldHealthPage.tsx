@@ -401,20 +401,25 @@ export function FieldHealthPage() {
                 </p>
               )}
               {result.weather_available && (
-                <p className="text-[11px] text-[var(--as-text-muted)] pt-0.5">
-                  {result.weather_source === 'openweathermap' ? (
-                    'Weather data via OpenWeatherMap fallback'
-                  ) : (
-                    <a
-                      href="https://open-meteo.com/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="as-text-accent underline hover:opacity-80"
-                    >
-                      Weather data by Open-Meteo.com
-                    </a>
+                <div className="text-[11px] text-[var(--as-text-muted)] pt-0.5 space-y-0.5">
+                  <p>
+                    {result.weather_source === 'openweathermap' ? (
+                      'Weather data via OpenWeatherMap fallback'
+                    ) : (
+                      <a
+                        href="https://open-meteo.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="as-text-accent underline hover:opacity-80"
+                      >
+                        Weather data by Open-Meteo.com
+                      </a>
+                    )}
+                  </p>
+                  {result.weather_observation_window && (
+                    <p className="leading-snug">{result.weather_observation_window}</p>
                   )}
-                </p>
+                </div>
               )}
             </div>
           </div>

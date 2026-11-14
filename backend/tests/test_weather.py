@@ -257,3 +257,60 @@ def test_open_meteo_429_still_uses_openweathermap_fallback_when_configured():
     assert sum(1 for u in calls if "open-meteo.com" in u) == 1
     assert sum(1 for u in calls if "openweathermap.org" in u) == 1
 
+
+def test_openweathermap_late_evening_australia_rollover_uses_near_term_forecast():
+    # Simulate 2026-05-10 22:30 AEST (UTC+10 -> 12:30 UTC on 2026-05-10)
+    # OWM /2.5/forecast starts at the next 3-hour slot: 2026-05-11 01:00 AEST (15:00 UTC on 2026-05-10)
+    tz_offset = 10 * 3600
+    fixed_now_utc = datetime(2026, 5, 10, 12, 30, 0, tzinfo=timezone.utc)
+    slot_1_utc = datetime(2026, 5, 10, 15, 0, 0, tzinfo=timezone.utc)
+    slot_2_utc = datetime(2026, 5, 10, 18, 0, 0, tzinfo=timezone.utc)
+    # A slot >24h ahead on local_tomorrow should not be included if beyond 24h
+    entries = [
+        {
+            "dt": int(slot_1_utc.timestamp()),
+            "main": {"temp": 14.2, "humidity": 78},
+            "rain": {"3h": 0.4},
+        },
+        {
+            "dt": int(slot_2_utc.timestamp()),
+            "main": {"temp": 13.0, "humidity": 82},
+            "rain": {"3h": 0.6},
+        },
+    ]
+    payload = _owm_payload(tz_offset, entries)
+
+    with patch("app.services._utc_now", return_value=fixed_now_utc), \
+         patch("app.services.requests.get", return_value=FakeResponse(status_code=200, json_data=payload)):
+        result = services._fetch_openweathermap_fallback(-33.8, 151.2)
+
+    assert result["weather_available"] is True
+    assert result["weather_source"] == "openweathermap"
+    assert result["weather_data_type"] == "near_term_forecast"
+    assert result["weather_is_forecast"] is True
+    assert "2026-05-11" in result["weather_observation_window"]
+    assert result["temperature_c"] == 14.2
+    assert result["humidity_percent"] == 80
+    assert result["recent_rainfall_mm"] == 1.0
+
+
+def test_openweathermap_same_day_match_distinguishes_forecast_aggregate():
+    tz_offset = 0
+    fixed_now_utc = datetime(2026, 5, 10, 9, 0, 0, tzinfo=timezone.utc)
+    slot_utc = datetime(2026, 5, 10, 12, 0, 0, tzinfo=timezone.utc)
+    payload = _owm_payload(
+        tz_offset,
+        [{"dt": int(slot_utc.timestamp()), "main": {"temp": 21.5, "humidity": 65}, "rain": {"3h": 1.2}}],
+    )
+
+    with patch("app.services._utc_now", return_value=fixed_now_utc), \
+         patch("app.services.requests.get", return_value=FakeResponse(status_code=200, json_data=payload)):
+        result = services._fetch_openweathermap_fallback(51.5, -0.1)
+
+    assert result["weather_available"] is True
+    assert result["weather_source"] == "openweathermap"
+    assert result["weather_data_type"] == "forecast_3h_aggregate"
+    assert result["weather_is_forecast"] is True
+    assert "2026-05-10" in result["weather_observation_window"]
+
+

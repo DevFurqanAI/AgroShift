@@ -25,6 +25,7 @@ interface GlobalFarmMapProps {
   polygonGeoJSON: GeoJSONPolygon | null;
   geometryType: 'point' | 'polygon';
   searchCountryCode?: string;
+  searchLanguage?: string;
   focusTarget?: { lat: number; lon: number; zoom: number } | null;
   readOnly?: boolean;
   heightClass?: string;
@@ -63,6 +64,7 @@ export function GlobalFarmMap({
   polygonGeoJSON,
   geometryType,
   searchCountryCode,
+  searchLanguage,
   focusTarget,
   readOnly = false,
   heightClass = 'h-[380px] sm:h-[440px]',
@@ -352,7 +354,10 @@ export function GlobalFarmMap({
     setIsSearching(true);
     setSearchError(null);
     try {
-      const results = await searchPlaces(q, { countryCode: searchCountryCode });
+      const results = await searchPlaces(q, {
+        countryCode: searchCountryCode,
+        language: searchLanguage,
+      });
       setSearchResults(results);
       if (results.length === 0) {
         setSearchError(

@@ -334,7 +334,10 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
     setIsResolvingAddress(true);
 
     try {
-      const resolved = await reverseGeocode(lat, lon, controller.signal);
+      const resolved = await reverseGeocode(lat, lon, {
+        signal: controller.signal,
+        language: settings.language,
+      });
       if (controller.signal.aborted) return;
 
       if (resolved.status === 'resolved') {
@@ -772,11 +775,11 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
             ? 'unknown'
             : drainageProv,
         organicMatterPercent:
-          soilKnowledge === 'lab_test' && organicMatter.trim()
+          soilKnowledge !== 'unsure' && organicMatter.trim()
             ? Number(organicMatter)
             : null,
         organicMatterProvenance:
-          soilKnowledge === 'lab_test' && organicMatter.trim()
+          soilKnowledge !== 'unsure' && organicMatter.trim()
             ? organicMatterProv
             : 'unknown',
         salinityConcern: soilKnowledge === 'unsure' ? 'unknown' : salinityConcern,
@@ -889,6 +892,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
             polygonGeoJSON={polygonGeoJSON}
             geometryType={geometryType}
             searchCountryCode={countryCode}
+            searchLanguage={settings.language}
             focusTarget={mapFocus}
             onModeChange={(mode) => {
               setGeometryType(mode);
@@ -1752,7 +1756,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                   )}
                 </div>
 
-                {soilKnowledge === 'lab_test' ? (
+                {soilKnowledge === 'lab_test' && (
                   <div className="space-y-2 p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310]">
                     <label
                       htmlFor="soil-om"
@@ -1794,27 +1798,27 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                       </div>
                     )}
                   </div>
-                ) : (
-                  <div className="space-y-2 p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310]">
-                    <label
-                      htmlFor="soil-salinity"
-                      className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC]"
-                    >
-                      Salinity / Salt Crusting Concern
-                    </label>
-                    <select
-                      id="soil-salinity"
-                      value={salinityConcern}
-                      onChange={(e) => setSalinityConcern(e.target.value as SalinityConcern)}
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
-                    >
-                      <option value="unknown">Unsure</option>
-                      <option value="none">No salinity signs observed</option>
-                      <option value="suspected">Suspected / white patches in spots</option>
-                      <option value="confirmed">Confirmed salinity issue</option>
-                    </select>
-                  </div>
                 )}
+
+                <div className="space-y-2 p-4 rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-[#F8FAF7] dark:bg-[#0B1310]">
+                  <label
+                    htmlFor="soil-salinity"
+                    className="block text-xs font-semibold text-[#172B22] dark:text-[#E8F1EC]"
+                  >
+                    Salinity / Salt Crusting Concern
+                  </label>
+                  <select
+                    id="soil-salinity"
+                    value={salinityConcern}
+                    onChange={(e) => setSalinityConcern(e.target.value as SalinityConcern)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+                  >
+                    <option value="unknown">Unsure</option>
+                    <option value="none">No salinity signs observed</option>
+                    <option value="suspected">Suspected / white patches in spots</option>
+                    <option value="confirmed">Confirmed salinity issue</option>
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -2028,6 +2032,12 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                       ? `${soilPh} (${soilPhProv.replace(/_/g, ' ')})`
                       : 'Not recorded'}{' '}
                     · Drainage: {drainage.replace(/_/g, ' ')}
+                  </p>
+                  <p className="text-xs text-[#172B22] dark:text-[#E8F1EC] capitalize">
+                    Salinity: {salinityConcern.replace(/_/g, ' ')}
+                    {organicMatter.trim()
+                      ? ` · Organic Matter: ${organicMatter}% (${organicMatterProv.replace(/_/g, ' ')})`
+                      : ''}
                   </p>
                 </>
               )}

@@ -29,7 +29,7 @@ FARMER_SCREENING_SUMMARY = (
 )
 
 DEFAULT_LIMITATIONS = [
-    'Verified regional planting calendars cover selective countries and crops; unverified locations are explicitly flagged and require local confirmation.',
+    'Verified regional planting calendars cover selective countries and crops; sequences with complete verified regional calendars are ranked ahead of conditional (partial calendar or coordinate-inferred) and unverified timing sequences without applying invented numerical penalties.',
     'Historical temperature and precipitation averages are not weather forecasts or seasonal outlooks.',
     'NASA POWER rainfall values indicate historical precipitation totals, not effective rainfall, irrigation delivery, or FAO-56 Penman-Monteith evapotranspiration (ET0/CROPWAT).',
     'Soil-health notes (such as potential legume nitrogen fixation or residue benefits) are qualitative screening indicators and do not predict kg N/ha, soil carbon change, or yield gains.',
@@ -94,7 +94,11 @@ def _score_season_diversity(
     return 96.0
 
 
-def _compatibility_band(score: float) -> str:
+def _compatibility_band(score: float, regional_timing_evidence: str = 'verified') -> str:
+    if regional_timing_evidence == 'unverified':
+        return 'Unverified Timing — Confirm Locally'
+    if regional_timing_evidence == 'conditional':
+        return 'Conditional Timing — Confirm Locally'
     if score >= 88.0:
         return 'Strong Screening Match'
     if score >= 74.0:
@@ -102,6 +106,18 @@ def _compatibility_band(score: float) -> str:
     if score >= 58.0:
         return 'Moderate Screening Match'
     return 'Limited Screening Match'
+
+
+def _evidence_sort_tier(feasibility: dict) -> int:
+    """Lexicographic evidence-aware ranking tier (verified before conditional before unverified before off-season)."""
+    if feasibility.get('status') == 'off_season_warning':
+        return 3
+    evidence = feasibility.get('regional_timing_evidence', 'unverified')
+    if evidence == 'verified' and feasibility.get('calendar_evaluated'):
+        return 0
+    if evidence == 'conditional':
+        return 1
+    return 2
 
 
 def _summarize_rejected_sequences(rejected_sequences: list[dict], limit: int = 24) -> list[dict]:
@@ -145,6 +161,7 @@ def calculate_plan(req: RotationRequest, monthly: list[dict], source: str) -> di
             'status': 'insufficient_data',
             'data_available': False,
             'plans': [],
+            'unverified_plans': [],
             'rejected_sequences': [],
             'regional_context': calendar_context,
             'rainfall_intelligence': None,
@@ -160,6 +177,7 @@ def calculate_plan(req: RotationRequest, monthly: list[dict], source: str) -> di
             'status': 'insufficient_data',
             'data_available': False,
             'plans': [],
+            'unverified_plans': [],
             'rejected_sequences': [],
             'regional_context': calendar_context,
             'rainfall_intelligence': None,
@@ -176,6 +194,7 @@ def calculate_plan(req: RotationRequest, monthly: list[dict], source: str) -> di
             'status': 'invalid_crops',
             'data_available': bool(monthly),
             'plans': [],
+            'unverified_plans': [],
             'rejected_sequences': [],
             'regional_context': calendar_context,
             'rainfall_intelligence': None,
@@ -365,18 +384,33 @@ def calculate_plan(req: RotationRequest, monthly: list[dict], source: str) -> di
             else 'Partial'
         )
 
+        timing_evidence = feasibility['regional_timing_evidence']
+        evidence_tier_rank = _evidence_sort_tier(feasibility)
+        band_label = _compatibility_band(final_score, timing_evidence)
+
         # Build concise, plain-language reasons & unverified cautions
         reasons: list[str] = []
         if feasibility['calendar_evaluated'] and calendar_avg is not None:
             reasons.append(f"regional timing {calendar_avg}/100 ({feasibility['timeline_summary']})")
-        elif not calendar_context.get('verified'):
-            reasons.append('regional calendar unverified here (climate-only timing)')
+        elif timing_evidence == 'conditional':
+            if feasibility['unverified_crop_ids']:
+                reasons.append(
+                    f"partial regional calendar ({feasibility['verified_calendar_seasons']}/{feasibility['total_seasons']} seasons verified; confirm local dates for {', '.join(feasibility['unverified_crop_ids'])})"
+                )
+            else:
+                reasons.append('coarse coordinate-inferred regional calendar (confirm local dates)')
+        else:
+            reasons.append('regional calendar unverified here (climate-only timing screening; confirm local sowing dates)')
         reasons.append(f"climate fit {climate_avg}/100")
         reasons.append(f"water/rainfall fit {water_avg}/100")
         reasons.append(f"soil-health fit {soil_health_val}/100")
         reasons.append(f"family diversity {diversity_avg}/100")
 
         plan_missing_notes = list(missing_data_notes)
+        if feasibility['unverified_crop_ids']:
+            plan_missing_notes.append(
+                f"Regional planting calendar missing in {calendar_context.get('country_name') or 'this region'} for: {', '.join(feasibility['unverified_crop_ids'])}. Confirm sowing windows locally."
+            )
         if soil_assessment['soil_ph_compatibility'] is not None:
             ph_summary = f"soil pH fit {soil_assessment['soil_ph_compatibility']}/100"
         else:
@@ -385,9 +419,13 @@ def calculate_plan(req: RotationRequest, monthly: list[dict], source: str) -> di
         ranking.append({
             'crop_ids': [c.id for c in rotation],
             'score': final_score,
-            'compatibility_band': _compatibility_band(final_score),
+            'compatibility_band': band_label,
             'feasibility': {
                 'status': feasibility['status'],
+                'regional_timing_evidence': timing_evidence,
+                'verified_calendar_seasons': feasibility['verified_calendar_seasons'],
+                'total_seasons': feasibility['total_seasons'],
+                'unverified_crop_ids': feasibility['unverified_crop_ids'],
                 'total_cycle_months': feasibility['total_cycle_months'],
                 'timeline_summary': feasibility['timeline_summary'],
                 'warnings': feasibility['warnings'],
@@ -403,6 +441,10 @@ def calculate_plan(req: RotationRequest, monthly: list[dict], source: str) -> di
                 'soil_health_score': soil_health_val,
                 'regional_calendar_score': calendar_avg,
                 'regional_calendar_evaluated': feasibility['calendar_evaluated'],
+                'regional_timing_evidence': timing_evidence,
+                'verified_calendar_seasons': feasibility['verified_calendar_seasons'],
+                'total_seasons': feasibility['total_seasons'],
+                'unverified_calendar_crops': feasibility['unverified_crop_ids'],
                 'rainfall_evaluated': rainfall_summary['rainfall_available'],
                 'evaluated_dimensions': evaluated_dims,
                 'unevaluated_dimensions': unevaluated_dims,
@@ -419,15 +461,18 @@ def calculate_plan(req: RotationRequest, monthly: list[dict], source: str) -> di
                 'tie_note': None,
             },
             'explanation': (
-                f"{_compatibility_band(final_score)}: {'; '.join(reasons)}; {ph_summary}. "
+                f"{band_label}: {'; '.join(reasons)}; {ph_summary}. "
                 'Preliminary comparison only; confirm local planting dates and field conditions.'
             ),
-            '_sort_feasible_tier': 0 if feasibility['status'] != 'off_season_warning' else 1,
+            '_sort_evidence_tier': evidence_tier_rank,
         })
 
+    # Evidence-aware comparison: fully verified regional calendars (tier 0) outrank conditional
+    # partial/coordinate-inferred calendars (tier 1), unverified sequences (tier 2), and
+    # off-season sequences (tier 3) without introducing arbitrary numerical score penalties.
     ranking.sort(
         key=lambda p: (
-            p['_sort_feasible_tier'],
+            p['_sort_evidence_tier'],
             -p['score'],
             -p['diagnostics']['distinct_families'],
             p['crop_ids'],
@@ -436,25 +481,30 @@ def calculate_plan(req: RotationRequest, monthly: list[dict], source: str) -> di
 
     chosen: list[dict] = []
     seen_seqs: set[tuple[str, ...]] = set()
+    unverified_candidates: list[dict] = []
     for plan in ranking:
-        plan.pop('_sort_feasible_tier', None)
+        plan.pop('_sort_evidence_tier', None)
         key = tuple(plan['crop_ids'])
         if key in seen_seqs:
             continue
-        chosen.append(plan)
         seen_seqs.add(key)
-        if len(chosen) >= req.max_results:
-            break
+        if len(chosen) < req.max_results:
+            chosen.append(plan)
+        elif plan['feasibility']['regional_timing_evidence'] in ('conditional', 'unverified'):
+            unverified_candidates.append(plan)
 
     if chosen:
         top_score = chosen[0]['score']
+        top_tier = chosen[0]['feasibility']['regional_timing_evidence']
         for idx, plan in enumerate(chosen):
             prev_score = chosen[idx - 1]['score'] if idx > 0 else None
             next_score = chosen[idx + 1]['score'] if idx + 1 < len(chosen) else None
+            if plan['feasibility']['regional_timing_evidence'] != top_tier and idx == 0:
+                continue
             if (
-                (idx > 0 and abs(top_score - plan['score']) <= 0.3)
-                or (prev_score is not None and abs(prev_score - plan['score']) <= 0.3)
-                or (idx == 0 and next_score is not None and abs(plan['score'] - next_score) <= 0.3)
+                (idx > 0 and plan['feasibility']['regional_timing_evidence'] == chosen[idx - 1]['feasibility']['regional_timing_evidence'] and abs(top_score - plan['score']) <= 0.3)
+                or (prev_score is not None and plan['feasibility']['regional_timing_evidence'] == chosen[idx - 1]['feasibility']['regional_timing_evidence'] and abs(prev_score - plan['score']) <= 0.3)
+                or (idx == 0 and next_score is not None and chosen[idx + 1]['feasibility']['regional_timing_evidence'] == top_tier and abs(plan['score'] - next_score) <= 0.3)
             ):
                 plan['diagnostics']['tie_note'] = (
                     'Nearly tied in screening score with an adjacent option; weigh local markets, '
@@ -478,6 +528,7 @@ def calculate_plan(req: RotationRequest, monthly: list[dict], source: str) -> di
         'status': status,
         'data_available': bool(chosen or rejected_sequences),
         'plans': chosen,
+        'unverified_plans': unverified_candidates[:req.max_results],
         'rejected_sequences': _summarize_rejected_sequences(rejected_sequences, limit=24),
         'regional_context': calendar_context,
         'rainfall_intelligence': {
@@ -495,9 +546,10 @@ def calculate_plan(req: RotationRequest, monthly: list[dict], source: str) -> di
         'historical_not_forecast': True,
         'screening_disclaimer': FARMER_SCREENING_SUMMARY,
         'method': (
-            'Multi-factor screening combining regional planting calendars (when verified), NASA POWER '
-            'historical temperatures & seasonal precipitation, qualitative soil-health & legume traits, '
-            'and farmer-weighted priorities.'
+            'Evidence-aware multi-factor screening combining regional planting calendars (ranking '
+            'verified regional timing ahead of conditional partial/inferred timing and unverified '
+            'timing without invented numerical penalties), NASA POWER historical temperatures & seasonal '
+            'precipitation, qualitative soil-health & legume traits, and farmer-weighted priorities.'
         ),
         'catalog_warning': CATALOG_NOTE,
         'limitations': list(DEFAULT_LIMITATIONS),

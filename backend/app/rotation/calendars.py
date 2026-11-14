@@ -497,6 +497,7 @@ def evaluate_crop_planting_window(
         return {
             'status': 'unverified_location',
             'verified': False,
+            'evidence_tier': 'unverified',
             'score': None,  # Never fabricate an ideal calendar score for unverified locations!
             'matched_season_name': None,
             'expected_planting_months': [],
@@ -510,13 +511,14 @@ def evaluate_crop_planting_window(
         return {
             'status': 'crop_not_in_regional_calendar',
             'verified': False,
+            'evidence_tier': 'unverified',
             'score': None,
             'matched_season_name': None,
             'expected_planting_months': [],
             'min_month_gap': None,
             'note': (
                 f"No verified {calendar_context['country_name']} calendar entry for {crop_id}; "
-                'relying on historical climate screening.'
+                'local sowing window is unverified and must be confirmed locally before planting.'
             ),
         }
 
@@ -533,6 +535,7 @@ def evaluate_crop_planting_window(
         return {
             'status': 'aligned',
             'verified': True,
+            'evidence_tier': 'verified',
             'score': 94.0,
             'matched_season_name': best_window.season_name,
             'expected_planting_months': list(best_window.planting_months),
@@ -543,6 +546,7 @@ def evaluate_crop_planting_window(
         return {
             'status': 'shoulder_window',
             'verified': True,
+            'evidence_tier': 'verified',
             'score': 76.0,
             'matched_season_name': best_window.season_name,
             'expected_planting_months': list(best_window.planting_months),
@@ -556,6 +560,7 @@ def evaluate_crop_planting_window(
     return {
         'status': 'off_season',
         'verified': True,
+        'evidence_tier': 'verified',
         'score': max(8.0, 45.0 - 10.0 * best_gap),
         'matched_season_name': best_window.season_name,
         'expected_planting_months': list(best_window.planting_months),

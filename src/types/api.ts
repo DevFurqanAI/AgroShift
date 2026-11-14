@@ -39,6 +39,9 @@ export interface FieldAnalyzeResponse {
   weather_available: boolean;
   weather_message: string | null;
   weather_source?: string | null;
+  weather_data_type?: string | null;
+  weather_is_forecast?: boolean | null;
+  weather_observation_window?: string | null;
   weather_error_kind?: string | null;
   ai_explanation: string;
   recommendations: string[];
@@ -175,6 +178,10 @@ export interface RotationPlanDiagnostics {
   soil_health_score?: number;
   regional_calendar_score?: number | null;
   regional_calendar_evaluated?: boolean;
+  regional_timing_evidence?: 'verified' | 'conditional' | 'unverified';
+  verified_calendar_seasons?: number;
+  total_seasons?: number;
+  unverified_calendar_crops?: string[];
   rainfall_evaluated?: boolean;
   evaluated_dimensions?: string[];
   unevaluated_dimensions?: string[];
@@ -197,6 +204,10 @@ export interface RotationPlanOption {
   compatibility_band?: string;
   feasibility?: {
     status: string;
+    regional_timing_evidence?: 'verified' | 'conditional' | 'unverified';
+    verified_calendar_seasons?: number;
+    total_seasons?: number;
+    unverified_crop_ids?: string[];
     total_cycle_months: number;
     timeline_summary: string;
     warnings: string[];
@@ -233,6 +244,7 @@ export interface RotationPlanResponse {
   status: 'ok' | 'insufficient_data' | 'invalid_crops';
   data_available: boolean;
   plans: RotationPlanOption[];
+  unverified_plans?: RotationPlanOption[];
   rejected_sequences?: Array<{
     crop_ids: string[];
     crop_names: string[];
