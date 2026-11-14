@@ -75,45 +75,65 @@ export function SettingsPage() {
       </section>
 
       {/* Internationalization */}
-      <section className="rounded-xl border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18] p-5 sm:p-6 space-y-4">
+      <section className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 sm:p-6 space-y-4">
         <div>
           <h3 className="text-base font-semibold">Interface Language</h3>
-          <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-0.5">
-            English is currently complete. Additional regional languages and right-to-left (RTL) layouts are prepared in the localization registry and marked honestly until translations are completed.
+          <p className="text-xs text-[var(--as-text-muted)] mt-0.5">
+            AgroShift currently operates in English while localization infrastructure and RTL support remain ready for future releases.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {SUPPORTED_LANGUAGES.map((lang) => {
+        <div className="space-y-3">
+          {SUPPORTED_LANGUAGES.filter((l) => l.available).map((lang) => {
             const selected = settings.language === lang.code;
             return (
               <button
                 key={lang.code}
                 type="button"
-                disabled={!lang.available}
                 onClick={() =>
                   updateSettings({ language: lang.code as SupportedLanguageCode })
                 }
-                className={`text-left p-3 rounded-lg border flex items-center justify-between gap-2 transition-colors ${
+                className={`w-full sm:w-auto min-w-[260px] text-left p-3 rounded-lg border flex items-center justify-between gap-3 transition-colors ${
                   selected
-                    ? 'border-[var(--as-primary)] bg-[#15803D]/10 dark:bg-[#34D399]/12'
-                    : lang.available
-                      ? 'border-[#D9E2EC] dark:border-[#23362D] hover:border-[var(--as-accent-text)]'
-                      : 'border-[#D9E2EC] dark:border-[#23362D] opacity-60 cursor-not-allowed'
+                    ? 'border-[var(--as-primary)] bg-[var(--as-accent-surface)]'
+                    : 'border-[var(--as-border)] hover:border-[var(--as-accent-text)]'
                 }`}
               >
                 <div>
                   <p className="text-sm font-semibold">
                     {lang.name} ({lang.nativeName})
                   </p>
-                  <p className="text-[11px] text-[var(--as-text-muted)]">
-                    {lang.note}
-                  </p>
+                  <p className="text-[11px] text-[var(--as-text-muted)]">{lang.note}</p>
                 </div>
                 {selected && <Check className="w-4 h-4 as-text-accent shrink-0" />}
               </button>
             );
           })}
+
+          {SUPPORTED_LANGUAGES.some((l) => !l.available) && (
+            <details className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] px-3.5 py-2.5 text-xs">
+              <summary className="cursor-pointer font-medium text-[var(--as-text-muted)] hover:text-[var(--as-text-primary)]">
+                Upcoming interface translations (
+                {SUPPORTED_LANGUAGES.filter((l) => !l.available).length} in progress — not yet selectable)
+              </summary>
+              <ul className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {SUPPORTED_LANGUAGES.filter((l) => !l.available).map((lang) => (
+                  <li
+                    key={lang.code}
+                    className="flex items-center justify-between gap-2 rounded border border-[var(--as-border)] bg-[var(--as-bg-surface)] px-3 py-2 text-[var(--as-text-muted)]"
+                  >
+                    <span>
+                      <strong className="font-medium text-[var(--as-text-primary)]">
+                        {lang.name}
+                      </strong>{' '}
+                      ({lang.nativeName})
+                    </span>
+                    <span className="text-[11px]">Unavailable</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </div>
       </section>
 

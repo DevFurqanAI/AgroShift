@@ -58,7 +58,9 @@ import {
   getAssistantStatus,
   handleAssistantRequest,
   resolveGeminiModel,
+  STANDARD_OUT_OF_SCOPE_REPLY,
 } from '../server/assistantService.ts';
+import handler from '../api/assistant.ts';
 import {
   farmRepository,
   settingsRepository,
@@ -873,7 +875,7 @@ test('21. Ask AgroShift server service resolves configurable model and classifie
   assert.match(String(okResp.body.reply), /NDVI/);
 
   const invalidKeyResp = await handleAssistantRequest(
-    { messages: [{ role: 'user', content: 'Hi' }], farmContext: null },
+    { messages: [{ role: 'user', content: 'Explain crop rotation' }], farmContext: null },
     {
       env: { GEMINI_API_KEY: 'bad-key' } as NodeJS.ProcessEnv,
       clientFactory: () => ({
@@ -892,7 +894,7 @@ test('21. Ask AgroShift server service resolves configurable model and classifie
   assert.ok(!String(invalidKeyResp.body.error).includes('bad-key'));
 
   const unsupportedModelResp = await handleAssistantRequest(
-    { messages: [{ role: 'user', content: 'Hi' }], farmContext: null },
+    { messages: [{ role: 'user', content: 'Explain crop rotation' }], farmContext: null },
     {
       env: { GEMINI_API_KEY: 'k', GEMINI_MODEL: 'bad-model' } as NodeJS.ProcessEnv,
       clientFactory: () => ({
@@ -912,7 +914,7 @@ test('21. Ask AgroShift server service resolves configurable model and classifie
   assert.equal(unsupportedModelResp.body.code, 'ASSISTANT_MODEL_UNSUPPORTED');
 
   const quotaResp = await handleAssistantRequest(
-    { messages: [{ role: 'user', content: 'Hi' }], farmContext: null },
+    { messages: [{ role: 'user', content: 'Explain crop rotation' }], farmContext: null },
     {
       env: { GEMINI_API_KEY: 'k' } as NodeJS.ProcessEnv,
       clientFactory: () => ({
@@ -930,7 +932,7 @@ test('21. Ask AgroShift server service resolves configurable model and classifie
   assert.equal(quotaResp.body.code, 'ASSISTANT_QUOTA_EXCEEDED');
 
   const timeoutResp = await handleAssistantRequest(
-    { messages: [{ role: 'user', content: 'Hi' }], farmContext: null },
+    { messages: [{ role: 'user', content: 'Explain crop rotation' }], farmContext: null },
     {
       env: { GEMINI_API_KEY: 'k' } as NodeJS.ProcessEnv,
       timeoutMs: 15,
@@ -945,7 +947,7 @@ test('21. Ask AgroShift server service resolves configurable model and classifie
   assert.equal(timeoutResp.body.code, 'ASSISTANT_TIMEOUT');
 
   const emptyResp = await handleAssistantRequest(
-    { messages: [{ role: 'user', content: 'Hi' }], farmContext: null },
+    { messages: [{ role: 'user', content: 'Explain crop rotation' }], farmContext: null },
     {
       env: { GEMINI_API_KEY: 'k' } as NodeJS.ProcessEnv,
       clientFactory: () => ({
@@ -1552,5 +1554,268 @@ test('31. MetricPrimitives preserve exact numerical measurements alongside inter
   assert.match(secondPlanHtml, /-4\.2 vs #1/);
   assert.match(secondPlanHtml, /Not evaluated/);
 });
+
+test('32. Server domain policy enforces strict agricultural scope, redirects off-topic prompts without Gemini calls, and handles ambiguity', async () => {
+  const sampleFarmContext = {
+    farmName: 'Tests',
+    country: 'Pakistan',
+    region: 'Punjab',
+    areaHectares: 5000,
+    farmType: 'smallholder',
+    irrigationMethod: 'canal',
+    waterAvailability: 'seasonal_adequate',
+    soil: { ph: 7.4, texture: 'loam' },
+    previousCrop: 'Wheat',
+    loadedClimateSummary: { source: 'NASA POWER', startYear: 2016, endYear: 2025, monthsCount: 120 },
+    loadedFieldHealth: { satelliteAvailable: true, ndvi: 0.123, ndmi: -0.02 },
+    loadedRotationScreening: { status: 'ok', topPlans: [{ crops: ['wheat', 'chickpea'], score: 88 }] },
+  };
+
+  let geminiCalls = 0;
+  const trackingClientFactory = () => ({
+    models: {
+      generateContent: async (params: { contents: string; config?: Record<string, unknown> }) => {
+        geminiCalls += 1;
+        if (String(params.config?.systemInstruction || '').includes('strict domain classifier')) {
+          const lower = params.contents.toLowerCase();
+          return {
+            text: JSON.stringify({
+              in_scope: !lower.includes('unrelated trivia') && !lower.includes('mystery novel'),
+            }),
+          };
+        }
+        return { text: `Mocked reply | contents_len=${params.contents.length} | ${params.contents}` };
+      },
+    },
+  });
+
+  // 1-2 & 8-9: In-scope agricultural, crop rotation, area conversion, and moisture questions succeed
+  for (const allowedPrompt of [
+    'Why does rotating legumes after cereal crops help soil health?',
+    'What is a good crop rotation after wheat?',
+    'Calculate hectares from 12.5 acres',
+    'Explain moisture levels',
+    'How do I use the dashboard?',
+  ]) {
+    geminiCalls = 0;
+    const res = await handleAssistantRequest(
+      { messages: [{ role: 'user', content: allowedPrompt }], farmContext: sampleFarmContext },
+      { env: { GEMINI_API_KEY: 'test-key' } as NodeJS.ProcessEnv, clientFactory: trackingClientFactory }
+    );
+    assert.equal(res.status, 200, `Expected 200 for allowed prompt: ${allowedPrompt}`);
+    assert.equal(res.body.policyDecision, 'in_scope');
+    assert.equal(geminiCalls, 1, `Expected single Gemini call for clear prompt: ${allowedPrompt}`);
+    // 10. General questions MUST NOT receive unsolicited farm summaries
+    assert.equal(res.body.farmContextAttached, false, `Must not attach farm context for: ${allowedPrompt}`);
+    assert.ok(!String(res.body.reply).includes('"farmName": "Tests"'));
+  }
+
+  // 3. Farm-specific question attaches ONLY relevant farm context
+  geminiCalls = 0;
+  const farmSpecificRes = await handleAssistantRequest(
+    {
+      messages: [
+        { role: 'user', content: 'What rotation and climate considerations apply to my farm profile?' },
+      ],
+      farmContext: sampleFarmContext,
+    },
+    { env: { GEMINI_API_KEY: 'test-key' } as NodeJS.ProcessEnv, clientFactory: trackingClientFactory }
+  );
+  assert.equal(farmSpecificRes.status, 200);
+  assert.equal(farmSpecificRes.body.policyDecision, 'in_scope');
+  assert.equal(farmSpecificRes.body.farmContextAttached, true);
+  assert.match(String(farmSpecificRes.body.reply), /farmerProvidedInformation/);
+  assert.match(String(farmSpecificRes.body.reply), /nasaPowerHistoricalClimate/);
+
+  // 4, 5, 6, 7: Off-topic requests (math, programming, AgroShift internals, trivia, jokes, casual hi)
+  // MUST be rejected without invoking Gemini
+  for (const offTopicPrompt of [
+    'Solve this algebra equation: 2x + 5 = 17',
+    'Write a Python script to sort numbers',
+    'How was AgroShift programmed?',
+    'What is the capital city of France?',
+    'Who was the first president of the United States?',
+    'Tell me a joke',
+    'Hi',
+    'How are you?',
+  ]) {
+    geminiCalls = 0;
+    const res = await handleAssistantRequest(
+      { messages: [{ role: 'user', content: offTopicPrompt }], farmContext: sampleFarmContext },
+      { env: { GEMINI_API_KEY: 'test-key' } as NodeJS.ProcessEnv, clientFactory: trackingClientFactory }
+    );
+    assert.equal(res.status, 200);
+    assert.equal(res.body.policyDecision, 'out_of_scope', `Expected out_of_scope for: ${offTopicPrompt}`);
+    assert.equal(res.body.reply, STANDARD_OUT_OF_SCOPE_REPLY);
+    assert.equal(geminiCalls, 0, `Must NOT call Gemini for out-of-scope: ${offTopicPrompt}`);
+  }
+
+  // Ambiguous standalone request uses constrained classifier (at most 1 classification call)
+  geminiCalls = 0;
+  const ambiguousRejected = await handleAssistantRequest(
+    { messages: [{ role: 'user', content: 'Recommend a mystery novel?' }], farmContext: null },
+    { env: { GEMINI_API_KEY: 'test-key' } as NodeJS.ProcessEnv, clientFactory: trackingClientFactory }
+  );
+  assert.equal(ambiguousRejected.status, 200);
+  assert.equal(ambiguousRejected.body.policyDecision, 'out_of_scope');
+  assert.equal(ambiguousRejected.body.reply, STANDARD_OUT_OF_SCOPE_REPLY);
+  assert.equal(geminiCalls, 1);
+
+  // 11. Scientific honesty rules present in server assistant prompt
+  const assistantServiceSrc = fs.readFileSync(
+    path.resolve(process.cwd(), 'server/assistantService.ts'),
+    'utf8'
+  );
+  assert.match(assistantServiceSrc, /NDVI 0\.123|0\.123/);
+  assert.match(assistantServiceSrc, /fallow, harvested, planted, irrigated, diseased, or moisture-stressed/);
+  assert.match(assistantServiceSrc, /guaranteed yields/);
+});
+
+test('33. Vercel /api/assistant serverless handler enforces domain rules identically to Express route', async () => {
+  const prevKey = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = 'vercel-test-key';
+  try {
+    let sentStatus = 0;
+    let sentJson: Record<string, unknown> = {};
+    const makeMockRes = () => ({
+      setHeader() {},
+      status(code: number) {
+        sentStatus = code;
+        return this;
+      },
+      json(payload: unknown) {
+        sentJson = (payload ?? {}) as Record<string, unknown>;
+      },
+    });
+
+    await handler(
+      { method: 'GET' } as Parameters<typeof handler>[0],
+      makeMockRes() as unknown as Parameters<typeof handler>[1]
+    );
+    assert.equal(sentStatus, 405);
+
+    await handler(
+      {
+        method: 'POST',
+        body: { messages: [{ role: 'user', content: 'Solve 3x - 9 = 12' }], farmContext: null },
+      } as Parameters<typeof handler>[0],
+      makeMockRes() as unknown as Parameters<typeof handler>[1]
+    );
+    assert.equal(sentStatus, 200);
+    assert.equal(sentJson.policyDecision, 'out_of_scope');
+    assert.equal(sentJson.reply, STANDARD_OUT_OF_SCOPE_REPLY);
+  } finally {
+    if (prevKey === undefined) {
+      delete process.env.GEMINI_API_KEY;
+    } else {
+      process.env.GEMINI_API_KEY = prevKey;
+    }
+  }
+});
+
+test('34. AssistantMarkdown renders KaTeX agricultural math safely while blocking unsafe HTML and links', () => {
+  const mathContent = [
+    'Convert area with $A_{\\text{ha}} = \\frac{A_{\\text{ac}}}{2.47105}$.',
+    '',
+    '$$',
+    '\\text{Total Rainfall} = 4\\text{ mm/day} \\times 30\\text{ days} = 120\\text{ mm}',
+    '$$',
+    '',
+    'Unsafe math macro check: $\\href{javascript:alert(1)}{click}$',
+    '',
+    '<script>alert(1)</script>',
+  ].join('\n');
+
+  const html = renderToStaticMarkup(
+    React.createElement(AssistantMarkdown, { content: mathContent })
+  );
+  assert.match(html, /class="katex"/);
+  assert.match(html, /class="katex-display"/);
+  assert.ok(!html.includes('<script'));
+  assert.ok(!html.includes('<a '));
+  assert.ok(!html.includes('href="javascript:'));
+});
+
+test('35. ReportsPage distinguishes saved vs unsaved plans with timestamps, Settings dims incomplete languages, and Tests farm stays intact', () => {
+  const reportsSrc = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/ReportsPage.tsx'),
+    'utf8'
+  );
+  const settingsSrc = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/SettingsPage.tsx'),
+    'utf8'
+  );
+
+  assert.match(reportsSrc, /1\. Farmer-Selected Saved Rotation Plans/);
+  assert.match(reportsSrc, /2\. Latest Computed Rotation Screening/);
+  assert.match(reportsSrc, /Unsaved screening output/);
+  assert.match(reportsSrc, /3\. Climate &amp; Satellite Observations Retrieved in Session/);
+  assert.match(reportsSrc, /latestComputedRotationScreening/);
+  assert.match(reportsSrc, /retrievedAt/);
+
+  assert.match(settingsSrc, /Upcoming interface translations/);
+  assert.match(settingsSrc, /Clear All Local Farm Data/);
+
+  withMockBrowser(() => {
+    const unusualTestFarm: FarmProfile = {
+      id: 'farm-tests-legacy',
+      location: {
+        country: 'Pakistan',
+        countryCode: 'PK',
+        region: 'Punjab',
+        locality: 'Multan',
+        latitude: 30.1575,
+        longitude: 71.5249,
+        geometryType: 'point',
+        polygonGeoJSON: null,
+        polygonEstimatedHectares: null,
+      },
+      details: {
+        name: 'Tests',
+        areaHectares: 5000,
+        areaSource: 'manual',
+        preferredAreaUnit: 'hectares',
+        farmType: 'smallholder',
+        irrigationMethod: 'canal_flood',
+        waterAvailability: 'seasonal_adequate',
+        rainfallReliability: 'variable',
+        managedFieldsCount: 1,
+      },
+      soil: {
+        knowledgeLevel: 'unsure',
+        texture: 'unknown',
+        textureProvenance: 'unknown',
+        ph: null,
+        phProvenance: 'unknown',
+        drainage: 'unknown',
+        drainageProvenance: 'unknown',
+        organicMatterPercent: null,
+        organicMatterProvenance: 'unknown',
+        salinityConcern: 'unknown',
+        hasLabSoilTest: false,
+        observations: '',
+      },
+      history: {
+        previousCropId: 'wheat',
+        previousCropName: 'Wheat',
+        earlierCrops: [],
+        typicalPlantingWindow: '',
+        typicalHarvestWindow: '',
+        rotationChallenges: '',
+      },
+      priorities: ['support_soil_health'],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    farmRepository.saveFarm(unusualTestFarm);
+    const loaded = farmRepository.listFarms().data;
+    assert.equal(loaded.length, 1);
+    assert.equal(loaded[0].details.name, 'Tests');
+    assert.equal(loaded[0].details.areaHectares, 5000);
+    assert.equal(loaded[0].details.farmType, 'smallholder');
+  });
+});
+
 
 

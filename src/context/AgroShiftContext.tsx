@@ -25,6 +25,12 @@ import type {
 } from '../types/farm';
 import type { RotationPlanDraft } from '../types/planner';
 
+export interface FarmObservationTimestamps {
+  climateFetchedAt?: string;
+  fieldHealthFetchedAt?: string;
+  rotationScreenedAt?: string;
+}
+
 interface AgroShiftContextValue {
   farms: FarmProfile[];
   activeFarm: FarmProfile | null;
@@ -36,6 +42,7 @@ interface AgroShiftContextValue {
   latestClimateByFarm: Record<string, ClimateHistoryResponse>;
   latestFieldHealthByFarm: Record<string, FieldAnalyzeResponse>;
   latestRotationByFarm: Record<string, RotationPlanResponse>;
+  observationTimestampsByFarm: Record<string, FarmObservationTimestamps>;
   selectFarm: (farmId: string | null) => void;
   saveFarm: (farm: FarmProfile, isEdit?: boolean) => boolean;
   deleteFarm: (farmId: string) => void;
@@ -76,6 +83,9 @@ export function AgroShiftProvider({ children }: { children: React.ReactNode }) {
   >({});
   const [latestRotationByFarm, setLatestRotationByFarm] = useState<
     Record<string, RotationPlanResponse>
+  >({});
+  const [observationTimestampsByFarm, setObservationTimestampsByFarm] = useState<
+    Record<string, FarmObservationTimestamps>
   >({});
 
   // Sync light/dark class and language direction on document.documentElement
@@ -178,25 +188,41 @@ export function AgroShiftProvider({ children }: { children: React.ReactNode }) {
     setLatestClimateByFarm({});
     setLatestFieldHealthByFarm({});
     setLatestRotationByFarm({});
+    setObservationTimestampsByFarm({});
   }, []);
 
   const recordClimateObservation = useCallback(
     (farmId: string, data: ClimateHistoryResponse) => {
+      const now = new Date().toISOString();
       setLatestClimateByFarm((prev) => ({ ...prev, [farmId]: data }));
+      setObservationTimestampsByFarm((prev) => ({
+        ...prev,
+        [farmId]: { ...prev[farmId], climateFetchedAt: now },
+      }));
     },
     []
   );
 
   const recordFieldHealthObservation = useCallback(
     (farmId: string, data: FieldAnalyzeResponse) => {
+      const now = new Date().toISOString();
       setLatestFieldHealthByFarm((prev) => ({ ...prev, [farmId]: data }));
+      setObservationTimestampsByFarm((prev) => ({
+        ...prev,
+        [farmId]: { ...prev[farmId], fieldHealthFetchedAt: now },
+      }));
     },
     []
   );
 
   const recordRotationResult = useCallback(
     (farmId: string, data: RotationPlanResponse) => {
+      const now = new Date().toISOString();
       setLatestRotationByFarm((prev) => ({ ...prev, [farmId]: data }));
+      setObservationTimestampsByFarm((prev) => ({
+        ...prev,
+        [farmId]: { ...prev[farmId], rotationScreenedAt: now },
+      }));
     },
     []
   );
@@ -212,6 +238,7 @@ export function AgroShiftProvider({ children }: { children: React.ReactNode }) {
     latestClimateByFarm,
     latestFieldHealthByFarm,
     latestRotationByFarm,
+    observationTimestampsByFarm,
     selectFarm,
     saveFarm,
     deleteFarm,

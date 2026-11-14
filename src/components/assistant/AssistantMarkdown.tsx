@@ -1,5 +1,7 @@
 import ReactMarkdown, { defaultUrlTransform, type Components } from 'react-markdown';
+import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 
 interface AssistantMarkdownProps {
   content: string;
@@ -70,15 +72,22 @@ const markdownComponents: Components = {
       {children}
     </pre>
   ),
-  code: ({ children, className }) => (
-    <code
-      className={`rounded px-1.5 py-0.5 text-[0.85em] font-mono bg-[var(--as-bg-page)] border border-[var(--as-border)] text-[var(--as-text)] ${
-        className ?? ''
-      }`.trim()}
-    >
-      {children}
-    </code>
-  ),
+  code: ({ children, className }) => {
+    const isMathNode =
+      typeof className === 'string' && className.includes('language-math');
+    if (isMathNode) {
+      return <code className={className}>{children}</code>;
+    }
+    return (
+      <code
+        className={`rounded px-1.5 py-0.5 text-[0.85em] font-mono bg-[var(--as-bg-page)] border border-[var(--as-border)] text-[var(--as-text)] ${
+          className ?? ''
+        }`.trim()}
+      >
+        {children}
+      </code>
+    );
+  },
   table: ({ children }) => (
     <div className="my-2.5 first:mt-0 last:mb-0 w-full overflow-x-auto rounded-lg border border-[var(--as-border)]">
       <table className="w-full border-collapse text-left text-xs text-[var(--as-text)]">
@@ -110,7 +119,8 @@ export function AssistantMarkdown({ content }: AssistantMarkdownProps) {
   return (
     <div className="text-sm leading-relaxed break-words">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[[rehypeKatex, { trust: false, strict: 'ignore', throwOnError: false }]]}
         skipHtml
         urlTransform={defaultUrlTransform}
         components={markdownComponents}

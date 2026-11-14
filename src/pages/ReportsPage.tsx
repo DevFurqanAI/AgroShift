@@ -4,6 +4,13 @@ import { EmptyState } from '../components/common/EmptyState';
 import { useAgroShift } from '../context/AgroShiftContext';
 import { formatAreaDual, formatCoordinate } from '../utils/units';
 
+function formatTimestamp(iso?: string | null): string {
+  if (!iso) return 'Timestamp unavailable';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString();
+}
+
 export function ReportsPage() {
   const {
     activeFarm,
@@ -11,6 +18,7 @@ export function ReportsPage() {
     latestClimateByFarm,
     latestFieldHealthByFarm,
     latestRotationByFarm,
+    observationTimestampsByFarm,
   } = useAgroShift();
 
   if (!activeFarm) {
@@ -36,6 +44,7 @@ export function ReportsPage() {
   const climateObs = latestClimateByFarm[activeFarm.id] ?? null;
   const fieldObs = latestFieldHealthByFarm[activeFarm.id] ?? null;
   const rotationObs = latestRotationByFarm[activeFarm.id] ?? null;
+  const obsTimestamps = observationTimestampsByFarm[activeFarm.id] ?? {};
 
   const locationDisplay =
     [
@@ -52,10 +61,26 @@ export function ReportsPage() {
       sourceApplication: 'AgroShift',
       farm: activeFarm,
       savedRotationPlans: farmPlans,
+      latestComputedRotationScreening: rotationObs
+        ? {
+            savedByFarmer: false,
+            screenedAt: obsTimestamps.rotationScreenedAt ?? null,
+            result: rotationObs,
+          }
+        : null,
       sessionObservations: {
-        nasaPowerClimate: climateObs,
-        fieldAnalysis: fieldObs,
-        rotationScreening: rotationObs,
+        nasaPowerClimate: climateObs
+          ? {
+              retrievedAt: obsTimestamps.climateFetchedAt ?? null,
+              data: climateObs,
+            }
+          : null,
+        fieldAnalysis: fieldObs
+          ? {
+              retrievedAt: obsTimestamps.fieldHealthFetchedAt ?? null,
+              data: fieldObs,
+            }
+          : null,
       },
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
@@ -80,8 +105,8 @@ export function ReportsPage() {
           <h2 className="font-display text-xl font-bold">
             Farm Dossier — {activeFarm.details.name}
           </h2>
-          <p className="text-sm text-[#64748B] dark:text-[#94A3B8]">
-            Transparent record of farmer-provided inputs, saved rotation plans, and any live Earth observations fetched in this session.
+          <p className="text-sm text-[var(--as-text-muted)]">
+            Transparent record distinguishing farmer-entered inputs, farmer-saved rotation plans, unsaved session screenings, and retrieved Earth observations.
           </p>
         </div>
 
@@ -89,7 +114,7 @@ export function ReportsPage() {
           <button
             type="button"
             onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-surface)]"
           >
             <Printer className="w-3.5 h-3.5" />
             Print Summary
@@ -105,14 +130,17 @@ export function ReportsPage() {
         </div>
       </div>
 
-      <article className="rounded-xl border border-[#D9E2EC] dark:border-[#23362D] bg-white dark:bg-[#111D18] p-6 space-y-6">
-        <header className="border-b border-[#D9E2EC] dark:border-[#23362D] pb-4 flex flex-wrap justify-between gap-4">
+      <article className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-6 space-y-6">
+        <header className="border-b border-[var(--as-border)] pb-4 flex flex-wrap justify-between gap-4">
           <div>
             <p className="text-xs font-semibold as-text-accent">AgroShift Farm Record</p>
             <h3 className="text-xl font-bold mt-1">{activeFarm.details.name}</h3>
-            <p className="text-xs text-[#64748B] mt-0.5">{locationDisplay}</p>
+            <p className="text-xs text-[var(--as-text-muted)] mt-0.5">{locationDisplay}</p>
+            <p className="text-[11px] font-mono tabular-nums text-[var(--as-text-muted)] mt-1">
+              Profile updated: {formatTimestamp(activeFarm.updatedAt)}
+            </p>
           </div>
-          <div className="text-right text-xs font-mono tabular-nums text-[#64748B]">
+          <div className="text-right text-xs font-mono tabular-nums text-[var(--as-text-muted)]">
             <p>{formatCoordinate(activeFarm.location.latitude, 'lat')}</p>
             <p>{formatCoordinate(activeFarm.location.longitude, 'lon')}</p>
           </div>
@@ -120,20 +148,20 @@ export function ReportsPage() {
 
         <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div className="space-y-1">
-            <p className="text-xs font-semibold text-[#64748B]">Area &amp; Operation</p>
-            <p className="tabular-nums font-medium">
+            <p className="text-xs font-semibold text-[var(--as-text-muted)]">Area &amp; Operation</p>
+            <p className="font-mono tabular-nums font-medium">
               {formatAreaDual(activeFarm.details.areaHectares)}
             </p>
-            <p className="text-xs text-[#64748B] capitalize">
+            <p className="text-xs text-[var(--as-text-muted)] capitalize">
               Area source: {(activeFarm.details.areaSource ?? 'manual').replace(/_/g, ' ')} ·{' '}
               {activeFarm.details.farmType.replace(/_/g, ' ')} · Irrigation:{' '}
               {activeFarm.details.irrigationMethod.replace(/_/g, ' ')}
             </p>
           </div>
           <div className="space-y-1">
-            <p className="text-xs font-semibold text-[#64748B]">Ordered Crop History</p>
+            <p className="text-xs font-semibold text-[var(--as-text-muted)]">Ordered Crop History</p>
             {orderedSeasons.length > 0 ? (
-              <ol className="text-xs text-[#172B22] dark:text-[#E8F1EC] space-y-0.5 list-decimal pl-4">
+              <ol className="text-xs text-[var(--as-text-primary)] space-y-0.5 list-decimal pl-4">
                 {orderedSeasons.map((s, idx) => (
                   <li key={s.id}>
                     {s.cropName}
@@ -150,9 +178,9 @@ export function ReportsPage() {
           </div>
         </section>
 
-        <section className="border-t border-[#E2E8F0] dark:border-[#1E2E26] pt-4 space-y-2 text-xs">
+        <section className="border-t border-[var(--as-border)] pt-4 space-y-2 text-xs">
           <h4 className="text-sm font-semibold">Soil Provenance</h4>
-          <p className="text-[#64748B] dark:text-[#94A3B8]">
+          <p className="text-[var(--as-text-muted)]">
             Knowledge level:{' '}
             {(activeFarm.soil.knowledgeLevel ?? 'unsure').replace(/_/g, ' ')} · Texture:{' '}
             {activeFarm.soil.texture.replace(/_/g, ' ')} (
@@ -165,31 +193,157 @@ export function ReportsPage() {
           </p>
         </section>
 
-        <section className="border-t border-[#E2E8F0] dark:border-[#1E2E26] pt-4 space-y-2 text-xs">
-          <h4 className="text-sm font-semibold">Earth Observation Data in Session</h4>
-          <p className="text-[#64748B] dark:text-[#94A3B8]">
-            NASA POWER Climate:{' '}
-            {climateObs?.data_available
-              ? `${climateObs.monthly?.length ?? 0} historical monthly records (${climateObs.start_year}–${climateObs.end_year})`
-              : 'Not fetched in this session'}
-          </p>
-          <p className="text-[#64748B] dark:text-[#94A3B8]">
-            Sentinel-2 Field Health:{' '}
-            {fieldObs
-              ? fieldObs.satellite_available
-                ? `NDVI ${fieldObs.ndvi ?? 'N/A'} / NDMI ${fieldObs.ndmi ?? 'N/A'} (${fieldObs.satellite_observation_date ?? 'Date N/A'})`
-                : `Satellite unavailable (${fieldObs.satellite_message || 'No recent clear scene'}); Weather: ${
-                    fieldObs.weather_available && fieldObs.temperature_c !== null
-                      ? `${fieldObs.temperature_c}°C`
-                      : 'Unavailable'
-                  }`
-              : 'Not fetched in this session'}
+        {/* 1. Farmer-Selected Saved Plans */}
+        <section className="border-t border-[var(--as-border)] pt-4 space-y-3 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold">
+              1. Farmer-Selected Saved Rotation Plans ({farmPlans.length})
+            </h4>
+            <span className="px-2 py-0.5 rounded text-[11px] font-semibold as-badge-success">
+              Saved on this device
+            </span>
+          </div>
+
+          {farmPlans.length === 0 ? (
+            <p className="text-[var(--as-text-muted)]">
+              No rotation plans have been saved by the farmer yet for {activeFarm.details.name}. Screening crops in the Planner does not automatically save a plan until you choose &ldquo;Save This Option&rdquo; or &ldquo;Save Plan Snapshot&rdquo;.
+            </p>
+          ) : (
+            <ul className="space-y-2.5">
+              {farmPlans.map((plan) => (
+                <li
+                  key={plan.id}
+                  className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3 space-y-1"
+                >
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="font-semibold text-[var(--as-text-primary)]">
+                      {plan.title}
+                    </span>
+                    <span className="font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
+                      Saved: {formatTimestamp(plan.updatedAt || plan.createdAt)}
+                    </span>
+                  </div>
+                  <p className="text-[var(--as-text-muted)] font-mono tabular-nums">
+                    {plan.horizonSeasons} seasons · {plan.localSeasonLabel} · Prev:{' '}
+                    {plan.previousCropName} · Goal: {plan.activeBackendGoal}
+                    {plan.topPlanSnapshot
+                      ? ` · Sequence: ${plan.topPlanSnapshot.seasons
+                          .map((s) => s.name)
+                          .join(' → ')} (${plan.topPlanSnapshot.score.toFixed(1)}/100)`
+                      : ' · Manual snapshot (no screening option attached)'}
+                  </p>
+                  {plan.notes && (
+                    <p className="text-[var(--as-text-muted)] italic">
+                      Notes: &ldquo;{plan.notes}&rdquo;
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* 2. Latest Computed Rotation Screening (Unsaved Session Result) */}
+        <section className="border-t border-[var(--as-border)] pt-4 space-y-2 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold">
+              2. Latest Computed Rotation Screening (Current Session)
+            </h4>
+            <span className="px-2 py-0.5 rounded text-[11px] font-semibold as-badge-warning">
+              Unsaved screening output
+            </span>
+          </div>
+
+          {rotationObs ? (
+            rotationObs.status === 'ok' && rotationObs.plans.length > 0 ? (
+              <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3 space-y-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--as-text-muted)]">
+                  <span>
+                    Source: {rotationObs.climate_source || 'NASA POWER historical screening'}
+                  </span>
+                  <span className="font-mono tabular-nums">
+                    Computed: {formatTimestamp(obsTimestamps.rotationScreenedAt)}
+                  </span>
+                </div>
+                <ul className="space-y-1 font-mono tabular-nums text-[var(--as-text-primary)]">
+                  {rotationObs.plans.slice(0, 3).map((opt, idx) => (
+                    <li key={`screen-${idx}`}>
+                      Option #{idx + 1}: {opt.seasons.map((s) => s.name).join(' → ')} —{' '}
+                      {opt.score.toFixed(1)}/100
+                      {opt.compatibility_band ? ` (${opt.compatibility_band})` : ''}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-[11px] text-[var(--as-text-muted)]">
+                  Preliminary screening comparison only — not a farmer-saved plan until explicitly saved in the Planner.
+                </p>
+              </div>
+            ) : (
+              <p className="text-[var(--as-text-muted)]">
+                Screening ran ({formatTimestamp(obsTimestamps.rotationScreenedAt)}) with status:{' '}
+                {rotationObs.status}. {rotationObs.message || 'No feasible sequences returned.'}
+              </p>
+            )
+          ) : (
+            <p className="text-[var(--as-text-muted)]">
+              No crop rotation screening run during this browser session.
+            </p>
+          )}
+        </section>
+
+        {/* 3. Climate & Satellite Observations Retrieved in Session */}
+        <section className="border-t border-[var(--as-border)] pt-4 space-y-2.5 text-xs">
+          <h4 className="text-sm font-semibold">
+            3. Climate &amp; Satellite Observations Retrieved in Session
+          </h4>
+
+          <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3 space-y-1">
+            <div className="flex flex-wrap justify-between gap-2">
+              <span className="font-semibold text-[var(--as-text-primary)]">
+                NASA POWER Historical Climate
+              </span>
+              {climateObs && (
+                <span className="font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
+                  Retrieved: {formatTimestamp(obsTimestamps.climateFetchedAt)}
+                </span>
+              )}
+            </div>
+            <p className="text-[var(--as-text-muted)] font-mono tabular-nums">
+              {climateObs?.data_available
+                ? `${climateObs.monthly?.length ?? 0} historical monthly records (${climateObs.start_year}–${climateObs.end_year}) · Historical archive only (not a forecast)`
+                : 'Not retrieved in this session'}
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3 space-y-1">
+            <div className="flex flex-wrap justify-between gap-2">
+              <span className="font-semibold text-[var(--as-text-primary)]">
+                Sentinel-2 Satellite &amp; Weather Snapshot
+              </span>
+              {fieldObs && (
+                <span className="font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
+                  Retrieved: {formatTimestamp(obsTimestamps.fieldHealthFetchedAt)}
+                </span>
+              )}
+            </div>
+            <p className="text-[var(--as-text-muted)] font-mono tabular-nums">
+              {fieldObs
+                ? fieldObs.satellite_available
+                  ? `NDVI ${fieldObs.ndvi !== null ? fieldObs.ndvi.toFixed(3) : 'N/A'} / NDMI ${fieldObs.ndmi !== null ? fieldObs.ndmi.toFixed(3) : 'N/A'} (Scene: ${fieldObs.satellite_observation_date ?? 'Date N/A'}${fieldObs.valid_coverage_percent != null ? ` · Valid pixels: ${fieldObs.valid_coverage_percent.toFixed(0)}%` : ''})`
+                  : `Satellite unavailable (${fieldObs.satellite_message || 'No recent clear scene'})`
+                : 'Not retrieved in this session'}
+            </p>
             {fieldObs?.weather_available && (
-              <>
-                {' · '}
-                {fieldObs.satellite_available && fieldObs.temperature_c !== null
-                  ? `Weather: ${fieldObs.temperature_c}°C · `
+              <p className="text-[var(--as-text-muted)] font-mono tabular-nums">
+                Weather:{' '}
+                {fieldObs.temperature_c !== null ? `${fieldObs.temperature_c}°C` : 'N/A'}
+                {fieldObs.humidity_percent !== null
+                  ? ` · ${fieldObs.humidity_percent}% humidity`
                   : ''}
+                {fieldObs.recent_rainfall_mm !== null
+                  ? ` · ${fieldObs.recent_rainfall_mm} mm recent rain`
+                  : ''}{' '}
+                ·{' '}
                 {fieldObs.weather_source === 'openweathermap' ? (
                   'Weather data via OpenWeatherMap fallback'
                 ) : (
@@ -202,15 +356,9 @@ export function ReportsPage() {
                     Weather data by Open-Meteo.com
                   </a>
                 )}
-              </>
+              </p>
             )}
-          </p>
-          <p className="text-[#64748B] dark:text-[#94A3B8]">
-            Rotation Screening:{' '}
-            {rotationObs && rotationObs.status === 'ok' && rotationObs.plans.length > 0
-              ? `Top option: ${rotationObs.plans[0].seasons.map((s) => s.name).join(' → ')} (Score ${rotationObs.plans[0].score.toFixed(1)}/100)`
-              : `${farmPlans.length} locally saved rotation plan(s)`}
-          </p>
+          </div>
         </section>
       </article>
     </div>

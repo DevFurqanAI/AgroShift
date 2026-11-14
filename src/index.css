@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
+@import "katex/dist/katex.min.css";
 @custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
@@ -194,4 +195,13 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Responsive KaTeX display equations inside chat bubbles */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  padding: 0.25rem 0;
+  margin: 0.5rem 0;
 }

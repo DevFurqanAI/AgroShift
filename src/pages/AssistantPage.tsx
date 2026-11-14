@@ -13,12 +13,13 @@ import {
   getAssistantStatus,
   sendAssistantMessage,
 } from '../services/api/agroshiftApi';
+import { detectRelevantContextSlices } from '../../server/domainPolicy';
 import type { AssistantChatMessage, AssistantStatusResponse } from '../types/api';
 
 const SUGGESTED_QUESTIONS = [
   'Why does rotating legumes after cereal crops help soil health?',
   'What is the difference between NDVI and NDMI field indicators?',
-  'Why are NASA POWER historical climate records not the same as future weather forecasts?',
+  'Convert 12.5 acres to hectares and explain how area affects AgroShift.',
   'What water-conscious rotation considerations apply to my farm profile?',
 ];
 
@@ -129,10 +130,17 @@ export function AssistantPage() {
     setSending(true);
     setErrorMsg(null);
 
+    const fullContext = buildFarmContext();
+    const relevance = detectRelevantContextSlices(
+      text,
+      nextHistory.map((m) => ({ role: m.role, content: m.content })),
+      fullContext
+    );
+
     try {
       const response = await sendAssistantMessage({
         messages: nextHistory.map((m) => ({ role: m.role, content: m.content })),
-        farmContext: buildFarmContext(),
+        farmContext: relevance.needsFarmContext ? fullContext : null,
         language: settings.language,
       });
 
@@ -166,8 +174,8 @@ export function AssistantPage() {
           <h2 className="font-display text-xl font-bold">Ask AgroShift</h2>
           <p className="text-sm text-[var(--as-text-muted)] mt-0.5">
             {activeFarm
-              ? `Contextualized for ${activeFarm.details.name}${activeFarm.location.country ? ` (${activeFarm.location.country})` : ''}`
-              : 'General farming and Earth observation guidance (select a farm for farm-specific context)'}
+              ? `Agricultural & AgroShift assistant · References ${activeFarm.details.name} only when your question asks about your farm`
+              : 'Agricultural, Earth observation, and AgroShift guidance (select a farm for farm-specific questions)'}
           </p>
         </div>
         {messages.length > 0 && (
@@ -205,10 +213,10 @@ export function AssistantPage() {
                 </div>
                 <div className="space-y-1.5">
                   <h3 className="text-sm font-semibold">
-                    Practical guidance grounded in your saved farm data
+                    Focused agricultural, Earth observation, and AgroShift support
                   </h3>
                   <p className="text-xs text-[var(--as-text-muted)] leading-relaxed max-w-xl">
-                    Ask AgroShift translates climate records, crop rotation trade-offs, and satellite vegetation indicators into plain language. When live satellite or climate records are not loaded, it clearly notes what is missing rather than inventing measurements.
+                    Ask AgroShift assists strictly with farming, crop rotations, soil/water planning, NASA POWER historical climate, Sentinel-2 NDVI/NDMI indicators, agricultural calculations, and using AgroShift. Farm profile details are included only when relevant to your question.
                   </p>
                 </div>
               </div>
