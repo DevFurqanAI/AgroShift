@@ -35,7 +35,7 @@ app.include_router(rotation_router)
 def validation_exception_handler(request: Request, exc: RequestValidationError):
     first_error = exc.errors()[0] if exc.errors() else {}
     message = first_error.get("msg", "Invalid request payload.")
-    return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content={"detail": message})
+    return JSONResponse(status_code=422, content={"detail": message})
 
 
 @app.get("/")

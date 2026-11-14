@@ -31,7 +31,7 @@ jobs:
       - name: Run Python syntax and pytest suite
         run: |
           python -m py_compile app/main.py app/rotation/*.py
-          pytest -v
+          python -m pytest -v
 
   frontend-checks:
     name: Frontend Typecheck, Build & Tests

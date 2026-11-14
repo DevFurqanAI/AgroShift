@@ -104,6 +104,31 @@ def _compatibility_band(score: float) -> str:
     return 'Limited Screening Match'
 
 
+def _summarize_rejected_sequences(rejected_sequences: list[dict], limit: int = 24) -> list[dict]:
+    """Return representative rejected sequences without crowding out crops sorted later alphabetically."""
+    if len(rejected_sequences) <= limit:
+        return rejected_sequences
+    selected: list[dict] = []
+    seen_indices: set[int] = set()
+    seen_first_crops: set[str] = set()
+    for idx, entry in enumerate(rejected_sequences):
+        crop_ids = entry.get('crop_ids') or []
+        first_crop = crop_ids[0] if crop_ids else ''
+        if first_crop not in seen_first_crops:
+            seen_first_crops.add(first_crop)
+            seen_indices.add(idx)
+            selected.append(entry)
+            if len(selected) >= limit:
+                return selected
+    for idx, entry in enumerate(rejected_sequences):
+        if idx in seen_indices:
+            continue
+        selected.append(entry)
+        if len(selected) >= limit:
+            break
+    return selected
+
+
 def calculate_plan(req: RotationRequest, monthly: list[dict], source: str) -> dict:
     calendar_context = resolve_regional_calendar_context(
         latitude=req.latitude,
@@ -453,7 +478,7 @@ def calculate_plan(req: RotationRequest, monthly: list[dict], source: str) -> di
         'status': status,
         'data_available': bool(chosen or rejected_sequences),
         'plans': chosen,
-        'rejected_sequences': rejected_sequences[:8],
+        'rejected_sequences': _summarize_rejected_sequences(rejected_sequences, limit=24),
         'regional_context': calendar_context,
         'rainfall_intelligence': {
             'rainfall_available': rainfall_summary['rainfall_available'],
