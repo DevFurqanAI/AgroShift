@@ -6,3 +6,22 @@ coverage/
 *.log
 .env*
 !.env.example
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+dist/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Local files
+.DS_Store
+*.log
