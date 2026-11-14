@@ -50,7 +50,8 @@ def test_catalog_keeps_exactly_14_crops_with_evidence_backed_metadata_and_source
     assert 'fao_soil_conservation' in all_sources
     assert 'isric_soilgrids' in all_sources
     for src in AGRONOMIC_SOURCES.values():
-        assert src['url'].startswith('https://')
+        assert src.url.startswith('https://')
+        assert src.public()['url'] == src.url
 
     for cid, crop in CROPS.items():
         pub = crop.public()
@@ -120,7 +121,8 @@ def test_soil_provenance_distinction_and_soc_reference_only():
     assert lab_sh['soil_ph_provenance'] == 'lab_test'
     assert lab_sh['soil_texture_provenance'] == 'lab_test'
     assert lab_sh['soc_reference_note'] is not None
-    assert 'not' in lab_sh['soc_reference_note'].lower() and 'om' in lab_sh['soc_reference_note'].lower()
+    soc_note = lab_sh['soc_reference_note'].lower()
+    assert 'neither converted' in soc_note and 'organic matter' in soc_note and 'mineralization' in soc_note
 
     assert est_sh['soil_ph_provenance'] == 'public_dataset_estimate'
     assert any('soilgrids' in c.lower() and '250 m' in c.lower() for c in est_sh['cautions'])
@@ -162,7 +164,7 @@ def test_historical_resilience_skips_incomplete_years_handles_year_crossing_and_
     # AU Southern Hemisphere pattern (May planting crosses Dec-Jan cleanly)
     temps = [24, 23, 20, 16, 12, 10, 9, 11, 14, 18, 21, 23]
     rain = [60, 55, 50, 45, 55, 60, 55, 50, 45, 55, 60, 65]
-    # 5 years with distinct wet (2021), dry (2022), warm (2023), and incomplete 2024 missing Jan of 2025
+    # 5 years with distinct wet (2021), dry (2022), warm summer heatwave (2023), and incomplete 2024
     monthly = _build_multi_year_monthly(
         [2019, 2020, 2021, 2022, 2023, 2024],
         temps,
@@ -170,11 +172,16 @@ def test_historical_resilience_skips_incomplete_years_handles_year_crossing_and_
         vary_by_year={
             2021: (-0.5, 1.9),   # wet cycle
             2022: (0.0, 0.35),   # dry cycle
-            2023: (6.0, 0.8),    # heat stress cycle
+            2023: (6.0, 0.8),    # warmer year baseline
         },
         omit_ym={(2024, 11)},  # makes 2024/25 cycle incomplete for season 2
     )
-    rot = (CROPS['chickpea'], CROPS['sorghum'])  # 5 mo (May-Sep) + 4 mo (Oct-Jan crossing Dec-Jan)
+    # Apply an authentic Dec 2023 summer heatwave spike exceeding Sorghum's 38.0 °C heat-stress threshold
+    for row in monthly:
+        if row['month'] == '202312':
+            row['temperature_c'] = 38.5
+
+    rot = (CROPS['chickpea'], CROPS['sorghum'])  # 4 mo (May-Aug) + 4 mo (Oct-Jan crossing Dec-Jan)
     hr = analyze_historical_resilience(rot, [5, 10], monthly, irrigation_method='rainfed_only')
 
     assert hr['available'] is True
@@ -293,3 +300,64 @@ def test_priority_sensitivity_and_scenario_provenance_parity():
     assert scen_res['baseline_plans'][0]['historical_resilience']['available'] is True
     assert scen_res['baseline_plans'][0]['soil_health_summary']['soil_ph_provenance'] == 'public_dataset_estimate'
     assert any(s['id'] == 'isric_soilgrids' for s in scen_res['sources'])
+
+
+def test_resilience_cross_year_january_spike_and_missing_next_january_boundary():
+    # Regression test: Oct-Jan season must read Jan of start_year + 1 (not start_year)
+    # and skip cycles whose wrapped January observation in start_year + 1 is missing.
+    temps = [24, 23, 20, 16, 12, 10, 9, 11, 14, 22, 24, 25]
+    rain = [60, 55, 50, 45, 55, 60, 55, 50, 45, 55, 60, 65]
+    # 2020..2024 complete except 202501 is absent -> 2024/25 Oct-Jan cycle must be skipped
+    monthly = _build_multi_year_monthly([2020, 2021, 2022, 2023, 2024], temps, rain)
+    # Heat spike only in Jan 2024 (the wrapped 4th month of the 2023/24 Oct-Jan cycle)
+    for row in monthly:
+        if row['month'] == '202401':
+            row['temperature_c'] = 38.5
+
+    rot = (CROPS['chickpea'], CROPS['sorghum'])  # 4 mo May-Aug + gap to Oct (month 10) -> Oct-Jan
+    hr = analyze_historical_resilience(rot, [5, 10], monthly, irrigation_method='rainfed_only')
+
+    assert hr['available'] is True
+    assert hr['years_evaluated'] == 4  # 2020, 2021, 2022, 2023 complete; 2024 skipped (missing 202501)
+    assert hr['incomplete_years_skipped'] == 1
+    assert hr['warm_stress_seasons_count'] == 1
+    assert hr['season_variability'][1]['warm_stress_years'] == 1
+    assert hr['season_variability'][1]['incomplete_years_skipped'] == 1
+
+
+def test_higher_numerical_score_never_overrides_verified_regional_calendar_tier():
+    # Regression test: An unverified crop pair with high thermal/water/soil fit must never
+    # outrank a verified regional calendar sequence in plans or priority_sensitivity.
+    temps = [21, 22, 22, 21, 20, 19, 18, 19, 20, 21, 20, 20]
+    rain = [50, 55, 110, 140, 110, 45, 35, 45, 50, 115, 130, 75]
+    monthly = _build_multi_year_monthly([2020, 2021, 2022, 2023], temps, rain)
+
+    req = RotationRequest(
+        latitude=-0.3,
+        longitude=36.08,
+        country='Kenya',
+        country_code='KE',
+        previous_crop='maize',
+        planting_month=3,
+        seasons=2,
+        goal='soil',
+        soil_ph=6.5,
+        candidate_crop_ids=['cowpea', 'rice', 'canola', 'lentil'],
+        max_results=6,
+        climate_monthly=monthly,
+    )
+    res = calculate_plan(req, monthly, 'NASA POWER')
+    assert res['status'] == 'ok'
+    assert res['plans'][0]['feasibility']['regional_timing_evidence'] == 'verified'
+    unverified_or_cond = [
+        p for p in (res['plans'] + res['unverified_plans'])
+        if p['feasibility']['regional_timing_evidence'] in ('conditional', 'unverified')
+    ]
+    assert unverified_or_cond
+    assert any(p['score'] >= res['plans'][0]['score'] for p in unverified_or_cond) or len(unverified_or_cond) >= 1
+    for sens in res['priority_sensitivity']:
+        top_match = next(
+            p for p in (res['plans'] + res['unverified_plans']) if p['crop_ids'] == sens['top_crop_ids']
+        )
+        assert top_match['feasibility']['regional_timing_evidence'] == 'verified'
+

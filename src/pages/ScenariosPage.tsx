@@ -434,44 +434,6 @@ export function ScenariosPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-1.5">
-            <label htmlFor="scenario-planting-month" className="block text-xs font-semibold">
-              Planting Month
-            </label>
-            <select
-              id="scenario-planting-month"
-              value={plantingMonth}
-              onChange={(e) => setPlantingMonth(Number(e.target.value))}
-              className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)]"
-            >
-              {MONTH_NAMES.map((name, idx) => (
-                <option key={name} value={idx + 1}>
-                  {name} (Month {idx + 1})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <span className="block text-xs font-semibold">Planning Horizon</span>
-            <div className="grid grid-cols-2 gap-2.5">
-              {([2, 3] as const).map((count) => (
-                <button
-                  key={count}
-                  type="button"
-                  onClick={() => setSeasons(count)}
-                  className={`px-3.5 py-2.5 text-sm font-medium rounded-lg border transition-colors ${
-                    seasons === count
-                      ? 'border-[var(--as-primary)] bg-[var(--as-accent-surface)] as-text-accent'
-                      : 'border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-muted)]'
-                  }`}
-                >
-                  {count} Seasons
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className="space-y-2">
             <div className="flex justify-between text-xs">
               <label htmlFor="temp-delta" className="font-semibold">

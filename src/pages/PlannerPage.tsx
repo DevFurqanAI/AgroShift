@@ -361,7 +361,14 @@ export function PlannerPage() {
           onClose={() => setShowCropGuide(false)}
           farm={activeFarm}
           temperatureUnit={settings.temperatureUnit}
-          sources={liveResult?.sources ?? cropsQuery.data?.sources ?? []}
+          sources={Array.from(
+            new Map(
+              [...(cropsQuery.data?.sources ?? []), ...(liveResult?.sources ?? [])].map((s) => [
+                s.id,
+                s,
+              ])
+            ).values()
+          )}
           regionalContext={liveResult?.regional_context ?? null}
           activePlans={liveResult?.plans ?? []}
           isLiveCatalogLoaded={Boolean(cropsQuery.data?.crops?.length)}

@@ -2735,6 +2735,266 @@ test('46. LocationContextPanel renders 4 grouped sections, accept/edit/ignore co
   assert.match(html, /never copied silently into OM%/);
 });
 
+test('47. Phase 4B RotationComparisonCard and formatProvenanceLabel render lab/estimate provenance and historical resilience cleanly', async () => {
+  const { formatProvenanceLabel } = await import('../src/utils/provenance.ts');
+  assert.equal(formatProvenanceLabel('lab_test'), 'Lab soil test');
+  assert.equal(formatProvenanceLabel('public_dataset_estimate'), 'Public SoilGrids estimate');
+  assert.equal(formatProvenanceLabel('unspecified'), 'Unknown');
+
+  const { RotationComparisonCard } = await import(
+    '../src/components/rotation/RotationComparisonCard.tsx'
+  );
+
+  const html = renderToStaticMarkup(
+    React.createElement(RotationComparisonCard, {
+      rank: 1,
+      topScore: 86.4,
+      temperatureUnit: 'celsius',
+      plan: {
+        crop_ids: ['wheat', 'chickpea'],
+        score: 86.4,
+        compatibility_band: 'Good Screening Match',
+        feasibility: {
+          status: 'feasible',
+          regional_timing_evidence: 'verified',
+          verified_calendar_seasons: 2,
+          total_seasons: 2,
+          unverified_crop_ids: [],
+          total_cycle_months: 9,
+          timeline_summary: 'S1: Wheat (May–Sep) → S2: Chickpea (Oct–Jan)',
+          warnings: [],
+        },
+        seasons: [
+          {
+            crop_id: 'wheat',
+            name: 'Wheat',
+            family: 'poaceae',
+            is_legume: false,
+            planting_month: 5,
+            duration_months: 5,
+            window_label: 'May–Sep',
+            avg_historical_temperature_c: 13.5,
+            temperature_fit_score: 88,
+            water_category: 'medium',
+            water_compatibility_score: 84,
+            soil_ph_compatibility_score: 92,
+            family_diversity_score: 96,
+            screening_score: 88,
+          },
+          {
+            crop_id: 'chickpea',
+            name: 'Chickpea',
+            family: 'fabaceae',
+            is_legume: true,
+            planting_month: 10,
+            duration_months: 4,
+            window_label: 'Oct–Jan (crosses Dec–Jan)',
+            wraps_year: true,
+            avg_historical_temperature_c: 20.1,
+            temperature_fit_score: 84,
+            water_category: 'low',
+            water_compatibility_score: 86,
+            soil_ph_compatibility_score: 90,
+            family_diversity_score: 96,
+            screening_score: 86,
+          },
+        ],
+        soil_health_summary: {
+          soil_health_score: 85.2,
+          soil_ph_compatibility: 91,
+          soil_ph_evaluated: true,
+          soil_ph_provenance: 'lab_test',
+          soil_texture_provenance: 'public_dataset_estimate',
+          soc_reference_note:
+            'Public SoilGrids reference Soil Organic Carbon (SOC) is ~8.2 g/kg (0–15 cm, 250 m); SOC is shown for context only and is neither converted to lab organic matter (%) nor used to predict N mineralization.',
+          has_legume: true,
+          legume_crops: ['Chickpea'],
+          legume_tradeoff_note: 'Fixes N via Mesorhizobium ciceri symbiosis.',
+          distinct_families: 2,
+          strengths: ['Alternates distinct botanical families across every transition.'],
+          cautions: ['Sparse residue cover after pulse harvest.'],
+          evaluated_factors: ['botanical_family_sequence', 'soil_ph'],
+          missing_factors: [],
+          evidence_caveat: 'Qualitative screening only.',
+        },
+        historical_resilience: {
+          available: true,
+          years_evaluated: 5,
+          complete_precip_years: 5,
+          incomplete_years_skipped: 1,
+          year_span_label: '2019–2024',
+          resilience_class: 'moderate_variability',
+          wettest_cycle_mm: 690,
+          wettest_cycle_year: '2021–2022',
+          driest_cycle_mm: 215,
+          driest_cycle_year: '2022–2023',
+          warm_stress_seasons_count: 1,
+          cool_stress_seasons_count: 0,
+          dry_deficit_seasons_count: 1,
+          excess_rain_seasons_count: 0,
+          season_variability: [],
+          summary: 'Evaluated 5 complete historical cycle(s) (2019–2024); 1 boundary/incomplete year(s) skipped.',
+          caveat: 'Summarizes historical NASA POWER year-to-year variability only.',
+        },
+        diagnostics: {
+          climate_compatibility: 86,
+          water_compatibility: 85,
+          family_rotation: 96,
+          soil_compatibility: 91,
+          soil_evaluated: true,
+          soil_health_score: 85.2,
+          regional_calendar_score: 95,
+          regional_calendar_evaluated: true,
+          regional_timing_evidence: 'verified',
+          distinct_families: 2,
+          distinct_crops: 2,
+          goal_applied: 'soil',
+          goal_weights_applied: { climate: 0.2, water: 0.16, soil_health: 0.32, diversity: 0.18, calendar: 0.14 },
+          missing_data_notes: [],
+          tie_note: null,
+        },
+        explanation: 'Good Screening Match.',
+      },
+    })
+  );
+
+  assert.match(html, /Fit vs\. Lab soil test/);
+  assert.match(html, /Historical Year-to-Year Resilience/);
+  assert.match(html, /Moderate year-to-year exposure/);
+  assert.match(html, /Evaluated 5 complete historical cycle/);
+});
+
+test('48. CropIntelligencePanel renders evidence-backed metadata, farm comparisons, and parameter source links', async () => {
+  const { CropIntelligencePanel } = await import(
+    '../src/components/rotation/CropIntelligencePanel.tsx'
+  );
+  const { buildCropCatalog } = await import('../src/data/crops.ts');
+  const catalog = buildCropCatalog(
+    [
+      {
+        id: 'wheat',
+        name: 'Wheat',
+        family: 'poaceae',
+        water_demand: 'medium',
+        ph_min: 6.0,
+        ph_max: 7.5,
+        temp_min_c: 10,
+        temp_max_c: 25,
+        duration_months: 5,
+        is_legume: false,
+        scientific_name: 'Triticum aestivum',
+        category: 'cereal',
+        cycle_days_min: 110,
+        cycle_days_max: 240,
+        cycle_variability_note: 'Spring vs winter vernalization cycles vary.',
+        temp_tol_min_c: 3,
+        temp_tol_max_c: 32,
+        heat_stress_threshold_c: 30,
+        frost_sensitivity: 'low',
+        suitable_soil_textures: ['loam', 'clay_loam'],
+        salinity_ec_threshold_dsm: 6.0,
+        salinity_tolerance: 'moderate',
+        waterlogging_sensitivity: 'moderate',
+        seasonal_rain_min_mm: 300,
+        seasonal_rain_max_mm: 900,
+        residue_management_notes: 'Produces fibrous straw.',
+        succession_cautions: ['Back-to-back cereals increase root rot.'],
+        rotation_advantages: ['Pairs well after broadleaf break crops.'],
+        known_unknowns: ['Cultivar vernalization group not modeled globally.'],
+        parameter_sources: { temperature_and_ph: ['fao_ecocrop'] },
+      },
+    ],
+    false
+  );
+
+  const html = renderToStaticMarkup(
+    React.createElement(CropIntelligencePanel, {
+      crops: catalog,
+      selectedCropId: 'wheat',
+      onSelectCrop: () => {},
+      temperatureUnit: 'celsius',
+      isLiveCatalogLoaded: true,
+      sources: [
+        {
+          id: 'fao_ecocrop',
+          title: 'FAO ECOCROP / GAEZ Reference',
+          organization: 'FAO',
+          url: 'https://gaez.fao.org/pages/ecocrop',
+          geographic_applicability: 'Global',
+          crop_applicability: 'All 14 crops',
+          limitations: 'Species bands only.',
+          last_reviewed: '2026-11-14',
+        },
+      ],
+      farm: {
+        id: 'farm-ci',
+        location: {
+          country: 'Pakistan',
+          countryCode: 'PK',
+          region: 'Punjab',
+          locality: 'Multan',
+          latitude: 30.2,
+          longitude: 71.5,
+          geometryType: 'point',
+          polygonGeoJSON: null,
+          polygonEstimatedHectares: null,
+        },
+        details: {
+          name: 'Multan Test Farm',
+          areaHectares: 4,
+          areaSource: 'manual',
+          preferredAreaUnit: 'hectares',
+          farmType: 'smallholder',
+          irrigationMethod: 'canal_flood',
+          waterAvailability: 'seasonal_adequate',
+          rainfallReliability: 'variable',
+          managedFieldsCount: 1,
+        },
+        soil: {
+          knowledgeLevel: 'some_details',
+          texture: 'loam',
+          textureProvenance: 'public_dataset_estimate',
+          ph: 7.2,
+          phProvenance: 'lab_test',
+          drainage: 'well_drained',
+          drainageProvenance: 'farmer_observation',
+          organicMatterPercent: null,
+          organicMatterProvenance: 'unknown',
+          salinityConcern: 'none',
+          hasLabSoilTest: true,
+          observations: '',
+        },
+        history: {
+          previousCropId: 'rice',
+          previousCropName: 'Rice',
+          earlierCrops: [],
+          typicalPlantingWindow: '',
+          typicalHarvestWindow: '',
+          rotationChallenges: '',
+        },
+        priorities: ['support_soil_health'],
+        createdAt: '2026-11-14T12:00:00.000Z',
+        updatedAt: '2026-11-14T12:00:00.000Z',
+      },
+    })
+  );
+
+  assert.match(html, /Triticum aestivum/);
+  assert.match(html, /Synced with backend agronomic catalog/);
+  assert.match(html, /Heat caution above 30\.0 °C/);
+  assert.match(html, /Cultivar vernalization group not modeled globally/);
+  assert.match(html, /https:\/\/gaez\.fao\.org\/pages\/ecocrop/);
+});
+
+test('49. ScenariosPage contains a single scenario-planting-month control without duplicate IDs', () => {
+  const src = fs.readFileSync(path.resolve('src/pages/ScenariosPage.tsx'), 'utf8');
+  const idMatches = src.match(/id="scenario-planting-month"/g) ?? [];
+  assert.equal(idMatches.length, 1);
+  const forMatches = src.match(/htmlFor="scenario-planting-month"/g) ?? [];
+  assert.equal(forMatches.length, 1);
+});
+
+
 
 
 

@@ -37,7 +37,9 @@ export function canApplyPublicSuggestion(options: {
   return true;
 }
 
-export function formatProvenanceLabel(provenance: DataProvenance | undefined): string {
+export function formatProvenanceLabel(
+  provenance: DataProvenance | string | undefined
+): string {
   switch (provenance) {
     case 'lab_test':
       return 'Lab soil test';

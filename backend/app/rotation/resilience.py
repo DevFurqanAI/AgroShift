@@ -73,10 +73,16 @@ def analyze_historical_resilience(
     years_present = sorted({y for y, _ in indexed.keys()})
     is_irrigated = (irrigation_method or '') in IRRIGATED_METHODS
 
-    # Precompute month offsets within the multi-season rotation timeline
+    # Precompute month offsets within the multi-season rotation timeline, honoring explicit planting months
+    first_month = season_planting_months[0]
     season_offsets: list[int] = []
     running_offset = 0
-    for crop in rotation:
+    for s_idx, crop in enumerate(rotation):
+        if s_idx > 0:
+            nominal_month = ((first_month - 1 + running_offset) % 12) + 1
+            requested_month = season_planting_months[s_idx]
+            gap_months = (requested_month - nominal_month) % 12
+            running_offset += gap_months
         season_offsets.append(running_offset)
         running_offset += crop.duration_months
     total_horizon_months = running_offset
@@ -90,7 +96,6 @@ def analyze_historical_resilience(
     sequence_skipped = 0
 
     for start_year in years_present:
-        first_month = season_planting_months[0]
         seq_temp_ok = True
         seq_rain_ok = True
         seq_rain_total = 0.0
