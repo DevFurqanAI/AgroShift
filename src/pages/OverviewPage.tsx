@@ -336,6 +336,27 @@ export function OverviewPage() {
                 {activeFarm.soil.drainage.replace(/_/g, ' ')}
               </span>
             </div>
+            {activeFarm.environmentalContext?.soilAvailable &&
+              activeFarm.environmentalContext.soilReference && (
+                <div className="pt-2 border-t border-[var(--as-border)] text-[11px] text-[var(--as-text-muted)] space-y-0.5">
+                  <p className="font-medium text-[var(--as-text-primary)]">
+                    Public Reference ({activeFarm.environmentalContext.soilSource || 'SoilGrids 250 m'})
+                  </p>
+                  <p className="font-mono tabular-nums">
+                    {activeFarm.environmentalContext.soilReference.socGKg !== null &&
+                    activeFarm.environmentalContext.soilReference.socGKg !== undefined
+                      ? `SOC ${activeFarm.environmentalContext.soilReference.socGKg} g/kg`
+                      : ''}
+                    {activeFarm.environmentalContext.soilReference.usdaTexture
+                      ? ` · ${activeFarm.environmentalContext.soilReference.usdaTexture}`
+                      : ''}
+                    {activeFarm.environmentalContext.wetnessSummary?.rootZoneWetnessIndex !== null &&
+                    activeFarm.environmentalContext.wetnessSummary?.rootZoneWetnessIndex !== undefined
+                      ? ` · NASA root wetness ${activeFarm.environmentalContext.wetnessSummary.rootZoneWetnessIndex}`
+                      : ''}
+                  </p>
+                </div>
+              )}
           </div>
         </div>
       </section>

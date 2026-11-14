@@ -4,6 +4,8 @@ export type TemperatureUnit = 'celsius' | 'fahrenheit';
 export type DataProvenance =
   | 'lab_test'
   | 'farmer_observation'
+  | 'public_dataset_estimate'
+  | 'nasa_gridded_observation'
   | 'external_estimate'
   | 'unknown'
   // Legacy values preserved for reading previously saved localStorage records
@@ -128,6 +130,52 @@ export interface SoilProfile {
   observations: string;
 }
 
+export interface FarmEnvironmentalSnapshot {
+  retrievedAt: string;
+  latitude: number;
+  longitude: number;
+  startYear: number;
+  endYear: number;
+  nasaClimateAvailable: boolean;
+  nasaWetnessAvailable: boolean;
+  climateSummary?: {
+    airTemperatureC?: number | null;
+    annualPrecipitationMm?: number | null;
+    solarRadiationMjM2Day?: number | null;
+    relativeHumidityPercent?: number | null;
+    spatialResolution?: string | null;
+    period?: string | null;
+  };
+  wetnessSummary?: {
+    surfaceWetnessIndex?: number | null;
+    rootZoneWetnessIndex?: number | null;
+    spatialResolution?: string | null;
+    period?: string | null;
+  };
+  soilAvailable: boolean;
+  soilSource?: string | null;
+  soilEndpointUsed?: string | null;
+  soilReference?: {
+    ph?: number | null;
+    phQ05?: number | null;
+    phQ95?: number | null;
+    usdaTexture?: string | null;
+    mappedTexture?: SoilTexture | null;
+    sandPercent?: number | null;
+    siltPercent?: number | null;
+    clayPercent?: number | null;
+    socGKg?: number | null;
+    bulkDensityKgDm3?: number | null;
+    depthInterval?: string | null;
+    spatialResolution?: string | null;
+    retrievedAt?: string | null;
+  };
+  reviewedDecisions?: {
+    texture?: 'accepted' | 'edited' | 'ignored';
+    ph?: 'accepted' | 'edited' | 'ignored';
+  };
+}
+
 export interface SeasonCropEntry {
   id: string;
   cropId: string;
@@ -154,6 +202,7 @@ export interface FarmProfile {
   soil: SoilProfile;
   history: CropHistoryRecord;
   priorities: FarmerPriorityId[];
+  environmentalContext?: FarmEnvironmentalSnapshot;
   createdAt: string;
   updatedAt: string;
 }

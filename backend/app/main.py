@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
+from app.environmental_context import fetch_environmental_context
 from app.models import FarmAnalyzeRequest, FarmAnalyzeResponse
 from app.services import process_farm_analysis
 from app.nasa_power import fetch_climate_summary, NASAClimateError
@@ -83,3 +84,25 @@ def climate_history(
                 "start_year": start_year, "end_year": end_year,
                 "message": "Historical climate data are currently unavailable. Please retry later.",
                 "historical_not_forecast": True}
+
+
+@app.get("/api/v1/environmental-context")
+def environmental_context(
+    latitude: float = Query(..., ge=-90, le=90),
+    longitude: float = Query(..., ge=-180, le=180),
+    start_year: int | None = Query(None, ge=1981, le=2100),
+    end_year: int | None = Query(None, ge=1981, le=2100),
+    include_soil: bool = Query(True),
+):
+    if not math.isfinite(latitude) or not math.isfinite(longitude):
+        raise HTTPException(status_code=422, detail="Coordinates must be finite numbers.")
+    try:
+        return fetch_environmental_context(
+            latitude=latitude,
+            longitude=longitude,
+            start_year=start_year,
+            end_year=end_year,
+            include_soil=include_soil,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

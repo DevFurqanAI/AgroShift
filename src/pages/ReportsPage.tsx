@@ -220,6 +220,23 @@ export function ReportsPage() {
             · Drainage: {activeFarm.soil.drainage.replace(/_/g, ' ')} · Salinity:{' '}
             {(activeFarm.soil.salinityConcern ?? 'unknown').replace(/_/g, ' ')}
           </p>
+          {activeFarm.environmentalContext && (
+            <p className="text-[var(--as-text-muted)]">
+              Saved public reference ({new Date(activeFarm.environmentalContext.retrievedAt).toLocaleDateString()}):{' '}
+              {activeFarm.environmentalContext.soilAvailable && activeFarm.environmentalContext.soilReference
+                ? `${activeFarm.environmentalContext.soilSource || 'SoilGrids v2.0'} (${activeFarm.environmentalContext.soilReference.spatialResolution || '250 m'}${
+                    activeFarm.environmentalContext.soilReference.socGKg !== null &&
+                    activeFarm.environmentalContext.soilReference.socGKg !== undefined
+                      ? `, SOC ${activeFarm.environmentalContext.soilReference.socGKg} g/kg — distinct from lab OM%`
+                      : ''
+                  })`
+                : 'SoilGrids unavailable'}
+              {activeFarm.environmentalContext.nasaWetnessAvailable &&
+              activeFarm.environmentalContext.wetnessSummary
+                ? ` · NASA MERRA-2 wetness (0–1): surface ${activeFarm.environmentalContext.wetnessSummary.surfaceWetnessIndex ?? '—'}, root-zone ${activeFarm.environmentalContext.wetnessSummary.rootZoneWetnessIndex ?? '—'}`
+                : ''}
+            </p>
+          )}
         </section>
 
         {/* 1. Farmer-Selected Saved Plans */}

@@ -329,3 +329,96 @@ export interface AssistantChatMessage {
   content: string;
   timestamp: string;
 }
+
+export interface EnvironmentalVariableReading {
+  variable: string;
+  label: string;
+  value: number | null;
+  unit: string;
+  available: boolean;
+  status: string;
+  source: string;
+  source_url: string;
+  category:
+    | 'observed_historical_climate'
+    | 'modeled_reanalysis_estimate'
+    | 'remote_sensing_estimate'
+    | 'public_modeled_soil_estimate'
+    | string;
+  spatial_resolution: string;
+  observation_period: string;
+  valid_months?: number;
+  total_months?: number;
+  retrieved_at: string;
+  uncertainty_note: string;
+  seasonal_summary?: Record<string, number | null>;
+  mean_daily_mm?: number | null;
+  complete_years_count?: number;
+  years_with_records?: number;
+}
+
+export interface SoilGridsPropertyReading extends EnvironmentalVariableReading {
+  q05?: number | null;
+  q95?: number | null;
+  depth_interval: string;
+}
+
+export interface EnvironmentalContextSoilSection {
+  available: boolean;
+  status: string;
+  source: string;
+  endpoint_used?: string | null;
+  source_url?: string;
+  spatial_resolution?: string;
+  retrieved_at?: string;
+  message?: string | null;
+  properties: Record<string, SoilGridsPropertyReading>;
+  derived_usda_texture: string | null;
+  mapped_farm_texture: string;
+  source_assessment?: {
+    primary_checked?: string;
+    fallback_available?: string;
+    rest_status?: string;
+    wms_status?: string;
+  };
+  unsupported_soil_properties?: string[];
+}
+
+export interface SuggestedFarmField<T = string | number> {
+  field: string;
+  available: boolean;
+  suggested_value: T | null;
+  unit?: string | null;
+  usda_class?: string | null;
+  provenance: 'public_dataset_estimate' | string;
+  source_label: string | null;
+  requires_confirmation: boolean;
+  auto_applied: boolean;
+}
+
+export interface EnvironmentalContextResponse {
+  location: { latitude: number; longitude: number };
+  start_year: number;
+  end_year: number;
+  retrieved_at: string;
+  nasa_climate: {
+    available: boolean;
+    status?: string | null;
+    message?: string | null;
+    variables: Record<string, EnvironmentalVariableReading>;
+  };
+  nasa_soil_wetness: {
+    available: boolean;
+    status?: string | null;
+    message?: string | null;
+    variables: Record<string, EnvironmentalVariableReading>;
+  };
+  soil_context: EnvironmentalContextSoilSection;
+  suggested_farm_defaults: {
+    soil_ph?: SuggestedFarmField<number>;
+    soil_texture?: SuggestedFarmField<string>;
+  };
+  details_farmer_must_confirm: string[];
+  precedence_policy: string;
+  limitations: string[];
+}

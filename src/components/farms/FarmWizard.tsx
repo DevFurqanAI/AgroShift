@@ -23,10 +23,12 @@ import {
 } from '../../data/crops';
 import { useAgroShift } from '../../context/AgroShiftContext';
 import { useRotationCrops } from '../../hooks/useRotationPlanner';
+import { fetchEnvironmentalContext } from '../../services/api/agroshiftApi';
 import {
   reverseGeocode,
   type PlaceSearchCandidate,
 } from '../../services/geocoding/nominatimService';
+import type { EnvironmentalContextResponse } from '../../types/api';
 import type {
   AreaSource,
   AreaUnit,
@@ -48,6 +50,11 @@ import type {
 } from '../../types/farm';
 import { mapPrioritiesToBackendGoal } from '../../types/planner';
 import {
+  buildEnvironmentalSnapshot,
+  canApplyPublicSuggestion,
+  formatProvenanceLabel,
+} from '../../utils/provenance';
+import {
   acresToHectares,
   formatAreaInputValue,
   fromHectares,
@@ -56,6 +63,7 @@ import {
 } from '../../utils/units';
 import { validateCoordinates } from '../../utils/validation';
 import { GlobalFarmMap } from '../maps/GlobalFarmMap';
+import { LocationContextPanel } from './LocationContextPanel';
 
 const STEPS = [
   { id: 1, title: 'Find your farm' },
@@ -279,6 +287,16 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
   const [soilObservations, setSoilObservations] = useState(
     existingFarm?.soil.observations ?? ''
   );
+
+  // Phase 4A: Automatic Public Environmental & Soil Context
+  const [envContextData, setEnvContextData] = useState<EnvironmentalContextResponse | null>(null);
+  const [envContextLoading, setEnvContextLoading] = useState(false);
+  const [envContextError, setEnvContextError] = useState<string | null>(null);
+  const [envDecisions, setEnvDecisions] = useState<{
+    texture?: 'accepted' | 'edited' | 'ignored';
+    ph?: 'accepted' | 'edited' | 'ignored';
+  }>(existingFarm?.environmentalContext?.reviewedDecisions ?? {});
+  const envAbortRef = useRef<AbortController | null>(null);
 
   // Step 5: Farming Priorities (ordered)
   const [priorities, setPriorities] = useState<FarmerPriorityId[]>(
@@ -534,6 +552,111 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
     } else if (level === 'lab_test') {
       if (soilPh && soilPhProv === 'unknown') setSoilPhProv('lab_test');
       if (organicMatter && organicMatterProv === 'unknown') setOrganicMatterProv('lab_test');
+    }
+  };
+
+  const envContextStale = Boolean(
+    envContextData &&
+      parsedLat !== null &&
+      parsedLon !== null &&
+      (Math.abs(envContextData.location.latitude - parsedLat) > 0.001 ||
+        Math.abs(envContextData.location.longitude - parsedLon) > 0.001)
+  );
+
+  const handleCheckLocationContext = async () => {
+    if (!coordStatus.valid || parsedLat === null || parsedLon === null) return;
+    envAbortRef.current?.abort();
+    const controller = new AbortController();
+    envAbortRef.current = controller;
+
+    setEnvContextLoading(true);
+    setEnvContextError(null);
+    try {
+      const result = await fetchEnvironmentalContext(
+        { latitude: parsedLat, longitude: parsedLon },
+        controller.signal
+      );
+      if (controller.signal.aborted) return;
+      setEnvContextData(result);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      setEnvContextError(
+        err instanceof Error
+          ? err.message
+          : 'Public location climate and soil estimates could not be loaded right now. You can continue normally.'
+      );
+    } finally {
+      if (!controller.signal.aborted) {
+        setEnvContextLoading(false);
+      }
+    }
+  };
+
+  const handleAcceptTextureEstimate = (texture: SoilTexture) => {
+    if (texture === 'unknown') return;
+    if (
+      !canApplyPublicSuggestion({
+        currentHasValue: soilTexture !== 'unknown',
+        currentProvenance: soilTextureProv,
+        farmerLocked: envDecisions.texture === 'edited',
+      })
+    ) {
+      return;
+    }
+    setSoilTexture(texture);
+    setSoilTextureProv('public_dataset_estimate');
+    setSoilKnowledge((prev) => (prev === 'unsure' ? 'some_details' : prev));
+    setEnvDecisions((prev) => ({ ...prev, texture: 'accepted' }));
+  };
+
+  const handleEditTextureEstimate = () => {
+    setSoilKnowledge((prev) => (prev === 'unsure' ? 'some_details' : prev));
+    setEnvDecisions((prev) => ({ ...prev, texture: 'edited' }));
+    if (soilTextureProv === 'public_dataset_estimate' && soilTexture !== 'unknown') {
+      setSoilTextureProv('farmer_observation');
+    }
+    if (step !== 4) setStep(4);
+  };
+
+  const handleIgnoreTextureEstimate = () => {
+    setEnvDecisions((prev) => ({ ...prev, texture: 'ignored' }));
+    if (soilTextureProv === 'public_dataset_estimate') {
+      setSoilTexture('unknown');
+      setSoilTextureProv('unknown');
+    }
+  };
+
+  const handleAcceptPhEstimate = (phVal: number) => {
+    if (!Number.isFinite(phVal)) return;
+    if (
+      !canApplyPublicSuggestion({
+        currentHasValue: soilPh.trim() !== '',
+        currentProvenance: soilPhProv,
+        farmerLocked: envDecisions.ph === 'edited',
+      })
+    ) {
+      return;
+    }
+    setSoilPh(String(phVal));
+    setSoilPhProv('public_dataset_estimate');
+    setSoilKnowledge((prev) => (prev === 'unsure' ? 'some_details' : prev));
+    setEnvDecisions((prev) => ({ ...prev, ph: 'accepted' }));
+  };
+
+  const handleEditPhEstimate = () => {
+    setSoilKnowledge((prev) => (prev === 'unsure' ? 'some_details' : prev));
+    setEnvDecisions((prev) => ({ ...prev, ph: 'edited' }));
+    if (soilPhProv === 'public_dataset_estimate' && soilPh.trim() !== '') {
+      setSoilPhProv('farmer_observation');
+    }
+    if (step !== 4) setStep(4);
+  };
+
+  const handleIgnorePhEstimate = () => {
+    setEnvDecisions((prev) => ({ ...prev, ph: 'ignored' }));
+    if (soilPhProv === 'public_dataset_estimate') {
+      setSoilPh('');
+      setSoilPhProv('unknown');
     }
   };
 
@@ -802,6 +925,17 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
         rotationChallenges: rotationChallenges.trim(),
       },
       priorities,
+      environmentalContext:
+        envContextData && !envContextStale
+          ? buildEnvironmentalSnapshot(envContextData, envDecisions)
+          : existingFarm?.environmentalContext &&
+              Math.abs(existingFarm.location.latitude - Number(parsedLat.toFixed(6))) <= 0.001 &&
+              Math.abs(existingFarm.location.longitude - Number(parsedLon.toFixed(6))) <= 0.001
+            ? {
+                ...existingFarm.environmentalContext,
+                reviewedDecisions: envDecisions,
+              }
+            : undefined,
       createdAt: existingFarm?.createdAt ?? now,
       updatedAt: now,
     };
@@ -1092,6 +1226,29 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
               <p className="text-xs text-[#DC2626]">{coordStatus.error}</p>
             )}
           </div>
+
+          <LocationContextPanel
+            coordinatesValid={coordStatus.valid}
+            latitude={parsedLat}
+            longitude={parsedLon}
+            temperatureUnit={settings.temperatureUnit}
+            isLoading={envContextLoading}
+            errorMessage={envContextError}
+            contextData={envContextData}
+            isStaleForCoordinates={envContextStale}
+            currentTexture={soilTexture}
+            currentTextureProvenance={soilTextureProv}
+            currentPh={soilPh}
+            currentPhProvenance={soilPhProv}
+            decisions={envDecisions}
+            onCheckLocation={handleCheckLocationContext}
+            onAcceptTexture={handleAcceptTextureEstimate}
+            onEditTexture={handleEditTextureEstimate}
+            onIgnoreTexture={handleIgnoreTextureEstimate}
+            onAcceptPh={handleAcceptPhEstimate}
+            onEditPh={handleEditPhEstimate}
+            onIgnorePh={handleIgnorePhEstimate}
+          />
         </section>
       )}
 
@@ -1621,6 +1778,29 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
             </div>
           )}
 
+          <LocationContextPanel
+            coordinatesValid={coordStatus.valid}
+            latitude={parsedLat}
+            longitude={parsedLon}
+            temperatureUnit={settings.temperatureUnit}
+            isLoading={envContextLoading}
+            errorMessage={envContextError}
+            contextData={envContextData}
+            isStaleForCoordinates={envContextStale}
+            currentTexture={soilTexture}
+            currentTextureProvenance={soilTextureProv}
+            currentPh={soilPh}
+            currentPhProvenance={soilPhProv}
+            decisions={envDecisions}
+            onCheckLocation={handleCheckLocationContext}
+            onAcceptTexture={handleAcceptTextureEstimate}
+            onEditTexture={handleEditTextureEstimate}
+            onIgnoreTexture={handleIgnoreTextureEstimate}
+            onAcceptPh={handleAcceptPhEstimate}
+            onEditPh={handleEditPhEstimate}
+            onIgnorePh={handleIgnorePhEstimate}
+          />
+
           {soilKnowledge !== 'unsure' && (
             <div className="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -1638,10 +1818,16 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                       const val = e.target.value as SoilTexture;
                       setSoilTexture(val);
                       if (val === 'unknown') setSoilTextureProv('unknown');
-                      else if (soilTextureProv === 'unknown') {
-                        setSoilTextureProv(
-                          soilKnowledge === 'lab_test' ? 'lab_test' : 'farmer_observation'
-                        );
+                      else {
+                        setEnvDecisions((prev) => ({ ...prev, texture: 'edited' }));
+                        if (
+                          soilTextureProv === 'unknown' ||
+                          soilTextureProv === 'public_dataset_estimate'
+                        ) {
+                          setSoilTextureProv(
+                            soilKnowledge === 'lab_test' ? 'lab_test' : 'farmer_observation'
+                          );
+                        }
                       }
                     }}
                     className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#111D18]"
@@ -1665,6 +1851,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                       >
                         <option value="lab_test">Lab test</option>
                         <option value="farmer_observation">Farmer observation</option>
+                        <option value="public_dataset_estimate">Public SoilGrids estimate</option>
                         <option value="external_estimate">External estimate</option>
                       </select>
                     </div>
@@ -1730,10 +1917,16 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                     value={soilPh}
                     onChange={(e) => {
                       setSoilPh(e.target.value);
-                      if (e.target.value && soilPhProv === 'unknown') {
-                        setSoilPhProv(
-                          soilKnowledge === 'lab_test' ? 'lab_test' : 'farmer_observation'
-                        );
+                      if (e.target.value) {
+                        setEnvDecisions((prev) => ({ ...prev, ph: 'edited' }));
+                        if (
+                          soilPhProv === 'unknown' ||
+                          soilPhProv === 'public_dataset_estimate'
+                        ) {
+                          setSoilPhProv(
+                            soilKnowledge === 'lab_test' ? 'lab_test' : 'farmer_observation'
+                          );
+                        }
                       }
                     }}
                     placeholder="e.g. 6.5 (leave blank if unknown)"
@@ -1750,6 +1943,7 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                       >
                         <option value="lab_test">Lab soil test</option>
                         <option value="farmer_observation">Field kit / observation</option>
+                        <option value="public_dataset_estimate">Public SoilGrids estimate</option>
                         <option value="external_estimate">External estimate</option>
                       </select>
                     </div>
@@ -2024,23 +2218,28 @@ export function FarmWizard({ existingFarm }: FarmWizardProps) {
                 <>
                   <p className="text-xs text-[#172B22] dark:text-[#E8F1EC] capitalize">
                     Texture: {soilTexture.replace(/_/g, ' ')} (
-                    {soilTextureProv.replace(/_/g, ' ')})
+                    {formatProvenanceLabel(soilTextureProv)})
                   </p>
                   <p className="text-xs text-[#172B22] dark:text-[#E8F1EC]">
                     pH:{' '}
                     {soilPh.trim()
-                      ? `${soilPh} (${soilPhProv.replace(/_/g, ' ')})`
+                      ? `${soilPh} (${formatProvenanceLabel(soilPhProv)})`
                       : 'Not recorded'}{' '}
                     · Drainage: {drainage.replace(/_/g, ' ')}
                   </p>
                   <p className="text-xs text-[#172B22] dark:text-[#E8F1EC] capitalize">
                     Salinity: {salinityConcern.replace(/_/g, ' ')}
                     {organicMatter.trim()
-                      ? ` · Organic Matter: ${organicMatter}% (${organicMatterProv.replace(/_/g, ' ')})`
+                      ? ` · Organic Matter: ${organicMatter}% (${formatProvenanceLabel(organicMatterProv)})`
                       : ''}
                   </p>
                 </>
               )}
+              {(envContextData && !envContextStale) || existingFarm?.environmentalContext ? (
+                <p className="text-[11px] as-text-accent pt-1 border-t border-[#E2E8F0] dark:border-[#1E2E26]">
+                  Public environmental reference snapshot (NASA climate / SoilGrids metadata) will be saved with this farm without overriding farmer inputs.
+                </p>
+              ) : null}
             </div>
           </div>
         </section>

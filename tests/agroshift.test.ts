@@ -59,11 +59,17 @@ import {
   DEFAULT_PRODUCTION_API_URL,
   FARMER_ERROR_MESSAGES,
   fetchClimateHistory,
+  fetchEnvironmentalContext,
   fetchRotationCrops,
   fetchRotationPlan,
   fetchScenarioComparison,
   resolveApiBaseUrl,
 } from '../src/services/api/agroshiftApi.ts';
+import {
+  buildEnvironmentalSnapshot,
+  canApplyPublicSuggestion,
+  formatProvenanceLabel,
+} from '../src/utils/provenance.ts';
 import {
   DEFAULT_GEMINI_MODEL,
   getAssistantStatus,
@@ -2299,6 +2305,436 @@ test('43. RotationComparisonCard renders unverified and conditional regional tim
   assert.match(conditionalHtml, /Conditional Timing — Confirm Locally/);
   assert.match(conditionalHtml, /1\/2 seasons verified/);
 });
+
+test('44. /api/v1/environmental-context parses NASA + SoilGrids metadata and handles offline errors safely', async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          location: { latitude: 30.15, longitude: 71.52 },
+          start_year: 2016,
+          end_year: 2025,
+          retrieved_at: '2026-11-14T12:00:00Z',
+          nasa_climate: {
+            available: true,
+            status: 'available',
+            variables: {
+              air_temperature_c: {
+                variable: 'T2M',
+                label: 'Historical 2m Air Temperature',
+                value: 25.2,
+                unit: '°C',
+                available: true,
+                status: 'available',
+                source: 'NASA POWER (AG Community)',
+                source_url: 'https://power.larc.nasa.gov/',
+                category: 'observed_historical_climate',
+                spatial_resolution: '0.5° × 0.625°',
+                observation_period: '2016–2025',
+                retrieved_at: '2026-11-14T12:00:00Z',
+                uncertainty_note: 'Gridded climatology.',
+              },
+            },
+          },
+          nasa_soil_wetness: {
+            available: true,
+            status: 'available',
+            variables: {
+              surface_soil_wetness: {
+                variable: 'GWETTOP',
+                label: 'Surface Soil Wetness Index (0–5 cm)',
+                value: 0.34,
+                unit: '0–1 wetness fraction',
+                available: true,
+                status: 'available',
+                source: 'NASA POWER (AG Community)',
+                source_url: 'https://power.larc.nasa.gov/',
+                category: 'modeled_reanalysis_estimate',
+                spatial_resolution: '0.5° × 0.625°',
+                observation_period: '2016–2025',
+                retrieved_at: '2026-11-14T12:00:00Z',
+                uncertainty_note: 'Coarse reanalysis index.',
+              },
+            },
+          },
+          soil_context: {
+            available: true,
+            status: 'available',
+            source: 'ISRIC SoilGrids v2.0',
+            endpoint_used: 'rest.isric.org',
+            spatial_resolution: '250 m',
+            retrieved_at: '2026-11-14T12:00:00Z',
+            derived_usda_texture: 'Loam',
+            mapped_farm_texture: 'loam',
+            properties: {
+              phh2o: {
+                variable: 'phh2o',
+                label: 'Soil pH in H2O',
+                value: 7.4,
+                unit: 'pH',
+                q05: 6.6,
+                q95: 8.2,
+                depth_interval: '0–15 cm (thickness-weighted)',
+                available: true,
+                status: 'available',
+                source: 'ISRIC SoilGrids v2.0',
+                source_url: 'https://soilgrids.org/',
+                category: 'public_modeled_soil_estimate',
+                spatial_resolution: '250 m',
+                observation_period: 'SoilGrids v2.0',
+                retrieved_at: '2026-11-14T12:00:00Z',
+                uncertainty_note: 'Modeled prediction.',
+              },
+              soc: {
+                variable: 'soc',
+                label: 'Soil Organic Carbon',
+                value: 5.2,
+                unit: 'g/kg',
+                q05: 2.1,
+                q95: 10.5,
+                depth_interval: '0–15 cm (thickness-weighted)',
+                available: true,
+                status: 'available',
+                source: 'ISRIC SoilGrids v2.0',
+                source_url: 'https://soilgrids.org/',
+                category: 'public_modeled_soil_estimate',
+                spatial_resolution: '250 m',
+                observation_period: 'SoilGrids v2.0',
+                retrieved_at: '2026-11-14T12:00:00Z',
+                uncertainty_note: 'Distinct from lab OM%.',
+              },
+            },
+          },
+          suggested_farm_defaults: {
+            soil_ph: {
+              field: 'soil.ph',
+              available: true,
+              suggested_value: 7.4,
+              unit: 'pH',
+              provenance: 'public_dataset_estimate',
+              source_label: 'ISRIC SoilGrids v2.0',
+              requires_confirmation: true,
+              auto_applied: false,
+            },
+            soil_texture: {
+              field: 'soil.texture',
+              available: true,
+              suggested_value: 'loam',
+              usda_class: 'Loam',
+              provenance: 'public_dataset_estimate',
+              source_label: 'USDA triangle from SoilGrids',
+              requires_confirmation: true,
+              auto_applied: false,
+            },
+          },
+          details_farmer_must_confirm: ['Field drainage quality', 'Salinity signs'],
+          precedence_policy: 'lab_test > farmer_observation > public_dataset_estimate > unknown',
+          limitations: ['Advisory reference only.'],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )) as typeof fetch;
+
+    const ctx = await fetchEnvironmentalContext(
+      { latitude: 30.15, longitude: 71.52 },
+      undefined,
+      'https://api.example.com'
+    );
+    assert.equal(ctx.nasa_climate.available, true);
+    assert.equal(ctx.nasa_soil_wetness.available, true);
+    assert.equal(ctx.soil_context.derived_usda_texture, 'Loam');
+    assert.equal(ctx.suggested_farm_defaults.soil_ph?.auto_applied, false);
+
+    // Snapshot preserves SOC cleanly without converting to organicMatterPercent
+    const snapshot = buildEnvironmentalSnapshot(ctx, { ph: 'accepted' });
+    assert.equal(snapshot.soilReference?.socGKg, 5.2);
+    assert.equal(snapshot.reviewedDecisions?.ph, 'accepted');
+
+    globalThis.fetch = (async () => {
+      throw new TypeError('Failed to fetch');
+    }) as typeof fetch;
+
+    await assert.rejects(
+      () => fetchEnvironmentalContext({ latitude: 30.15, longitude: 71.52 }, undefined, 'https://api.example.com'),
+      (err: unknown) => {
+        assert.ok(err instanceof ApiClientError);
+        assert.equal(err.message, FARMER_ERROR_MESSAGES.environmentalContext);
+        return true;
+      }
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('45. Provenance protection prevents public estimates from overwriting lab tests or farmer observations and persists snapshots cleanly', () => {
+  assert.equal(
+    canApplyPublicSuggestion({ currentHasValue: true, currentProvenance: 'lab_test' }),
+    false
+  );
+  assert.equal(
+    canApplyPublicSuggestion({ currentHasValue: true, currentProvenance: 'farmer_observation' }),
+    false
+  );
+  assert.equal(
+    canApplyPublicSuggestion({ currentHasValue: true, currentProvenance: 'farmer_provided' }),
+    false
+  );
+  assert.equal(
+    canApplyPublicSuggestion({
+      currentHasValue: false,
+      currentProvenance: 'unknown',
+      farmerLocked: true,
+    }),
+    false
+  );
+  assert.equal(
+    canApplyPublicSuggestion({ currentHasValue: false, currentProvenance: 'unknown' }),
+    true
+  );
+  assert.equal(formatProvenanceLabel('public_dataset_estimate'), 'Public SoilGrids estimate');
+  assert.equal(formatProvenanceLabel('lab_test'), 'Lab soil test');
+
+  withMockBrowser(() => {
+    const farmWithSnapshot: FarmProfile = {
+      id: 'farm-phase4a',
+      location: {
+        country: 'Kenya',
+        countryCode: 'KE',
+        region: 'Nakuru',
+        locality: 'Nakuru',
+        latitude: -0.3,
+        longitude: 36.08,
+        geometryType: 'point',
+        polygonGeoJSON: null,
+        polygonEstimatedHectares: null,
+      },
+      details: {
+        name: 'Nakuru Smart Farm',
+        areaHectares: 3.5,
+        areaSource: 'manual',
+        preferredAreaUnit: 'hectares',
+        farmType: 'smallholder',
+        irrigationMethod: 'rainfed_only',
+        waterAvailability: 'seasonal_adequate',
+        rainfallReliability: 'variable',
+        managedFieldsCount: 1,
+      },
+      soil: {
+        knowledgeLevel: 'some_details',
+        texture: 'loam',
+        textureProvenance: 'public_dataset_estimate',
+        ph: 6.4,
+        phProvenance: 'lab_test',
+        drainage: 'well_drained',
+        drainageProvenance: 'farmer_observation',
+        organicMatterPercent: null,
+        organicMatterProvenance: 'unknown',
+        salinityConcern: 'none',
+        hasLabSoilTest: false,
+        observations: '',
+      },
+      environmentalContext: {
+        retrievedAt: '2026-11-14T12:00:00Z',
+        latitude: -0.3,
+        longitude: 36.08,
+        startYear: 2016,
+        endYear: 2025,
+        nasaClimateAvailable: true,
+        nasaWetnessAvailable: true,
+        soilAvailable: true,
+        soilSource: 'ISRIC SoilGrids v2.0',
+        soilReference: {
+          ph: 6.1,
+          socGKg: 14.2,
+          usdaTexture: 'Loam',
+        },
+        reviewedDecisions: { texture: 'accepted', ph: 'ignored' },
+      },
+      history: {
+        previousCropId: 'maize',
+        previousCropName: 'Maize',
+        earlierCrops: [],
+        typicalPlantingWindow: '',
+        typicalHarvestWindow: '',
+        rotationChallenges: '',
+      },
+      priorities: ['support_soil_health'],
+      createdAt: '2026-11-14T12:00:00.000Z',
+      updatedAt: '2026-11-14T12:00:00.000Z',
+    };
+
+    farmRepository.saveFarm(farmWithSnapshot);
+    const loaded = farmRepository.listFarms().data.find((f) => f.id === 'farm-phase4a');
+    assert.ok(loaded);
+    assert.equal(loaded.soil.ph, 6.4);
+    assert.equal(loaded.soil.phProvenance, 'lab_test');
+    assert.equal(loaded.soil.organicMatterPercent, null);
+    assert.equal(loaded.environmentalContext?.soilReference?.socGKg, 14.2);
+    assert.equal(loaded.environmentalContext?.reviewedDecisions?.texture, 'accepted');
+  });
+});
+
+test('46. LocationContextPanel renders 4 grouped sections, accept/edit/ignore controls, and lab lock state cleanly', async () => {
+  const { LocationContextPanel } = await import(
+    '../src/components/farms/LocationContextPanel.tsx'
+  );
+
+  const html = renderToStaticMarkup(
+    React.createElement(LocationContextPanel, {
+      coordinatesValid: true,
+      latitude: 30.15,
+      longitude: 71.52,
+      temperatureUnit: 'celsius',
+      isLoading: false,
+      errorMessage: null,
+      isStaleForCoordinates: false,
+      currentTexture: 'unknown',
+      currentTextureProvenance: 'unknown',
+      currentPh: '6.8',
+      currentPhProvenance: 'lab_test',
+      decisions: {},
+      onCheckLocation: () => {},
+      onAcceptTexture: () => {},
+      onEditTexture: () => {},
+      onIgnoreTexture: () => {},
+      onAcceptPh: () => {},
+      onEditPh: () => {},
+      onIgnorePh: () => {},
+      contextData: {
+        location: { latitude: 30.15, longitude: 71.52 },
+        start_year: 2016,
+        end_year: 2025,
+        retrieved_at: '2026-11-14T12:00:00Z',
+        nasa_climate: {
+          available: true,
+          variables: {
+            air_temperature_c: {
+              variable: 'T2M',
+              label: 'Historical 2m Air Temperature',
+              value: 25.4,
+              unit: '°C',
+              available: true,
+              status: 'available',
+              source: 'NASA POWER',
+              source_url: 'https://power.larc.nasa.gov/',
+              category: 'observed_historical_climate',
+              spatial_resolution: '0.5° × 0.625°',
+              observation_period: '2016–2025',
+              retrieved_at: '2026-11-14T12:00:00Z',
+              uncertainty_note: 'Climatology.',
+            },
+          },
+        },
+        nasa_soil_wetness: {
+          available: true,
+          variables: {
+            surface_soil_wetness: {
+              variable: 'GWETTOP',
+              label: 'Surface Soil Wetness Index (0–5 cm)',
+              value: 0.31,
+              unit: '0–1 wetness fraction',
+              available: true,
+              status: 'available',
+              source: 'NASA POWER',
+              source_url: 'https://power.larc.nasa.gov/',
+              category: 'modeled_reanalysis_estimate',
+              spatial_resolution: '0.5° × 0.625°',
+              observation_period: '2016–2025',
+              retrieved_at: '2026-11-14T12:00:00Z',
+              uncertainty_note: 'Coarse reanalysis.',
+            },
+          },
+        },
+        soil_context: {
+          available: true,
+          status: 'available',
+          source: 'ISRIC SoilGrids v2.0',
+          endpoint_used: 'rest.isric.org',
+          spatial_resolution: '250 m',
+          derived_usda_texture: 'Loam',
+          mapped_farm_texture: 'loam',
+          properties: {
+            phh2o: {
+              variable: 'phh2o',
+              label: 'Soil pH in H2O',
+              value: 7.5,
+              unit: 'pH',
+              q05: 6.7,
+              q95: 8.3,
+              depth_interval: '0–15 cm',
+              available: true,
+              status: 'available',
+              source: 'ISRIC SoilGrids v2.0',
+              source_url: 'https://soilgrids.org/',
+              category: 'public_modeled_soil_estimate',
+              spatial_resolution: '250 m',
+              observation_period: 'SoilGrids v2.0',
+              retrieved_at: '2026-11-14T12:00:00Z',
+              uncertainty_note: 'Prediction range.',
+            },
+            soc: {
+              variable: 'soc',
+              label: 'Soil Organic Carbon',
+              value: 5.0,
+              unit: 'g/kg',
+              q05: 2.0,
+              q95: 9.0,
+              depth_interval: '0–15 cm',
+              available: true,
+              status: 'available',
+              source: 'ISRIC SoilGrids v2.0',
+              source_url: 'https://soilgrids.org/',
+              category: 'public_modeled_soil_estimate',
+              spatial_resolution: '250 m',
+              observation_period: 'SoilGrids v2.0',
+              retrieved_at: '2026-11-14T12:00:00Z',
+              uncertainty_note: 'SOC only.',
+            },
+          },
+        },
+        suggested_farm_defaults: {
+          soil_ph: {
+            field: 'soil.ph',
+            available: true,
+            suggested_value: 7.5,
+            unit: 'pH',
+            provenance: 'public_dataset_estimate',
+            source_label: 'ISRIC SoilGrids v2.0',
+            requires_confirmation: true,
+            auto_applied: false,
+          },
+          soil_texture: {
+            field: 'soil.texture',
+            available: true,
+            suggested_value: 'loam',
+            usda_class: 'Loam',
+            provenance: 'public_dataset_estimate',
+            source_label: 'USDA triangle',
+            requires_confirmation: true,
+            auto_applied: false,
+          },
+        },
+        details_farmer_must_confirm: ['Field drainage quality', 'Salinity signs'],
+        precedence_policy: 'lab_test > farmer_observation > public_dataset_estimate > unknown',
+        limitations: ['Advisory context only.'],
+      },
+    })
+  );
+
+  assert.match(html, /Check available information for this location/);
+  assert.match(html, /1\. NASA Climate Observations/);
+  assert.match(html, /2\. NASA Soil Wetness Context/);
+  assert.match(html, /3\. Public Estimated Soil Properties/);
+  assert.match(html, /4\. Details You Still Need to Confirm/);
+  assert.match(html, /Protected: keeping your Lab soil test \(6\.8\)/);
+  assert.match(html, /Accept estimate/);
+  assert.match(html, /Edit myself/);
+  assert.match(html, /Ignore/);
+  assert.match(html, /Soil Organic Carbon \(SOC, reference only\)/);
+  assert.match(html, /never copied silently into OM%/);
+});
+
 
 
 

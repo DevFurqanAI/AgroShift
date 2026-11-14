@@ -1,6 +1,7 @@
 import type {
   AssistantStatusResponse,
   ClimateHistoryResponse,
+  EnvironmentalContextResponse,
   FieldAnalyzeRequest,
   FieldAnalyzeResponse,
   RotationCropsResponse,
@@ -24,6 +25,8 @@ export const FARMER_ERROR_MESSAGES = {
     "We couldn't retrieve rotation options right now. Your farm details are safe. Please try again.",
   catalog:
     'Live crop catalog could not be loaded. Showing standard crop options.',
+  environmentalContext:
+    'Public location climate and soil estimates could not be loaded right now. You can continue setting up your farm normally.',
 } as const;
 
 export function resolveApiBaseUrl(overrideUrl?: string): string {
@@ -191,6 +194,55 @@ export async function fetchClimateHistory(
     ...data,
     monthly: Array.isArray(data.monthly) ? data.monthly : [],
   };
+}
+
+export async function fetchEnvironmentalContext(
+  params: {
+    latitude: number;
+    longitude: number;
+    startYear?: number;
+    endYear?: number;
+    includeSoil?: boolean;
+  },
+  signal?: AbortSignal,
+  baseUrlOverride?: string
+): Promise<EnvironmentalContextResponse> {
+  const baseUrl = resolveApiBaseUrl(baseUrlOverride);
+  const query = new URLSearchParams({
+    latitude: String(params.latitude),
+    longitude: String(params.longitude),
+  });
+  if (params.startYear !== undefined) query.set('start_year', String(params.startYear));
+  if (params.endYear !== undefined) query.set('end_year', String(params.endYear));
+  if (params.includeSoil !== undefined) query.set('include_soil', String(params.includeSoil));
+
+  const data = await fetchJsonWithTimeout<EnvironmentalContextResponse>(
+    `${baseUrl}/api/v1/environmental-context?${query.toString()}`,
+    {
+      method: 'GET',
+      timeoutMs: 30000,
+      farmerErrorMessage: FARMER_ERROR_MESSAGES.environmentalContext,
+      signal,
+    }
+  );
+
+  if (
+    !data ||
+    typeof data !== 'object' ||
+    !data.nasa_climate ||
+    !data.nasa_soil_wetness ||
+    !data.soil_context
+  ) {
+    console.error('[AgroShift API] Invalid environmental context payload:', data);
+    throw new ApiClientError(
+      FARMER_ERROR_MESSAGES.environmentalContext,
+      'INVALID_RESPONSE',
+      undefined,
+      'Invalid /api/v1/environmental-context payload'
+    );
+  }
+
+  return data;
 }
 
 export async function analyzeFieldHealth(
