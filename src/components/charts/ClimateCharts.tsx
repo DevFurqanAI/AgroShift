@@ -67,9 +67,14 @@ export function parseClimateMonthlyRecord(
 interface ClimateChartsProps {
   monthlyData: ClimateHistoryMonthlyPoint[];
   temperatureUnit: TemperatureUnit;
+  viewMode?: 'all' | 'trends' | 'cycle';
 }
 
-export function ClimateCharts({ monthlyData, temperatureUnit }: ClimateChartsProps) {
+export function ClimateCharts({
+  monthlyData,
+  temperatureUnit,
+  viewMode = 'all',
+}: ClimateChartsProps) {
   const isF = temperatureUnit === 'fahrenheit';
   const tempUnitLabel = isF ? '°F' : '°C';
 
@@ -124,7 +129,8 @@ export function ClimateCharts({ monthlyData, temperatureUnit }: ClimateChartsPro
   return (
     <div className="space-y-6">
       {/* Temperature Trend Over Selected Period */}
-      <section className="rounded-xl border border-[#D9E2EC] dark:border-[#23362D] bg-white dark:bg-[#111D18] p-5">
+      {viewMode !== 'cycle' && (
+        <section className="rounded-xl border border-[#D9E2EC] dark:border-[#23362D] bg-white dark:bg-[#111D18] p-5">
         <div className="mb-4">
           <h3 className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
             Historical Monthly Mean Temperature ({tempUnitLabel})
@@ -170,123 +176,128 @@ export function ClimateCharts({ monthlyData, temperatureUnit }: ClimateChartsPro
               />
             </LineChart>
           </ResponsiveContainer>
-        </div>
-      </section>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Precipitation Trend */}
-        <section className="rounded-xl border border-[#D9E2EC] dark:border-[#23362D] bg-white dark:bg-[#111D18] p-5">
-          <div className="mb-4">
-            <h3 className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
-              Historical Precipitation Pattern
-            </h3>
-            <p className="text-xs text-[var(--as-text-muted)] mt-1">
-              Displayed unit:{' '}
-              <span className="font-medium text-[#172B22] dark:text-[#E8F1EC]">
-                {precipLabel}
-              </span>
-            </p>
-          </div>
-          <div className="h-[260px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chronologicalSeries} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--as-chart-grid)" opacity={0.7} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
-                  stroke="var(--as-chart-grid)"
-                  minTickGap={28}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
-                  stroke="var(--as-chart-grid)"
-                  width={48}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#111D18',
-                    borderColor: '#23362D',
-                    borderRadius: '8px',
-                    color: '#E8F1EC',
-                    fontSize: '12px',
-                  }}
-                />
-                <Bar
-                  dataKey="precipValue"
-                  name={precipLabel}
-                  fill="var(--as-chart-rain)"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
           </div>
         </section>
+      )}
+
+      <div className={`grid grid-cols-1 ${viewMode === 'all' ? 'lg:grid-cols-2' : ''} gap-6`}>
+        {/* Precipitation Trend */}
+        {viewMode !== 'cycle' && (
+          <section className="rounded-xl border border-[#D9E2EC] dark:border-[#23362D] bg-white dark:bg-[#111D18] p-5">
+            <div className="mb-4">
+              <h3 className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
+                Historical Precipitation Pattern
+              </h3>
+              <p className="text-xs text-[var(--as-text-muted)] mt-1">
+                Displayed unit:{' '}
+                <span className="font-medium text-[#172B22] dark:text-[#E8F1EC]">
+                  {precipLabel}
+                </span>
+              </p>
+            </div>
+            <div className="h-[260px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chronologicalSeries} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--as-chart-grid)" opacity={0.7} />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                    stroke="var(--as-chart-grid)"
+                    minTickGap={28}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                    stroke="var(--as-chart-grid)"
+                    width={48}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#111D18',
+                      borderColor: '#23362D',
+                      borderRadius: '8px',
+                      color: '#E8F1EC',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <Bar
+                    dataKey="precipValue"
+                    name={precipLabel}
+                    fill="var(--as-chart-rain)"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+        )}
 
         {/* Monthly Climatology Profile */}
-        <section className="rounded-xl border border-[#D9E2EC] dark:border-[#23362D] bg-white dark:bg-[#111D18] p-5">
-          <div className="mb-4">
-            <h3 className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
-              Average Seasonal Cycle by Month
-            </h3>
-            <p className="text-xs text-[var(--as-text-muted)] mt-1">
-              Multi-year historical monthly average from NASA POWER (
-              {hasEstimatedMonthlyMm ? 'mm est.' : 'mm/day rate'}).
-            </p>
-          </div>
-          <div className="h-[260px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyClimatology} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--as-chart-grid)" opacity={0.7} />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
-                  stroke="var(--as-chart-grid)"
-                />
-                <YAxis
-                  yAxisId="left"
-                  tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
-                  stroke="var(--as-chart-grid)"
-                  width={42}
-                />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
-                  stroke="var(--as-chart-grid)"
-                  width={42}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#111D18',
-                    borderColor: '#23362D',
-                    borderRadius: '8px',
-                    color: '#E8F1EC',
-                    fontSize: '12px',
-                  }}
-                />
-                <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--as-text-primary)' }} />
-                <Bar
-                  yAxisId="left"
-                  dataKey="meanPrecip"
-                  name={
-                    hasEstimatedMonthlyMm
-                      ? 'Avg Monthly Rain (mm est.)'
-                      : 'Avg Rain Rate (mm/day)'
-                  }
-                  fill="var(--as-chart-rain)"
-                  radius={[4, 4, 0, 0]}
-                />
-                <Bar
-                  yAxisId="right"
-                  dataKey="meanTemp"
-                  name={`Avg Temp (${tempUnitLabel})`}
-                  fill="var(--as-chart-temp)"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
+        {viewMode !== 'trends' && (
+          <section className="rounded-xl border border-[#D9E2EC] dark:border-[#23362D] bg-white dark:bg-[#111D18] p-5">
+            <div className="mb-4">
+              <h3 className="text-base font-semibold text-[#172B22] dark:text-[#E8F1EC]">
+                Average Seasonal Cycle by Month
+              </h3>
+              <p className="text-xs text-[var(--as-text-muted)] mt-1">
+                Multi-year historical monthly average from NASA POWER (
+                {hasEstimatedMonthlyMm ? 'mm est.' : 'mm/day rate'}).
+              </p>
+            </div>
+            <div className="h-[260px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyClimatology} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--as-chart-grid)" opacity={0.7} />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                    stroke="var(--as-chart-grid)"
+                  />
+                  <YAxis
+                    yAxisId="left"
+                    tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                    stroke="var(--as-chart-grid)"
+                    width={42}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                    stroke="var(--as-chart-grid)"
+                    width={42}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#111D18',
+                      borderColor: '#23362D',
+                      borderRadius: '8px',
+                      color: '#E8F1EC',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--as-text-primary)' }} />
+                  <Bar
+                    yAxisId="left"
+                    dataKey="meanPrecip"
+                    name={
+                      hasEstimatedMonthlyMm
+                        ? 'Avg Monthly Rain (mm est.)'
+                        : 'Avg Rain Rate (mm/day)'
+                    }
+                    fill="var(--as-chart-rain)"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar
+                    yAxisId="right"
+                    dataKey="meanTemp"
+                    name={`Avg Temp (${tempUnitLabel})`}
+                    fill="var(--as-chart-temp)"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

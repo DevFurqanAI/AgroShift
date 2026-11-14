@@ -1467,3 +1467,90 @@ test('30. PlannerPage and ScenariosPage forward identical agronomic context and 
   assert.match(disclosureSource, /Agronomic &amp; Earth Observation References/);
 });
 
+test('31. MetricPrimitives preserve exact numerical measurements alongside interpretations and honor null/unverified states', async () => {
+  const { ScoreProgressBar, IndexRangeMeter } = await import(
+    '../src/components/common/MetricPrimitives.tsx'
+  );
+  const { RotationComparisonCard } = await import(
+    '../src/components/rotation/RotationComparisonCard.tsx'
+  );
+
+  const scoredHtml = renderToStaticMarkup(
+    React.createElement(ScoreProgressBar, {
+      label: 'Climate Fit',
+      score: 89.2,
+      interpretation: 'Strong fit',
+      driverHint: 'NASA historical temp → crop thermal range',
+    })
+  );
+  const scoredPlain = scoredHtml.replace(/<[^>]+>/g, '');
+  assert.match(scoredPlain, /Climate Fit/);
+  assert.match(scoredPlain, /89\.2\/100 — Strong fit/);
+  assert.match(scoredPlain, /NASA historical temp → crop thermal range/);
+  assert.match(scoredHtml, /aria-valuenow="89\.2"/);
+
+  const nullHtml = renderToStaticMarkup(
+    React.createElement(ScoreProgressBar, {
+      label: 'Soil pH Fit',
+      score: null,
+      unavailableLabel: 'Not evaluated',
+      driverHint: 'Omitted from score because soil pH was not provided',
+    })
+  );
+  assert.match(nullHtml, /Not evaluated/);
+  assert.ok(!nullHtml.includes('/100'), 'Null score must not invent a /100 number');
+
+  const meterHtml = renderToStaticMarkup(
+    React.createElement(IndexRangeMeter, {
+      label: 'NDVI Range',
+      value: 0.123,
+      min: -0.2,
+      max: 1.0,
+      thresholdValue: 0.2,
+      thresholdLabel: '0.20 sparse/soil',
+      lowLabel: 'Bare/Water',
+      highLabel: 'Dense Canopy',
+    })
+  );
+  assert.match(meterHtml, /role="meter"/);
+  assert.match(meterHtml, /aria-valuenow="0\.123"/);
+  assert.match(meterHtml, /0\.20 sparse\/soil/);
+
+  const secondPlanHtml = renderToStaticMarkup(
+    React.createElement(RotationComparisonCard, {
+      rank: 2,
+      topScore: 89.0,
+      temperatureUnit: 'celsius',
+      plan: {
+        crop_ids: ['wheat'],
+        score: 84.8,
+        compatibility_band: 'Good Screening Match',
+        seasons: [
+          {
+            crop_id: 'wheat',
+            name: 'Wheat',
+            family: 'poaceae',
+            is_legume: false,
+            planting_month: 11,
+            harvest_month: 3,
+            duration_months: 5,
+            avg_historical_temperature_c: 18.4,
+            temperature_fit_score: 86,
+            water_category: 'medium',
+            water_compatibility_score: 84,
+            soil_ph_compatibility_score: null,
+            family_diversity_score: 80,
+            screening_score: 84.8,
+          },
+        ],
+        explanation: 'Seasonal wheat comparison.',
+      },
+    })
+  );
+  assert.match(secondPlanHtml, /Option #2/);
+  assert.match(secondPlanHtml, /84\.8 \/ 100/);
+  assert.match(secondPlanHtml, /-4\.2 vs #1/);
+  assert.match(secondPlanHtml, /Not evaluated/);
+});
+
+

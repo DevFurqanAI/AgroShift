@@ -8,6 +8,7 @@ import {
   Satellite,
 } from 'lucide-react';
 import { EmptyState } from '../components/common/EmptyState';
+import { IndexRangeMeter, InfoTooltipHint } from '../components/common/MetricPrimitives';
 import { StatusBanner } from '../components/common/StatusBanner';
 import { useAgroShift } from '../context/AgroShiftContext';
 import { useFieldHealthAnalysis } from '../hooks/useFieldHealth';
@@ -232,12 +233,19 @@ export function FieldHealthPage() {
             />
           )}
 
-          {/* Metric Cards */}
+          {/* Metric Cards with Visual Ranges & Context */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-surface)] p-5 space-y-1">
-              <p className="text-xs text-[var(--as-text-muted)]">
-                NDVI Vegetation Indicator
-              </p>
+            <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-surface)] p-5 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-[var(--as-text-muted)]">
+                  NDVI Vegetation Indicator
+                </p>
+                {result.ndvi_status && (
+                  <span className="text-[11px] font-medium text-[var(--as-text-muted)]">
+                    {formatStatusBand(result.ndvi_status)}
+                  </span>
+                )}
+              </div>
               <p className="text-2xl font-mono font-bold tabular-nums text-[var(--as-text)]">
                 {result.satellite_available &&
                 result.ndvi !== null &&
@@ -246,16 +254,37 @@ export function FieldHealthPage() {
                   : 'Unavailable'}
               </p>
               <p className="text-xs text-[var(--as-text-muted)]">
-                {result.ndvi_status
-                  ? `Indicator band: ${formatStatusBand(result.ndvi_status)}`
+                {result.satellite_available && result.ndvi !== null && result.ndvi !== undefined
+                  ? result.ndvi < 0.2
+                    ? `NDVI: ${result.ndvi.toFixed(3)} — Low vegetation signal (bare soil / early emergence)`
+                    : result.ndvi_status
+                      ? `Indicator band: ${formatStatusBand(result.ndvi_status)}`
+                      : 'Copernicus Sentinel-2 canopy vigor indicator'
                   : 'Copernicus Sentinel-2 canopy vigor indicator'}
               </p>
+              <IndexRangeMeter
+                label="NDVI optical vegetation index"
+                value={result.satellite_available ? result.ndvi : null}
+                min={-0.2}
+                max={1.0}
+                thresholdValue={0.2}
+                thresholdLabel="0.20 sparse/soil"
+                lowLabel="Bare/Water"
+                highLabel="Dense"
+              />
             </div>
 
-            <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-surface)] p-5 space-y-1">
-              <p className="text-xs text-[var(--as-text-muted)]">
-                NDMI Moisture Indicator
-              </p>
+            <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-surface)] p-5 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-[var(--as-text-muted)]">
+                  NDMI Moisture Indicator
+                </p>
+                {result.ndmi_status && (
+                  <span className="text-[11px] font-medium text-[var(--as-text-muted)]">
+                    {formatStatusBand(result.ndmi_status)}
+                  </span>
+                )}
+              </div>
               <p className="text-2xl font-mono font-bold tabular-nums text-[var(--as-text)]">
                 {result.satellite_available &&
                 result.ndmi !== null &&
@@ -268,13 +297,23 @@ export function FieldHealthPage() {
                   ? `Indicator band: ${formatStatusBand(result.ndmi_status)}`
                   : 'Canopy water content indicator'}
               </p>
+              <IndexRangeMeter
+                label="NDMI canopy moisture index"
+                value={result.satellite_available ? result.ndmi : null}
+                min={-0.5}
+                max={0.5}
+                thresholdValue={0.0}
+                thresholdLabel="0.00 threshold"
+                lowLabel="Dry/Bare"
+                highLabel="Moist"
+              />
             </div>
 
-            <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-surface)] p-5 space-y-1">
-              <p className="text-xs text-[var(--as-text-muted)]">
-                Latest Satellite Date
+            <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-surface)] p-5 space-y-2">
+              <p className="text-xs font-medium text-[var(--as-text-muted)]">
+                Latest Satellite Date &amp; Pixel Quality
               </p>
-              <p className="text-base font-semibold tabular-nums text-[var(--as-text)]">
+              <p className="text-base font-mono font-semibold tabular-nums text-[var(--as-text)]">
                 {result.satellite_observation_date || 'Unavailable'}
               </p>
               {(() => {
@@ -292,7 +331,20 @@ export function FieldHealthPage() {
                 ) {
                   return (
                     <>
-                      <p className="text-xs tabular-nums text-[var(--as-text-muted)]">
+                      <div
+                        role="progressbar"
+                        aria-label="Valid pixel sample coverage percentage"
+                        aria-valuenow={Number(validPct.toFixed(1))}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        className="h-2 w-full rounded-full bg-[var(--as-warning-surface)] border border-[var(--as-border)] overflow-hidden"
+                      >
+                        <div
+                          className="h-full bg-[#15803D] dark:bg-[#34D399]"
+                          style={{ width: `${Math.max(0, Math.min(100, validPct))}%` }}
+                        />
+                      </div>
+                      <p className="text-xs font-mono tabular-nums text-[var(--as-text-muted)]">
                         Valid sample coverage: {validPct.toFixed(1)}% · Excluded/unusable: {excludedPct.toFixed(1)}%
                       </p>
                       <p className="text-[11px] text-[var(--as-text-muted)]">
@@ -309,18 +361,18 @@ export function FieldHealthPage() {
               })()}
             </div>
 
-            <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-surface)] p-5 space-y-1">
-              <p className="text-xs text-[var(--as-text-muted)]">
+            <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-surface)] p-5 space-y-2">
+              <p className="text-xs font-medium text-[var(--as-text-muted)]">
                 Recent Weather Context
               </p>
-              <p className="text-base font-semibold tabular-nums text-[var(--as-text)]">
+              <p className="text-2xl font-mono font-bold tabular-nums text-[var(--as-text)]">
                 {result.weather_available &&
                 result.temperature_c !== null &&
                 result.temperature_c !== undefined
                   ? formatTemperature(result.temperature_c, settings.temperatureUnit)
                   : 'Unavailable'}
               </p>
-              <p className="text-xs text-[var(--as-text-muted)]">
+              <p className="text-xs font-mono tabular-nums text-[var(--as-text-muted)]">
                 {result.weather_available
                   ? [
                       result.humidity_percent !== null &&
@@ -331,14 +383,25 @@ export function FieldHealthPage() {
                       result.recent_rainfall_mm !== undefined
                         ? `Rain ${result.recent_rainfall_mm} mm`
                         : null,
-                      result.heat_risk ? `Heat risk: ${formatStatusBand(result.heat_risk)}` : null,
                     ]
                       .filter(Boolean)
                       .join(' · ') || 'Weather context loaded'
                   : 'Weather provider unavailable'}
               </p>
+              {result.weather_available && (result.heat_risk || result.rainfall_status) && (
+                <p className="text-[11px] text-[var(--as-text-muted)]">
+                  {[
+                    result.heat_risk ? `Heat risk: ${formatStatusBand(result.heat_risk)}` : null,
+                    result.rainfall_status
+                      ? `Rainfall: ${formatStatusBand(result.rainfall_status)}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              )}
               {result.weather_available && (
-                <p className="text-[11px] text-[var(--as-text-muted)] pt-1">
+                <p className="text-[11px] text-[var(--as-text-muted)] pt-0.5">
                   {result.weather_source === 'openweathermap' ? (
                     'Weather data via OpenWeatherMap fallback'
                   ) : (
@@ -356,7 +419,34 @@ export function FieldHealthPage() {
             </div>
           </div>
 
-          {/* Summary, Recommendations & Confidence */}
+          {/* Connected Screening Logic Strip */}
+          <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 sm:p-5 space-y-3 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-semibold text-[var(--as-text)]">
+                How Signals Connect to Moisture-Stress Screening
+              </p>
+              <InfoTooltipHint
+                label="Explain moisture stress screening thresholds"
+                explanation="NDVI below 0.20 usually indicates bare soil or very sparse cover, so NDMI moisture screening becomes inconclusive. When NDVI >= 0.20, low NDMI combined with moderate/high heat or low recent rain flags possible moisture stress rather than confirming crop disease or exact irrigation volume."
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3 space-y-1">
+                <span className="text-[11px] text-[var(--as-text-muted)]">1. Data Availability</span>
+                <p className="font-semibold text-[var(--as-text)]">{describeDataAvailability(result)}</p>
+              </div>
+              <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3 space-y-1">
+                <span className="text-[11px] text-[var(--as-text-muted)]">2. Observation Quality</span>
+                <p className="font-semibold text-[var(--as-text)]">{describeObservationQuality(result)}</p>
+              </div>
+              <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3 space-y-1">
+                <span className="text-[11px] text-[var(--as-text-muted)]">3. Interpretation Confidence</span>
+                <p className="font-semibold text-[var(--as-text)]">{describeInterpretationConfidence(result)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Summary, Recommendations & Expandable Technical Metadata */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <section className="rounded-xl border border-[var(--as-border)] bg-[var(--as-surface)] p-5 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -364,10 +454,6 @@ export function FieldHealthPage() {
                 <span className="text-xs font-medium text-[var(--as-text-muted)]">
                   Interpretation confidence: {describeInterpretationConfidence(result)}
                 </span>
-              </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--as-text-muted)]">
-                <span>Data availability: {describeDataAvailability(result)}</span>
-                <span>Observation quality: {describeObservationQuality(result)}</span>
               </div>
               <p className="text-sm text-[var(--as-text-muted)] leading-relaxed">
                 {result.ai_explanation ||
@@ -377,19 +463,45 @@ export function FieldHealthPage() {
                 {result.confidence_reason ||
                   'Interpretation depends on crop type, growth stage, soil background, season, and pixel quality.'}
               </p>
-              <p className="text-xs font-medium text-[var(--as-text)]">
-                Moisture stress screening: {describeMoistureStress(result)}
-              </p>
+              <div className="pt-2 border-t border-[var(--as-border)]">
+                <p className="text-xs font-medium text-[var(--as-text)]">
+                  Moisture stress screening: {describeMoistureStress(result)}
+                </p>
+              </div>
+
+              <details className="pt-2 text-xs text-[var(--as-text-muted)]">
+                <summary className="cursor-pointer font-semibold as-text-accent hover:underline">
+                  Technical Observation &amp; Classification Details
+                </summary>
+                <dl className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3 font-mono text-[11px]">
+                  <dt className="text-[var(--as-text-muted)]">NDVI / Status</dt>
+                  <dd className="tabular-nums text-[var(--as-text)] text-right">
+                    {result.ndvi !== null ? result.ndvi.toFixed(3) : 'null'} ({result.ndvi_status || 'N/A'})
+                  </dd>
+                  <dt className="text-[var(--as-text-muted)]">NDMI / Status</dt>
+                  <dd className="tabular-nums text-[var(--as-text)] text-right">
+                    {result.ndmi !== null ? result.ndmi.toFixed(3) : 'null'} ({result.ndmi_status || 'N/A'})
+                  </dd>
+                  <dt className="text-[var(--as-text-muted)]">Stress Code</dt>
+                  <dd className="tabular-nums text-[var(--as-text)] text-right">
+                    {result.moisture_stress_status || String(result.possible_water_stress ?? 'null')}
+                  </dd>
+                  <dt className="text-[var(--as-text-muted)]">Weather Provider</dt>
+                  <dd className="text-[var(--as-text)] text-right">
+                    {result.weather_source || (result.weather_available ? 'open-meteo' : 'unavailable')}
+                  </dd>
+                </dl>
+              </details>
             </section>
 
             <section className="rounded-xl border border-[var(--as-border)] bg-[var(--as-surface)] p-5 space-y-3">
               <h3 className="text-base font-semibold">Practical Next Checks</h3>
               {result.recommendations && result.recommendations.length > 0 ? (
-                <ul className="space-y-2">
+                <ul className="space-y-2.5">
                   {result.recommendations.map((rec, i) => (
                     <li
                       key={i}
-                      className="flex items-start gap-2 text-xs text-[var(--as-text-muted)]"
+                      className="flex items-start gap-2.5 text-xs text-[var(--as-text-muted)] leading-relaxed"
                     >
                       <CheckCircle2 className="w-4 h-4 as-text-accent shrink-0 mt-0.5" />
                       <span>{rec}</span>

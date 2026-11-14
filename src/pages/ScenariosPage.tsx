@@ -13,6 +13,16 @@ import {
   SlidersHorizontal,
   Sun,
 } from 'lucide-react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { EmptyState } from '../components/common/EmptyState';
 import { StatusBanner } from '../components/common/StatusBanner';
 import { ScreeningLimitationsDisclosure } from '../components/rotation/ScreeningLimitationsDisclosure';
@@ -364,145 +374,283 @@ export function ScenariosPage() {
         />
       )}
 
-      {comparisonResult && comparisonResult.status === 'ok' && (
-        <div className="space-y-5">
-          {/* Baseline vs Scenario Climate Summary */}
-          {comparisonResult.climate_metrics && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 space-y-1">
-                <p className="text-xs text-[var(--as-text-muted)]">Mean Historical vs Shifted Temp</p>
-                <p className="text-base font-mono font-semibold tabular-nums text-[var(--as-text-primary)]">
-                  {comparisonResult.climate_metrics.baseline_avg_temp_c !== null
-                    ? formatTemperature(
-                        comparisonResult.climate_metrics.baseline_avg_temp_c,
-                        settings.temperatureUnit
-                      )
-                    : 'N/A'}{' '}
-                  →{' '}
-                  {comparisonResult.climate_metrics.scenario_avg_temp_c !== null
-                    ? formatTemperature(
-                        comparisonResult.climate_metrics.scenario_avg_temp_c,
-                        settings.temperatureUnit
-                      )
-                    : 'N/A'}
-                </p>
-              </div>
-              <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 space-y-1">
-                <p className="text-xs text-[var(--as-text-muted)]">Mean Monthly Precip Shift</p>
-                <p className="text-base font-mono font-semibold tabular-nums text-[var(--as-text-primary)]">
-                  {comparisonResult.climate_metrics.baseline_avg_monthly_precip_mm !== null
-                    ? `${comparisonResult.climate_metrics.baseline_avg_monthly_precip_mm} mm`
-                    : 'N/A'}{' '}
-                  →{' '}
-                  {comparisonResult.climate_metrics.scenario_avg_monthly_precip_mm !== null
-                    ? `${comparisonResult.climate_metrics.scenario_avg_monthly_precip_mm} mm`
-                    : 'N/A'}
-                </p>
-              </div>
-              <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 space-y-1">
-                <p className="text-xs text-[var(--as-text-muted)]">Qualitative Water Tier</p>
-                <p className="text-base font-semibold capitalize text-[var(--as-text-primary)]">
-                  {comparisonResult.assumptions.baseline_water_availability} →{' '}
-                  {comparisonResult.assumptions.scenario_water_availability}
-                </p>
-                <p className="text-[11px] text-[var(--as-text-muted)]">
-                  {comparisonResult.assumptions.water_shift_note}
-                </p>
-              </div>
-            </div>
-          )}
+      {comparisonResult && comparisonResult.status === 'ok' && (() => {
+        const scenarioChartData = comparisonResult.comparisons.map((row) => ({
+          name: row.crop_names.join(' → '),
+          Baseline: row.baseline_score !== null ? Number(row.baseline_score.toFixed(1)) : null,
+          Scenario: row.scenario_score !== null ? Number(row.scenario_score.toFixed(1)) : null,
+        }));
+        const tempShiftStr = `${comparisonResult.assumptions.temperature_delta_c >= 0 ? '+' : ''}${comparisonResult.assumptions.temperature_delta_c.toFixed(1)} °C`;
+        const rainShiftStr = `${comparisonResult.assumptions.precipitation_shift_percent >= 0 ? '+' : ''}${comparisonResult.assumptions.precipitation_shift_percent}%`;
 
-          {/* Side-by-Side Comparison Table */}
-          <div className="overflow-x-auto rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)]">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">Crop Sequence</th>
-                  <th className="px-4 py-3 font-semibold">Baseline</th>
-                  <th className="px-4 py-3 font-semibold">{comparisonResult.scenario_label}</th>
-                  <th className="px-4 py-3 font-semibold">Score Change</th>
-                  <th className="px-4 py-3 font-semibold">Rank Shift</th>
-                  <th className="px-4 py-3 font-semibold">Why It Changed</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--as-border)]">
-                {comparisonResult.comparisons.map((row) => (
-                  <tr key={row.crop_ids.join('-')}>
-                    <td className="px-4 py-3 font-semibold text-[var(--as-text-primary)]">
-                      {row.crop_names.join(' → ')}
-                    </td>
-                    <td className="px-4 py-3 font-mono tabular-nums text-[var(--as-text-muted)]">
-                      {row.baseline_score !== null
-                        ? `${row.baseline_score.toFixed(1)} (#${row.baseline_rank})`
-                        : 'Outside top list'}
-                    </td>
-                    <td className="px-4 py-3 font-mono tabular-nums font-semibold text-[var(--as-text-primary)]">
-                      {row.scenario_score !== null
-                        ? `${row.scenario_score.toFixed(1)} (#${row.scenario_rank})`
-                        : 'Outside top list'}
-                    </td>
-                    <td className="px-4 py-3 font-mono tabular-nums">
-                      {row.score_delta !== null ? (
-                        <span
-                          className={
-                            row.score_delta > 0.2
-                              ? 'as-text-accent font-semibold'
-                              : row.score_delta < -0.2
-                              ? 'as-text-danger font-semibold'
-                              : 'text-[var(--as-text-muted)]'
-                          }
-                        >
-                          {row.score_delta > 0 ? `+${row.score_delta.toFixed(1)}` : row.score_delta.toFixed(1)}
-                        </span>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {row.rank_change !== null ? (
-                        row.rank_change > 0 ? (
-                          <span className="inline-flex items-center gap-1 as-text-accent font-semibold">
-                            <ArrowUpRight className="w-3.5 h-3.5" />
-                            Up {row.rank_change}
-                          </span>
-                        ) : row.rank_change < 0 ? (
-                          <span className="inline-flex items-center gap-1 as-text-danger font-semibold">
-                            <ArrowDownRight className="w-3.5 h-3.5" />
-                            Down {Math.abs(row.rank_change)}
+        return (
+          <div className="space-y-5">
+            {/* Causal Linkage Summary: Climate Assumption -> Mean Shift -> Water Tier */}
+            <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 sm:p-5 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-[var(--as-text-primary)]">
+                  Scenario Shift Chain: {comparisonResult.scenario_label} ({tempShiftStr}, {rainShiftStr} rainfall)
+                </h3>
+                <span className="text-xs font-mono tabular-nums text-[var(--as-text-muted)]">
+                  {comparisonResult.climate_source || 'NASA POWER historical baseline'}
+                </span>
+              </div>
+
+              {comparisonResult.climate_metrics && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4 space-y-1">
+                    <p className="text-xs text-[var(--as-text-muted)]">
+                      1. Temperature Assumption ({tempShiftStr})
+                    </p>
+                    <p className="text-base font-mono font-semibold tabular-nums text-[var(--as-text-primary)]">
+                      {comparisonResult.climate_metrics.baseline_avg_temp_c !== null
+                        ? formatTemperature(
+                            comparisonResult.climate_metrics.baseline_avg_temp_c,
+                            settings.temperatureUnit
+                          )
+                        : 'N/A'}{' '}
+                      →{' '}
+                      {comparisonResult.climate_metrics.scenario_avg_temp_c !== null
+                        ? formatTemperature(
+                            comparisonResult.climate_metrics.scenario_avg_temp_c,
+                            settings.temperatureUnit
+                          )
+                        : 'N/A'}
+                    </p>
+                    <p className="text-[11px] text-[var(--as-text-muted)]">
+                      Shifts seasonal crop thermal fit across all seasons
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4 space-y-1">
+                    <p className="text-xs text-[var(--as-text-muted)]">
+                      2. Monthly Precip Shift ({rainShiftStr})
+                    </p>
+                    <p className="text-base font-mono font-semibold tabular-nums text-[var(--as-text-primary)]">
+                      {comparisonResult.climate_metrics.baseline_avg_monthly_precip_mm !== null
+                        ? `${comparisonResult.climate_metrics.baseline_avg_monthly_precip_mm} mm`
+                        : 'N/A'}{' '}
+                      →{' '}
+                      {comparisonResult.climate_metrics.scenario_avg_monthly_precip_mm !== null
+                        ? `${comparisonResult.climate_metrics.scenario_avg_monthly_precip_mm} mm`
+                        : 'N/A'}
+                    </p>
+                    <p className="text-[11px] text-[var(--as-text-muted)]">
+                      Adjusts seasonal rain screening where records exist
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-4 space-y-1">
+                    <p className="text-xs text-[var(--as-text-muted)]">3. Qualitative Water Tier</p>
+                    <p className="text-base font-semibold capitalize text-[var(--as-text-primary)]">
+                      {comparisonResult.assumptions.baseline_water_availability} →{' '}
+                      {comparisonResult.assumptions.scenario_water_availability}
+                    </p>
+                    <p className="text-[11px] text-[var(--as-text-muted)]">
+                      {comparisonResult.assumptions.water_shift_note}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Baseline vs Scenario Compatibility Chart */}
+            {scenarioChartData.length > 0 && (
+              <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-[var(--as-text-primary)]">
+                    Baseline vs. {comparisonResult.scenario_label} Compatibility Scores (0–100)
+                  </h3>
+                  <p className="text-xs text-[var(--as-text-muted)]">
+                    Direct comparison of crop sequence scores before and after applying {tempShiftStr} and {rainShiftStr} rainfall.
+                  </p>
+                </div>
+                <div className="h-[240px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={scenarioChartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--as-chart-grid)" opacity={0.7} />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                        stroke="var(--as-chart-grid)"
+                      />
+                      <YAxis
+                        domain={[0, 100]}
+                        tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                        stroke="var(--as-chart-grid)"
+                        width={36}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#111D18',
+                          borderColor: '#23362D',
+                          borderRadius: '8px',
+                          color: '#E8F1EC',
+                          fontSize: '12px',
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '11px', color: 'var(--as-text-primary)' }} />
+                      <Bar dataKey="Baseline" name="Baseline Score" fill="var(--as-chart-rain)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="Scenario" name={comparisonResult.scenario_label} fill="var(--as-chart-temp)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {/* Side-by-Side Comparison Table */}
+            <div className="overflow-x-auto rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)]">
+              <table className="w-full text-left text-xs">
+                <thead className="border-b border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Crop Sequence</th>
+                    <th className="px-4 py-3 font-semibold text-right">Baseline</th>
+                    <th className="px-4 py-3 font-semibold text-right">{comparisonResult.scenario_label}</th>
+                    <th className="px-4 py-3 font-semibold text-right">Score Change</th>
+                    <th className="px-4 py-3 font-semibold">Band Shift</th>
+                    <th className="px-4 py-3 font-semibold">Rank Shift</th>
+                    <th className="px-4 py-3 font-semibold">Why It Changed</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--as-border)]">
+                  {comparisonResult.comparisons.map((row) => (
+                    <tr key={row.crop_ids.join('-')} className="hover:bg-[var(--as-bg-subtle)]/60">
+                      <td className="px-4 py-3 font-semibold text-[var(--as-text-primary)]">
+                        {row.crop_names.join(' → ')}
+                      </td>
+                      <td className="px-4 py-3 font-mono tabular-nums text-[var(--as-text-muted)] text-right whitespace-nowrap">
+                        {row.baseline_score !== null
+                          ? `${row.baseline_score.toFixed(1)} (#${row.baseline_rank})`
+                          : 'Outside top list'}
+                      </td>
+                      <td className="px-4 py-3 font-mono tabular-nums font-semibold text-[var(--as-text-primary)] text-right whitespace-nowrap">
+                        {row.scenario_score !== null
+                          ? `${row.scenario_score.toFixed(1)} (#${row.scenario_rank})`
+                          : 'Outside top list'}
+                      </td>
+                      <td className="px-4 py-3 font-mono tabular-nums text-right whitespace-nowrap">
+                        {row.score_delta !== null ? (
+                          <span
+                            className={
+                              row.score_delta > 0.2
+                                ? 'as-text-accent font-semibold'
+                                : row.score_delta < -0.2
+                                ? 'as-text-danger font-semibold'
+                                : 'text-[var(--as-text-muted)]'
+                            }
+                          >
+                            {row.score_delta > 0 ? `+${row.score_delta.toFixed(1)}` : row.score_delta.toFixed(1)} pts
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[var(--as-text-muted)]">
-                            <Minus className="w-3.5 h-3.5" />
-                            Unchanged
-                          </span>
-                        )
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-[var(--as-text-muted)] max-w-xs">
-                      {row.reason}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                          '—'
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-[var(--as-text-muted)]">
+                        {row.baseline_band && row.scenario_band
+                          ? row.baseline_band === row.scenario_band
+                            ? row.scenario_band
+                            : `${row.baseline_band} → ${row.scenario_band}`
+                          : row.scenario_band || row.baseline_band || '—'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {row.rank_change !== null ? (
+                          row.rank_change > 0 ? (
+                            <span className="inline-flex items-center gap-1 as-text-accent font-semibold">
+                              <ArrowUpRight className="w-3.5 h-3.5" />
+                              Up {row.rank_change}
+                            </span>
+                          ) : row.rank_change < 0 ? (
+                            <span className="inline-flex items-center gap-1 as-text-danger font-semibold">
+                              <ArrowDownRight className="w-3.5 h-3.5" />
+                              Down {Math.abs(row.rank_change)}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[var(--as-text-muted)]">
+                              <Minus className="w-3.5 h-3.5" />
+                              Unchanged
+                            </span>
+                          )
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-[var(--as-text-muted)] max-w-xs">
+                        {row.reason}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-          <ScreeningLimitationsDisclosure
-            method={comparisonResult.method}
-            catalogWarning={comparisonResult.catalog_warning}
-            limitations={comparisonResult.limitations}
-            extraNotes={[
-              comparisonResult.disclaimer,
-              ...(comparisonResult.regional_context?.warning
-                ? [comparisonResult.regional_context.warning]
-                : []),
-            ]}
-            sources={comparisonResult.sources ?? []}
-          />
-        </div>
-      )}
+            {/* Expandable Baseline vs Scenario Component Breakdown */}
+            {(comparisonResult.baseline_plans?.length > 0 || comparisonResult.scenario_plans?.length > 0) && (
+              <details className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 text-xs">
+                <summary className="cursor-pointer font-semibold text-[var(--as-text-primary)]">
+                  Technical Factor Breakdown: Baseline vs. {comparisonResult.scenario_label}
+                </summary>
+                <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <p className="font-semibold text-[var(--as-text-primary)]">
+                      Baseline Top Plans ({comparisonResult.baseline_plans.length})
+                    </p>
+                    {comparisonResult.baseline_plans.map((bp, idx) => (
+                      <div
+                        key={`bp-${idx}`}
+                        className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3 space-y-1"
+                      >
+                        <div className="flex justify-between gap-2 font-semibold text-[var(--as-text-primary)]">
+                          <span>#{idx + 1} {bp.seasons.map((s) => s.name).join(' → ')}</span>
+                          <span className="font-mono tabular-nums">{bp.score.toFixed(1)}/100</span>
+                        </div>
+                        {bp.diagnostics && (
+                          <p className="font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
+                            Climate {bp.diagnostics.climate_compatibility.toFixed(1)} · Water {bp.diagnostics.water_compatibility.toFixed(1)} · Soil {bp.diagnostics.soil_health_score?.toFixed(1) ?? '—'} · Diversity {bp.diagnostics.family_rotation.toFixed(1)}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <p className="font-semibold text-[var(--as-text-primary)]">
+                      Scenario Top Plans ({comparisonResult.scenario_plans.length})
+                    </p>
+                    {comparisonResult.scenario_plans.map((sp, idx) => (
+                      <div
+                        key={`sp-${idx}`}
+                        className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3 space-y-1"
+                      >
+                        <div className="flex justify-between gap-2 font-semibold text-[var(--as-text-primary)]">
+                          <span>#{idx + 1} {sp.seasons.map((s) => s.name).join(' → ')}</span>
+                          <span className="font-mono tabular-nums">{sp.score.toFixed(1)}/100</span>
+                        </div>
+                        {sp.diagnostics && (
+                          <p className="font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
+                            Climate {sp.diagnostics.climate_compatibility.toFixed(1)} · Water {sp.diagnostics.water_compatibility.toFixed(1)} · Soil {sp.diagnostics.soil_health_score?.toFixed(1) ?? '—'} · Diversity {sp.diagnostics.family_rotation.toFixed(1)}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </details>
+            )}
+
+            <ScreeningLimitationsDisclosure
+              method={comparisonResult.method}
+              catalogWarning={comparisonResult.catalog_warning}
+              limitations={comparisonResult.limitations}
+              extraNotes={[
+                comparisonResult.disclaimer,
+                ...(comparisonResult.regional_context?.warning
+                  ? [comparisonResult.regional_context.warning]
+                  : []),
+              ]}
+              sources={comparisonResult.sources ?? []}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }

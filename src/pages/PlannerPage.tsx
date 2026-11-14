@@ -10,6 +10,16 @@ import {
   Sparkles,
   Trash2,
 } from 'lucide-react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { EmptyState } from '../components/common/EmptyState';
 import { StatusBanner } from '../components/common/StatusBanner';
 import { RotationComparisonCard } from '../components/rotation/RotationComparisonCard';
@@ -83,6 +93,7 @@ export function PlannerPage() {
   const [notes, setNotes] = useState('');
   const [savedFeedback, setSavedFeedback] = useState<string | null>(null);
   const [formValidationError, setFormValidationError] = useState<string | null>(null);
+  const [resultView, setResultView] = useState<'all' | 'cards' | 'matrix'>('all');
 
   // Sync defaults when active farm changes
   useEffect(() => {
@@ -652,132 +663,298 @@ export function PlannerPage() {
         )}
 
       {/* Ranked Rotation Screening Results */}
-      {liveResult && liveResult.status === 'ok' && liveResult.plans.length > 0 && (
-        <section className="space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h3 className="font-display text-lg font-bold">
-                Ranked Rotation Options ({liveResult.plans.length})
-              </h3>
-              <p className="text-xs text-[var(--as-text-muted)]">
-                Climate basis: {liveResult.climate_source || 'NASA POWER historical observations'} ({startYear}–{endYear}) · Goal: {BACKEND_GOAL_LABELS[priorityMapping.activeGoal]}
-              </p>
+      {liveResult && liveResult.status === 'ok' && liveResult.plans.length > 0 && (() => {
+        const topPlanScore = liveResult.plans[0]?.score ?? 0;
+        const chartData = liveResult.plans.map((opt, idx) => ({
+          option: `#${idx + 1} ${opt.seasons.map((s) => s.name).join(' → ')}`,
+          shortOption: `#${idx + 1} ${opt.seasons[0]?.name ?? ''}${opt.seasons.length > 1 ? ` → ${opt.seasons[opt.seasons.length - 1]?.name}` : ''}`,
+          Overall: Number(opt.score.toFixed(1)),
+          Climate: Number((opt.diagnostics?.climate_compatibility ?? 0).toFixed(1)),
+          Water: Number((opt.diagnostics?.water_compatibility ?? 0).toFixed(1)),
+          SoilHealth: Number((opt.diagnostics?.soil_health_score ?? 0).toFixed(1)),
+          Diversity: Number((opt.diagnostics?.family_rotation ?? 0).toFixed(1)),
+        }));
+
+        return (
+          <section className="space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-display text-lg font-bold">
+                  Ranked Rotation Options ({liveResult.plans.length})
+                </h3>
+                <p className="text-xs text-[var(--as-text-muted)]">
+                  Climate basis: {liveResult.climate_source || 'NASA POWER historical observations'} ({startYear}–{endYear}) · Goal: {BACKEND_GOAL_LABELS[priorityMapping.activeGoal]}
+                </p>
+              </div>
+
+              <div
+                role="tablist"
+                aria-label="Rotation comparison view mode"
+                className="inline-flex items-center gap-1 p-1 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] self-start"
+              >
+                {[
+                  { id: 'all', label: 'Charts & Cards' },
+                  { id: 'matrix', label: 'Comparison Matrix' },
+                  { id: 'cards', label: 'Cards Only' },
+                ].map((tab) => {
+                  const active = resultView === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setResultView(tab.id as 'all' | 'cards' | 'matrix')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                        active
+                          ? 'bg-[var(--as-bg-surface)] text-[var(--as-text-primary)] shadow-sm'
+                          : 'text-[var(--as-text-muted)] hover:text-[var(--as-text-primary)]'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-          {liveResult.regional_context && (
-            <StatusBanner
-              tone={liveResult.regional_context.verified ? 'info' : 'warning'}
-              title={
-                liveResult.regional_context.verified
-                  ? `Regional Calendar Context: ${liveResult.regional_context.country_name}${
-                      liveResult.regional_context.agroecological_zone
-                        ? ` (${liveResult.regional_context.agroecological_zone})`
-                        : ''
-                    }`
-                  : 'Regional Planting Calendar Not Verified for This Location'
-              }
-              description={
-                liveResult.regional_context.warning ||
-                'Crop planting windows were screened against documented regional cropping calendars alongside NASA POWER historical climate.'
-              }
-            />
-          )}
-
-          {liveResult.rainfall_intelligence && (
-            <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 text-xs space-y-1">
-              <p className="font-semibold text-[var(--as-text-primary)]">
-                NASA POWER Historical Rainfall Context
-              </p>
-              <p className="text-[var(--as-text-muted)]">
-                {liveResult.rainfall_intelligence.seasonal_contrast_note}
-                {liveResult.rainfall_intelligence.annual_mean_mm != null
-                  ? ` Annual historical mean: ~${liveResult.rainfall_intelligence.annual_mean_mm} mm/yr.`
-                  : ''}
-              </p>
-              <p className="text-[11px] text-[var(--as-text-muted)]">
-                {liveResult.rainfall_intelligence.note}
-              </p>
-            </div>
-          )}
-
-          <ScreeningLimitationsDisclosure
-            method={liveResult.method}
-            catalogWarning={liveResult.catalog_warning}
-            limitations={liveResult.limitations}
-            extraNotes={
-              liveResult.plans[0]?.diagnostics?.missing_data_notes ?? []
-            }
-            sources={liveResult.sources ?? []}
-          />
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {liveResult.plans.map((opt, idx) => (
-              <RotationComparisonCard
-                key={opt.crop_ids.join('-') + '-' + idx}
-                plan={opt}
-                rank={idx + 1}
-                temperatureUnit={settings.temperatureUnit}
-                onSavePlan={(chosen) => handleSavePlan(chosen)}
+            {liveResult.regional_context && (
+              <StatusBanner
+                tone={liveResult.regional_context.verified ? 'info' : 'warning'}
+                title={
+                  liveResult.regional_context.verified
+                    ? `Regional Calendar Context: ${liveResult.regional_context.country_name}${
+                        liveResult.regional_context.agroecological_zone
+                          ? ` (${liveResult.regional_context.agroecological_zone})`
+                          : ''
+                      }`
+                    : 'Regional Planting Calendar Not Verified for This Location'
+                }
+                description={
+                  liveResult.regional_context.warning ||
+                  'Crop planting windows were screened against documented regional cropping calendars alongside NASA POWER historical climate.'
+                }
               />
-            ))}
-          </div>
+            )}
 
-          {/* Side-by-Side Summary Table */}
-          <div className="overflow-x-auto rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)]">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">Option</th>
-                  <th className="px-4 py-3 font-semibold">Sequence</th>
-                  <th className="px-4 py-3 font-semibold">Screening Match</th>
-                  <th className="px-4 py-3 font-semibold">Overall Score</th>
-                  <th className="px-4 py-3 font-semibold">Soil pH Scored</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--as-border)]">
+            {liveResult.rainfall_intelligence && (
+              <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 sm:p-5 space-y-3 text-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <p className="font-semibold text-[var(--as-text-primary)]">
+                    NASA POWER Historical Rainfall Context
+                  </p>
+                  <span className="font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
+                    {liveResult.rainfall_intelligence.rainfall_available
+                      ? 'Precipitation records loaded'
+                      : 'Precipitation records incomplete'}
+                  </span>
+                </div>
+
+                {liveResult.rainfall_intelligence.rainfall_available && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3">
+                      <span className="text-[11px] text-[var(--as-text-muted)]">
+                        Historical Annual Mean
+                      </span>
+                      <p className="font-mono tabular-nums text-sm font-semibold text-[var(--as-text-primary)] mt-0.5">
+                        {liveResult.rainfall_intelligence.annual_mean_mm != null
+                          ? `~${liveResult.rainfall_intelligence.annual_mean_mm} mm/yr`
+                          : 'Unavailable'}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3">
+                      <span className="text-[11px] text-[var(--as-text-muted)]">
+                        Wettest 3-Month Window
+                      </span>
+                      <p className="font-mono tabular-nums text-sm font-semibold text-[var(--as-text-primary)] mt-0.5">
+                        {liveResult.rainfall_intelligence.wettest_3mo_mm != null
+                          ? `~${liveResult.rainfall_intelligence.wettest_3mo_mm} mm`
+                          : 'Unavailable'}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] p-3">
+                      <span className="text-[11px] text-[var(--as-text-muted)]">
+                        Driest 3-Month Window
+                      </span>
+                      <p className="font-mono tabular-nums text-sm font-semibold text-[var(--as-text-primary)] mt-0.5">
+                        {liveResult.rainfall_intelligence.driest_3mo_mm != null
+                          ? `~${liveResult.rainfall_intelligence.driest_3mo_mm} mm`
+                          : 'Unavailable'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-[var(--as-text-muted)] leading-relaxed">
+                  {liveResult.rainfall_intelligence.seasonal_contrast_note}
+                </p>
+                <p className="text-[11px] text-[var(--as-text-muted)]">
+                  {liveResult.rainfall_intelligence.note}
+                </p>
+              </div>
+            )}
+
+            {/* Multi-Option Factor Comparison Chart */}
+            {resultView !== 'cards' && chartData.length > 0 && (
+              <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-5 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-sm font-semibold text-[var(--as-text-primary)]">
+                      Side-by-Side Factor Scores Across Options (0–100)
+                    </h4>
+                    <p className="text-xs text-[var(--as-text-muted)]">
+                      Connects overall ranking to NASA temperature fit, water &amp; rainfall fit, soil health, and botanical diversity.
+                    </p>
+                  </div>
+                </div>
+                <div className="h-[240px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--as-chart-grid)" opacity={0.7} />
+                      <XAxis
+                        dataKey="shortOption"
+                        tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                        stroke="var(--as-chart-grid)"
+                      />
+                      <YAxis
+                        domain={[0, 100]}
+                        tick={{ fontSize: 11, fill: 'var(--as-chart-axis)' }}
+                        stroke="var(--as-chart-grid)"
+                        width={36}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#111D18',
+                          borderColor: '#23362D',
+                          borderRadius: '8px',
+                          color: '#E8F1EC',
+                          fontSize: '12px',
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '11px', color: 'var(--as-text-primary)' }} />
+                      <Bar dataKey="Overall" name="Overall Score" fill="var(--as-chart-temp)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="Climate" name="Climate Fit" fill="var(--as-chart-rain)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="Water" name="Water & Rainfall" fill="var(--as-chart-rain-alt)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="SoilHealth" name="Soil Health" fill="#D97706" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            <ScreeningLimitationsDisclosure
+              method={liveResult.method}
+              catalogWarning={liveResult.catalog_warning}
+              limitations={liveResult.limitations}
+              extraNotes={
+                liveResult.plans[0]?.diagnostics?.missing_data_notes ?? []
+              }
+              sources={liveResult.sources ?? []}
+            />
+
+            {/* Detailed Option Cards */}
+            {resultView !== 'matrix' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 {liveResult.plans.map((opt, idx) => (
-                  <tr key={opt.crop_ids.join('-') + '-row-' + idx}>
-                    <td className="px-4 py-3 font-semibold">Option #{idx + 1}</td>
-                    <td className="px-4 py-3">
-                      {opt.seasons.map((s) => s.name).join(' → ')}
-                    </td>
-                    <td className="px-4 py-3 text-[var(--as-text-muted)]">
-                      {opt.compatibility_band || 'Screening match'}
-                    </td>
-                    <td className="px-4 py-3 font-mono tabular-nums font-semibold as-text-accent">
-                      {opt.score.toFixed(1)} / 100
-                    </td>
-                    <td className="px-4 py-3 text-[var(--as-text-muted)]">
-                      {opt.seasons[0]?.soil_ph_compatibility_score !== null
-                        ? `Yes (pH ${validSoilPh})`
-                        : 'No (pH not provided)'}
-                    </td>
-                  </tr>
+                  <RotationComparisonCard
+                    key={opt.crop_ids.join('-') + '-' + idx}
+                    plan={opt}
+                    rank={idx + 1}
+                    topScore={topPlanScore}
+                    temperatureUnit={settings.temperatureUnit}
+                    onSavePlan={(chosen) => handleSavePlan(chosen)}
+                  />
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            )}
 
-          {liveResult.rejected_sequences && liveResult.rejected_sequences.length > 0 && (
-            <details className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 text-xs">
-              <summary className="cursor-pointer font-semibold text-[var(--as-text-primary)]">
-                Sequences Excluded by Regional Timing Checks ({liveResult.rejected_sequences.length})
-              </summary>
-              <ul className="mt-2.5 space-y-1.5 text-[var(--as-text-muted)] list-disc pl-5">
-                {liveResult.rejected_sequences.map((rej, idx) => (
-                  <li key={`rej-${idx}`}>
-                    <strong className="text-[var(--as-text-primary)]">
-                      {rej.crop_names.join(' → ')}:
-                    </strong>{' '}
-                    {rej.reasons.join(' ')}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-        </section>
-      )}
+            {/* Side-by-Side Summary Comparison Matrix */}
+            <div className="overflow-x-auto rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)]">
+              <table className="w-full text-left text-xs">
+                <thead className="border-b border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Option</th>
+                    <th className="px-4 py-3 font-semibold">Sequence</th>
+                    <th className="px-4 py-3 font-semibold">Screening Match</th>
+                    <th className="px-4 py-3 font-semibold text-right">Overall Score</th>
+                    <th className="px-4 py-3 font-semibold text-right">Δ vs #1</th>
+                    <th className="px-4 py-3 font-semibold text-right">Climate</th>
+                    <th className="px-4 py-3 font-semibold text-right">Water</th>
+                    <th className="px-4 py-3 font-semibold text-right">Soil Health</th>
+                    <th className="px-4 py-3 font-semibold text-right">Calendar</th>
+                    <th className="px-4 py-3 font-semibold">Soil pH Scored</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--as-border)]">
+                  {liveResult.plans.map((opt, idx) => {
+                    const delta = Number((opt.score - topPlanScore).toFixed(1));
+                    const d = opt.diagnostics;
+                    return (
+                      <tr key={opt.crop_ids.join('-') + '-row-' + idx} className="hover:bg-[var(--as-bg-subtle)]/60">
+                        <td className="px-4 py-3 font-semibold whitespace-nowrap">Option #{idx + 1}</td>
+                        <td className="px-4 py-3 font-medium">
+                          {opt.seasons.map((s) => s.name).join(' → ')}
+                          {opt.feasibility?.total_cycle_months ? (
+                            <span className="block text-[11px] font-mono tabular-nums text-[var(--as-text-muted)]">
+                              {opt.feasibility.total_cycle_months} mo total
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-3 text-[var(--as-text-muted)]">
+                          {opt.compatibility_band || 'Screening match'}
+                        </td>
+                        <td className="px-4 py-3 font-mono tabular-nums font-semibold as-text-accent text-right whitespace-nowrap">
+                          {opt.score.toFixed(1)} / 100
+                        </td>
+                        <td className="px-4 py-3 font-mono tabular-nums text-[var(--as-text-muted)] text-right whitespace-nowrap">
+                          {idx === 0 ? 'Top' : `${delta > 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1)}`}
+                        </td>
+                        <td className="px-4 py-3 font-mono tabular-nums text-right">
+                          {d ? `${d.climate_compatibility.toFixed(1)}` : '—'}
+                        </td>
+                        <td className="px-4 py-3 font-mono tabular-nums text-right">
+                          {d ? `${d.water_compatibility.toFixed(1)}` : '—'}
+                        </td>
+                        <td className="px-4 py-3 font-mono tabular-nums text-right">
+                          {d?.soil_health_score != null ? `${d.soil_health_score.toFixed(1)}` : '—'}
+                        </td>
+                        <td className="px-4 py-3 font-mono tabular-nums text-right">
+                          {d?.regional_calendar_evaluated && d.regional_calendar_score != null
+                            ? `${d.regional_calendar_score.toFixed(1)}`
+                            : 'Unverified'}
+                        </td>
+                        <td className="px-4 py-3 text-[var(--as-text-muted)] whitespace-nowrap">
+                          {opt.seasons[0]?.soil_ph_compatibility_score !== null
+                            ? `Yes (pH ${validSoilPh})`
+                            : 'No (pH not provided)'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {liveResult.rejected_sequences && liveResult.rejected_sequences.length > 0 && (
+              <details className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 text-xs">
+                <summary className="cursor-pointer font-semibold text-[var(--as-text-primary)]">
+                  Sequences Excluded by Regional Timing Checks ({liveResult.rejected_sequences.length})
+                </summary>
+                <ul className="mt-2.5 space-y-1.5 text-[var(--as-text-muted)] list-disc pl-5">
+                  {liveResult.rejected_sequences.map((rej, idx) => (
+                    <li key={`rej-${idx}`}>
+                      <strong className="text-[var(--as-text-primary)]">
+                        {rej.crop_names.join(' → ')}:
+                      </strong>{' '}
+                      {rej.reasons.join(' ')}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </section>
+        );
+      })()}
     </div>
   );
 }
