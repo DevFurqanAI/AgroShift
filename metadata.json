@@ -2,5 +2,7 @@
   "name": "AgroShift",
   "description": "Climate-smart crop rotation planning for farmers worldwide using Earth observation data, local farm conditions, and understandable agricultural insights.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
