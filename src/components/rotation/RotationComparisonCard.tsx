@@ -5,6 +5,7 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
+  CloudSun,
   Droplets,
   Info,
   Sprout,
@@ -12,6 +13,7 @@ import {
 import { ScoreProgressBar } from '../common/MetricPrimitives';
 import type { RotationPlanOption } from '../../types/api';
 import type { TemperatureUnit } from '../../types/farm';
+import { formatProvenanceLabel } from '../../utils/provenance';
 import { formatTemperature } from '../../utils/units';
 
 interface RotationComparisonCardProps {
@@ -20,6 +22,8 @@ interface RotationComparisonCardProps {
   temperatureUnit: TemperatureUnit;
   topScore?: number;
   onSavePlan?: (plan: RotationPlanOption) => void;
+  onInspectCrop?: (cropId: string) => void;
+  rankLabelOverride?: string;
 }
 
 const MONTH_NAMES = [
@@ -44,6 +48,7 @@ function formatMonthName(monthNum: number): string {
 function getBandBadgeClass(band: string | undefined): string {
   if (!band) return 'as-badge-success';
   const lower = band.toLowerCase();
+  if (lower.includes('conflict') || lower.includes('limited')) return 'as-badge-danger';
   if (lower.includes('unverified') || lower.includes('conditional')) return 'as-badge-warning';
   if (lower.includes('strong') || lower.includes('good')) return 'as-badge-success';
   if (lower.includes('moderate')) return 'as-badge-warning';
@@ -58,17 +63,27 @@ function formatFitWord(score: number | null | undefined): string | undefined {
   return 'Constrained';
 }
 
+function formatResilienceLabel(cls: string | undefined): string {
+  if (cls === 'consistent') return 'Consistent historical fit';
+  if (cls === 'moderate_variability') return 'Moderate year-to-year exposure';
+  if (cls === 'high_exposure') return 'High historical outlier exposure';
+  return 'Limited historical sample';
+}
+
 export function RotationComparisonCard({
   plan,
   rank,
   temperatureUnit,
   topScore,
   onSavePlan,
+  onInspectCrop,
+  rankLabelOverride,
 }: RotationComparisonCardProps) {
   const [showDetails, setShowDetails] = useState(false);
   const diag = plan.diagnostics;
   const soilSummary = plan.soil_health_summary;
   const feasibility = plan.feasibility;
+  const resilience = plan.historical_resilience;
   const deltaFromTop =
     topScore !== undefined && Number.isFinite(topScore)
       ? Number((plan.score - topScore).toFixed(1))
@@ -81,7 +96,7 @@ export function RotationComparisonCard({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1.5 min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs font-semibold">
-              <span className="as-text-accent">Option #{rank}</span>
+              <span className="as-text-accent">{rankLabelOverride || `Option #${rank}`}</span>
               <span aria-hidden="true" className="text-[var(--as-text-muted)]">
                 ·
               </span>
@@ -212,12 +227,22 @@ export function RotationComparisonCard({
                 interpretation={formatFitWord(diag.soil_compatibility)}
                 driverHint={
                   diag.soil_evaluated
-                    ? 'Saved farm pH vs. crop pH tolerance range'
+                    ? `Fit vs. ${
+                        soilSummary?.soil_ph_provenance && soilSummary.soil_ph_provenance !== 'unspecified'
+                          ? formatProvenanceLabel(soilSummary.soil_ph_provenance)
+                          : 'recorded farm pH'
+                      }`
                     : 'Omitted from score because soil pH was not provided'
                 }
                 unavailableLabel="Not evaluated"
               />
             </div>
+
+            {diag.ranking_drivers && diag.ranking_drivers.length > 0 && (
+              <p className="text-[11px] text-[var(--as-text-muted)] pt-1 border-t border-[var(--as-border)]">
+                {diag.ranking_drivers.join(' ')}
+              </p>
+            )}
           </div>
         )}
 
@@ -285,9 +310,19 @@ export function RotationComparisonCard({
                     <span aria-hidden="true" className="text-[var(--as-text-muted)]">
                       ·
                     </span>
-                    <span className="text-sm font-semibold text-[var(--as-text-primary)]">
-                      {season.name}
-                    </span>
+                    {onInspectCrop ? (
+                      <button
+                        type="button"
+                        onClick={() => onInspectCrop(season.crop_id)}
+                        className="text-sm font-semibold text-[var(--as-text-primary)] hover:as-text-accent hover:underline text-left"
+                      >
+                        {season.name}
+                      </button>
+                    ) : (
+                      <span className="text-sm font-semibold text-[var(--as-text-primary)]">
+                        {season.name}
+                      </span>
+                    )}
                     {season.is_legume && (
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold as-badge-success">
                         Legume
@@ -372,6 +407,22 @@ export function RotationComparisonCard({
           </div>
         )}
 
+        {/* Concise Historical Climate Resilience Line */}
+        {resilience?.available && (
+          <div className="p-3 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-xs space-y-1">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-[var(--as-text-primary)]">
+                <CloudSun className="w-3.5 h-3.5 as-text-accent" />
+                <span>Historical Year-to-Year Resilience</span>
+              </span>
+              <span className="font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
+                {formatResilienceLabel(resilience.resilience_class)} · {resilience.years_evaluated} yr(s)
+              </span>
+            </div>
+            <p className="text-[var(--as-text-muted)] leading-relaxed">{resilience.summary}</p>
+          </div>
+        )}
+
         {/* Expandable Deep-Dive Calculation & Technical Breakdown */}
         <button
           type="button"
@@ -381,8 +432,8 @@ export function RotationComparisonCard({
         >
           <span>
             {showDetails
-              ? 'Hide Detailed Agronomic & Calculation Breakdown'
-              : 'Show Detailed Agronomic & Weight Breakdown'}
+              ? 'Hide Detailed Agronomic, Resilience & Weight Breakdown'
+              : 'Show Detailed Agronomic, Resilience & Weight Breakdown'}
           </span>
           {showDetails ? (
             <ChevronUp className="w-3.5 h-3.5" />
@@ -414,8 +465,47 @@ export function RotationComparisonCard({
               </div>
             )}
 
+            {resilience?.available && (
+              <div className="space-y-1.5 border-t border-[var(--as-border)] pt-2.5">
+                <p className="font-semibold text-[var(--as-text-primary)]">
+                  Year-by-Year Historical Season Exposure ({resilience.year_span_label || 'NASA series'})
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono tabular-nums text-[11px]">
+                  <div className="rounded border border-[var(--as-border)] bg-[var(--as-bg-surface)] px-2.5 py-1.5">
+                    <span className="block text-[10px] text-[var(--as-text-muted)]">Driest Cycle</span>
+                    <span className="font-semibold text-[var(--as-text-primary)]">
+                      {resilience.driest_cycle_mm != null
+                        ? `${resilience.driest_cycle_mm} mm (${resilience.driest_cycle_year})`
+                        : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="rounded border border-[var(--as-border)] bg-[var(--as-bg-surface)] px-2.5 py-1.5">
+                    <span className="block text-[10px] text-[var(--as-text-muted)]">Wettest Cycle</span>
+                    <span className="font-semibold text-[var(--as-text-primary)]">
+                      {resilience.wettest_cycle_mm != null
+                        ? `${resilience.wettest_cycle_mm} mm (${resilience.wettest_cycle_year})`
+                        : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="rounded border border-[var(--as-border)] bg-[var(--as-bg-surface)] px-2.5 py-1.5">
+                    <span className="block text-[10px] text-[var(--as-text-muted)]">Warm / Cool Hits</span>
+                    <span className="font-semibold text-[var(--as-text-primary)]">
+                      {resilience.warm_stress_seasons_count} / {resilience.cool_stress_seasons_count}
+                    </span>
+                  </div>
+                  <div className="rounded border border-[var(--as-border)] bg-[var(--as-bg-surface)] px-2.5 py-1.5">
+                    <span className="block text-[10px] text-[var(--as-text-muted)]">Dry / Excess Hits</span>
+                    <span className="font-semibold text-[var(--as-text-primary)]">
+                      {resilience.dry_deficit_seasons_count} / {resilience.excess_rain_seasons_count}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-[11px]">{resilience.caveat}</p>
+              </div>
+            )}
+
             {plan.seasons.some((s) => s.rainfall_note || s.calendar_note) && (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 border-t border-[var(--as-border)] pt-2.5">
                 <p className="font-semibold text-[var(--as-text-primary)] flex items-center gap-1.5">
                   <Droplets className="w-3.5 h-3.5 as-text-accent" />
                   <span>Season Rainfall &amp; Calendar Details</span>
@@ -430,6 +520,17 @@ export function RotationComparisonCard({
                 ))}
               </div>
             )}
+
+            {soilSummary?.legume_tradeoff_note && (
+              <p>
+                <strong className="text-[var(--as-text-primary)]">
+                  Legume biology &amp; trade-offs:{' '}
+                </strong>
+                {soilSummary.legume_tradeoff_note}
+              </p>
+            )}
+
+            {soilSummary?.soc_reference_note && <p>{soilSummary.soc_reference_note}</p>}
 
             {soilSummary?.evaluated_factors && soilSummary.evaluated_factors.length > 0 && (
               <p>

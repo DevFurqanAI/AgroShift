@@ -332,6 +332,16 @@ export function ReportsPage() {
                     </li>
                   ))}
                 </ul>
+                {rotationObs.current_practice_comparison?.comparison_summary && (
+                  <p className="text-[11px] text-[var(--as-text-primary)]">
+                    Current practice baseline: {rotationObs.current_practice_comparison.comparison_summary}
+                  </p>
+                )}
+                {rotationObs.plans[0]?.historical_resilience?.summary && (
+                  <p className="text-[11px] text-[var(--as-text-muted)]">
+                    Top-option historical variability: {rotationObs.plans[0].historical_resilience.summary}
+                  </p>
+                )}
                 <p className="text-[11px] text-[var(--as-text-muted)]">
                   Preliminary screening comparison only — not a farmer-saved plan until explicitly saved in the Planner.
                 </p>

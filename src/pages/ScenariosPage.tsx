@@ -30,17 +30,26 @@ import { useAgroShift } from '../context/AgroShiftContext';
 import { isEngineSupportedCropId, normalizeCropIdForBackend } from '../data/crops';
 import { useRotationCrops, useScenarioComparisonMutation } from '../hooks/useRotationPlanner';
 import { FARMER_ERROR_MESSAGES } from '../services/api/agroshiftApi';
+import type { BackendRotationGoal } from '../types/api';
 import {
   mapPrioritiesToBackendGoal,
   mapWaterAvailabilityToBackend,
   type ClimateScenarioAssumption,
   type ClimateScenarioId,
 } from '../types/planner';
+import { formatProvenanceLabel } from '../utils/provenance';
 import {
   celsiusDeltaToFahrenheit,
   formatTemperature,
   formatTemperatureDelta,
 } from '../utils/units';
+
+const BACKEND_GOAL_LABELS: Record<BackendRotationGoal, string> = {
+  water: 'Reduce water demand',
+  soil: 'Soil & pH compatibility',
+  climate: 'Climate resilience',
+  diversity: 'Crop family diversity',
+};
 
 const MONTH_NAMES = [
   'January',
@@ -95,6 +104,7 @@ export function ScenariosPage() {
   const [customPrecipShift, setCustomPrecipShift] = useState(0);
   const [plantingMonth, setPlantingMonth] = useState<number>(new Date().getMonth() + 1);
   const [seasons, setSeasons] = useState<2 | 3>(2);
+  const [goalOverride, setGoalOverride] = useState<'saved' | BackendRotationGoal>('saved');
   const [referencePrevCropId, setReferencePrevCropId] = useState('');
 
   const cropsQuery = useRotationCrops();
@@ -108,6 +118,7 @@ export function ScenariosPage() {
 
   useEffect(() => {
     if (!activeFarm) return;
+    setGoalOverride('saved');
     if (isEngineSupportedCropId(activeFarm.history.previousCropId)) {
       setReferencePrevCropId(normalizeCropIdForBackend(activeFarm.history.previousCropId));
     } else {
@@ -160,7 +171,15 @@ export function ScenariosPage() {
       ? activeFarm.soil.ph
       : null;
 
+  const socReferenceGKg =
+    activeFarm.environmentalContext?.soilReference?.socGKg !== undefined &&
+    activeFarm.environmentalContext?.soilReference?.socGKg !== null
+      ? activeFarm.environmentalContext.soilReference.socGKg
+      : null;
+
   const priorityMapping = mapPrioritiesToBackendGoal(activeFarm.priorities);
+  const effectiveGoal: BackendRotationGoal =
+    goalOverride === 'saved' ? priorityMapping.activeGoal : goalOverride;
   const waterLevel = mapWaterAvailabilityToBackend(activeFarm.details.waterAvailability);
 
   const runComparison = (
@@ -168,7 +187,8 @@ export function ScenariosPage() {
     precipShift = customPrecipShift,
     label = selectedLabel,
     monthOverride = plantingMonth,
-    seasonsOverride = seasons
+    seasonsOverride = seasons,
+    goalToRun: BackendRotationGoal = effectiveGoal
   ) => {
     const prevCrop = supportedPrevCrop || 'wheat';
     scenarioMutation.mutate({
@@ -177,7 +197,7 @@ export function ScenariosPage() {
       previous_crop: prevCrop,
       soil_ph: validSoilPh,
       water_availability: waterLevel,
-      goal: priorityMapping.activeGoal,
+      goal: goalToRun,
       planting_month: monthOverride,
       seasons: seasonsOverride,
       start_year: startYear,
@@ -190,6 +210,12 @@ export function ScenariosPage() {
       drainage: activeFarm.soil.drainage || null,
       salinity_concern: activeFarm.soil.salinityConcern || null,
       irrigation_method: activeFarm.details.irrigationMethod || null,
+      soil_ph_provenance: validSoilPh !== null ? activeFarm.soil.phProvenance : null,
+      soil_texture_provenance:
+        activeFarm.soil.texture && activeFarm.soil.texture !== 'unknown'
+          ? activeFarm.soil.textureProvenance
+          : null,
+      soil_organic_carbon_g_kg: socReferenceGKg,
       scenario_label: label,
       temperature_delta_c: tempDelta,
       precipitation_shift_percent: precipShift,
@@ -320,8 +346,91 @@ export function ScenariosPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <h3 className="text-base font-semibold">Custom Sensitivity Parameters</h3>
           <span className="text-xs as-text-accent font-medium">
-            Active: {selectedLabel} · {MONTH_NAMES[plantingMonth - 1]} · {seasons} Seasons
+            Active: {selectedLabel} · {MONTH_NAMES[plantingMonth - 1]} · {seasons} Seasons · {BACKEND_GOAL_LABELS[effectiveGoal]}
           </span>
+        </div>
+
+        <div className="rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] px-3.5 py-2.5 text-xs text-[var(--as-text-muted)] flex flex-wrap items-center justify-between gap-2">
+          <span>
+            <strong className="text-[var(--as-text-primary)]">Soil &amp; Provenance:</strong>{' '}
+            {activeFarm.soil.texture.replace(/_/g, ' ')}
+            {activeFarm.soil.texture !== 'unknown'
+              ? ` (${formatProvenanceLabel(activeFarm.soil.textureProvenance)})`
+              : ''}{' '}
+            ·{' '}
+            {validSoilPh !== null
+              ? `pH ${validSoilPh} (${formatProvenanceLabel(activeFarm.soil.phProvenance)})`
+              : 'pH not recorded (not scored)'}
+            {socReferenceGKg !== null ? ` · SoilGrids SOC ${socReferenceGKg} g/kg (context only)` : ''}
+          </span>
+          {goalOverride === 'saved' && priorityMapping.unsupportedTopNotice && (
+            <span className="text-[11px] as-text-accent">
+              Saved priority fallback active: {BACKEND_GOAL_LABELS[effectiveGoal]}
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="space-y-1.5">
+            <label htmlFor="scenario-planting-month" className="block text-xs font-semibold">
+              Planting Month
+            </label>
+            <select
+              id="scenario-planting-month"
+              value={plantingMonth}
+              onChange={(e) => setPlantingMonth(Number(e.target.value))}
+              className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)]"
+            >
+              {MONTH_NAMES.map((name, idx) => (
+                <option key={name} value={idx + 1}>
+                  {name} (Month {idx + 1})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="block text-xs font-semibold">Planning Horizon</span>
+            <div className="grid grid-cols-2 gap-2.5">
+              {([2, 3] as const).map((count) => (
+                <button
+                  key={count}
+                  type="button"
+                  onClick={() => setSeasons(count)}
+                  className={`px-3.5 py-2.5 text-sm font-medium rounded-lg border transition-colors ${
+                    seasons === count
+                      ? 'border-[var(--as-primary)] bg-[var(--as-accent-surface)] as-text-accent'
+                      : 'border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-muted)]'
+                  }`}
+                >
+                  {count} Seasons
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="scenario-priority-focus" className="block text-xs font-semibold">
+              Screening Priority Focus
+            </label>
+            <select
+              id="scenario-priority-focus"
+              value={goalOverride}
+              onChange={(e) => {
+                const nextGoal = e.target.value as 'saved' | BackendRotationGoal;
+                setGoalOverride(nextGoal);
+              }}
+              className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)]"
+            >
+              <option value="saved">
+                Follow Saved Order ({BACKEND_GOAL_LABELS[priorityMapping.activeGoal]})
+              </option>
+              <option value="water">Reduce water demand (Water priority)</option>
+              <option value="soil">Support soil health &amp; pH (Soil priority)</option>
+              <option value="climate">Climate resilience (Temperature priority)</option>
+              <option value="diversity">Crop family diversity (Break priority)</option>
+            </select>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -543,6 +652,44 @@ export function ScenariosPage() {
                 </div>
               )}
             </div>
+
+            {/* Distinct Historical Year-to-Year Climate Context (Past NASA POWER Archive, NOT Hypothetical Forecast) */}
+            {comparisonResult.baseline_plans?.[0]?.historical_resilience && (() => {
+              const hr = comparisonResult.baseline_plans[0].historical_resilience!;
+              return (
+                <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 sm:p-5 space-y-2 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-[var(--as-text-primary)]">
+                      Observed Past Climate Variability ({comparisonResult.baseline_plans[0].seasons.map((s) => s.name).join(' → ')})
+                    </h3>
+                    <span className="px-2 py-0.5 rounded font-semibold border border-[var(--as-border)] bg-[var(--as-bg-subtle)] text-[var(--as-text-primary)]">
+                      Historical baseline ({hr.resilience_class.replace(/_/g, ' ')})
+                    </span>
+                  </div>
+                  <p className="text-[var(--as-text-muted)]">
+                    {hr.summary}
+                  </p>
+                  <div className="flex flex-wrap gap-4 font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
+                    {hr.driest_cycle_mm !== null && hr.driest_cycle_year && (
+                      <span>
+                        Driest historical cycle: {hr.driest_cycle_year} ({hr.driest_cycle_mm} mm)
+                      </span>
+                    )}
+                    {hr.wettest_cycle_mm !== null && hr.wettest_cycle_year && (
+                      <span>
+                        Wettest historical cycle: {hr.wettest_cycle_year} ({hr.wettest_cycle_mm} mm)
+                      </span>
+                    )}
+                    <span>
+                      Complete cycles: {hr.years_evaluated} ({hr.warm_stress_seasons_count} warm, {hr.dry_deficit_seasons_count} dry-deficit seasons)
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[var(--as-text-muted)]">
+                    {hr.caveat} Distinct from the hypothetical {comparisonResult.scenario_label} sensitivity test above.
+                  </p>
+                </div>
+              );
+            })()}
 
             {/* Baseline vs Scenario Compatibility Chart */}
             {scenarioChartData.length > 0 && (

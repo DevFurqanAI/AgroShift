@@ -19,7 +19,7 @@ class RotationRequest(BaseModel):
     start_year: int = Field(default=2015, ge=1981, le=2100)
     end_year: int = Field(default=2025, ge=1981, le=2100)
     max_results: int = Field(default=3, ge=1, le=10)
-    # Optional Phase 3 agronomic & regional context (strictly optional for backwards compatibility)
+    # Optional Phase 3 & 4B agronomic, provenance & baseline-comparison context
     country: str | None = Field(default=None, max_length=64)
     country_code: str | None = Field(default=None, max_length=8)
     region: str | None = Field(default=None, max_length=120)
@@ -27,6 +27,10 @@ class RotationRequest(BaseModel):
     drainage: str | None = Field(default=None, max_length=32)
     salinity_concern: str | None = Field(default=None, max_length=32)
     irrigation_method: str | None = Field(default=None, max_length=32)
+    soil_ph_provenance: str | None = Field(default=None, max_length=40)
+    soil_texture_provenance: str | None = Field(default=None, max_length=40)
+    soil_organic_carbon_g_kg: float | None = Field(default=None, ge=0, le=500, allow_inf_nan=False)
+    current_rotation_crop_ids: list[str] | None = Field(default=None, max_length=3)
     # Allow supplied observations for deterministic testing and offline analysis;
     # never claim that these came from NASA.
     climate_monthly: list['ClimateMonth'] | None = Field(default=None, max_length=1000)
@@ -39,6 +43,11 @@ class RotationRequest(BaseModel):
             raise ValueError('Historical year cannot be in the future')
         if self.candidate_crop_ids is not None and len(self.candidate_crop_ids) < 2:
             raise ValueError('At least two candidate crops are required')
+        if self.current_rotation_crop_ids is not None:
+            if len(self.current_rotation_crop_ids) == 0:
+                self.current_rotation_crop_ids = None
+            elif len(self.current_rotation_crop_ids) == 1:
+                raise ValueError('Current practice comparison requires an explicit 2- or 3-season sequence')
         return self
 
 

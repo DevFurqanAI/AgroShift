@@ -85,6 +85,31 @@ export interface RotationCatalogCrop {
   temp_min_c: number;
   temp_max_c: number;
   duration_months: number;
+  // Phase 4B enriched crop intelligence metadata
+  scientific_name?: string;
+  category?: string;
+  cycle_days_min?: number;
+  cycle_days_max?: number;
+  cycle_variability_note?: string;
+  temp_tol_min_c?: number;
+  temp_tol_max_c?: number;
+  heat_stress_threshold_c?: number | null;
+  frost_sensitivity?: 'low' | 'moderate' | 'high' | 'very_high' | string;
+  is_legume?: boolean;
+  residue_profile?: 'low' | 'moderate' | 'high' | string;
+  rooting_depth_class?: 'shallow' | 'medium' | 'deep' | string;
+  waterlogging_sensitivity?: 'low' | 'moderate' | 'high' | string;
+  salinity_tolerance?: 'sensitive' | 'moderate' | 'tolerant' | string;
+  salinity_ec_threshold_dsm?: number | null;
+  seasonal_rain_min_mm?: number;
+  seasonal_rain_max_mm?: number;
+  suitable_soil_textures?: string[];
+  legume_bnf_notes?: string | null;
+  residue_management_notes?: string;
+  succession_cautions?: string[];
+  rotation_advantages?: string[];
+  known_unknowns?: string[];
+  parameter_sources?: Record<string, string[]>;
 }
 
 export interface AgronomicSourceItem {
@@ -127,6 +152,11 @@ export interface RotationPlanRequest {
   drainage?: string | null;
   salinity_concern?: string | null;
   irrigation_method?: string | null;
+  // Phase 4B soil provenance, SoilGrids SOC reference & explicit current-practice comparison
+  soil_ph_provenance?: string | null;
+  soil_texture_provenance?: string | null;
+  soil_organic_carbon_g_kg?: number | null;
+  current_rotation_crop_ids?: string[];
 }
 
 export interface RotationSeasonDetail {
@@ -159,14 +189,61 @@ export interface SoilHealthSummary {
   soil_health_score: number;
   soil_ph_compatibility: number | null;
   soil_ph_evaluated: boolean;
+  soil_ph_provenance?: string;
+  soil_texture_provenance?: string;
+  soc_reference_note?: string | null;
   has_legume: boolean;
   legume_crops: string[];
+  legume_tradeoff_note?: string | null;
   distinct_families: number;
   strengths: string[];
   cautions: string[];
   evaluated_factors: string[];
   missing_factors: string[];
   evidence_caveat: string;
+}
+
+export interface SeasonClimateVariability {
+  season_index: number;
+  crop_id: string;
+  crop_name: string;
+  years_evaluated: number;
+  precip_years_evaluated: number;
+  incomplete_years_skipped: number;
+  mean_season_temp_c: number | null;
+  min_year_temp_c: number | null;
+  max_year_temp_c: number | null;
+  temp_spread_c: number | null;
+  temp_sd_c: number | null;
+  wettest_season_mm: number | null;
+  wettest_season_year: string | null;
+  driest_season_mm: number | null;
+  driest_season_year: string | null;
+  precip_cv_percent: number | null;
+  warm_stress_years: number;
+  cool_stress_years: number;
+  dry_deficit_years: number;
+  excess_rain_years: number;
+}
+
+export interface HistoricalResilienceSummary {
+  available: boolean;
+  years_evaluated: number;
+  complete_precip_years: number;
+  incomplete_years_skipped: number;
+  year_span_label: string | null;
+  resilience_class: 'consistent' | 'moderate_variability' | 'high_exposure' | 'limited_history' | string;
+  wettest_cycle_mm: number | null;
+  wettest_cycle_year: string | null;
+  driest_cycle_mm: number | null;
+  driest_cycle_year: string | null;
+  warm_stress_seasons_count: number;
+  cool_stress_seasons_count: number;
+  dry_deficit_seasons_count: number;
+  excess_rain_seasons_count: number;
+  season_variability: SeasonClimateVariability[];
+  summary: string;
+  caveat: string;
 }
 
 export interface RotationPlanDiagnostics {
@@ -196,6 +273,7 @@ export interface RotationPlanDiagnostics {
   goal_weights_applied: Record<string, number>;
   missing_data_notes: string[];
   tie_note: string | null;
+  ranking_drivers?: string[];
 }
 
 export interface RotationPlanOption {
@@ -214,8 +292,38 @@ export interface RotationPlanOption {
   };
   seasons: RotationSeasonDetail[];
   soil_health_summary?: SoilHealthSummary;
+  historical_resilience?: HistoricalResilienceSummary;
   diagnostics?: RotationPlanDiagnostics;
   explanation: string;
+}
+
+export interface PrioritySensitivityOption {
+  goal: BackendRotationGoal;
+  label: string;
+  is_active: boolean;
+  top_crop_ids: string[];
+  top_crop_names: string[];
+  top_score: number;
+  matches_active_top: boolean;
+  reason: string;
+}
+
+export interface CurrentPracticeComparison {
+  status: 'ok' | 'unsupported_crop' | 'insufficient_data' | string;
+  crop_ids: string[];
+  horizon_seasons?: number;
+  matches_planner_horizon?: boolean;
+  score_delta_vs_top: number | null;
+  dimension_deltas_vs_top: {
+    climate: number;
+    water: number;
+    soil_health: number;
+    diversity: number;
+    calendar: number | null;
+  } | null;
+  evaluated_plan: RotationPlanOption | null;
+  comparison_summary: string | null;
+  message: string | null;
 }
 
 export interface RegionalCalendarContext {
@@ -250,6 +358,8 @@ export interface RotationPlanResponse {
     crop_names: string[];
     reasons: string[];
   }>;
+  current_practice_comparison?: CurrentPracticeComparison | null;
+  priority_sensitivity?: PrioritySensitivityOption[];
   regional_context?: RegionalCalendarContext;
   rainfall_intelligence?: RainfallIntelligenceSummary | null;
   sources?: AgronomicSourceItem[];

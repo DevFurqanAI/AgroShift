@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertCircle,
+  BookOpen,
   BookmarkPlus,
   Loader2,
   PlusCircle,
   RefreshCw,
   Repeat,
+  Scale,
   Sparkles,
   Trash2,
 } from 'lucide-react';
@@ -22,6 +24,7 @@ import {
 } from 'recharts';
 import { EmptyState } from '../components/common/EmptyState';
 import { StatusBanner } from '../components/common/StatusBanner';
+import { CropIntelligencePanel } from '../components/rotation/CropIntelligencePanel';
 import { RotationComparisonCard } from '../components/rotation/RotationComparisonCard';
 import { ScreeningLimitationsDisclosure } from '../components/rotation/ScreeningLimitationsDisclosure';
 import { useAgroShift } from '../context/AgroShiftContext';
@@ -32,7 +35,7 @@ import {
 } from '../data/crops';
 import { useRotationCrops, useRotationPlanMutation } from '../hooks/useRotationPlanner';
 import { FARMER_ERROR_MESSAGES } from '../services/api/agroshiftApi';
-import type { RotationPlanOption } from '../types/api';
+import type { BackendRotationGoal, RotationPlanOption } from '../types/api';
 import type { WaterAvailability } from '../types/farm';
 import {
   mapPrioritiesToBackendGoal,
@@ -40,6 +43,7 @@ import {
   type PlanningHorizonSeasons,
   type RotationPlanDraft,
 } from '../types/planner';
+import { formatProvenanceLabel } from '../utils/provenance';
 
 const MONTH_OPTIONS = [
   { value: 1, label: 'January' },
@@ -56,7 +60,7 @@ const MONTH_OPTIONS = [
   { value: 12, label: 'December' },
 ];
 
-const BACKEND_GOAL_LABELS: Record<'water' | 'soil' | 'climate' | 'diversity', string> = {
+const BACKEND_GOAL_LABELS: Record<BackendRotationGoal, string> = {
   water: 'Reduce water demand',
   soil: 'Soil & pH compatibility',
   climate: 'Climate resilience',
@@ -97,23 +101,45 @@ export function PlannerPage() {
   const [waterConstraint, setWaterConstraint] = useState<WaterAvailability>(
     activeFarm?.details.waterAvailability ?? 'seasonal_adequate'
   );
+  const [goalOverride, setGoalOverride] = useState<'saved' | BackendRotationGoal>('saved');
   const [referencePrevCropId, setReferencePrevCropId] = useState<string>('');
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
+  const [currentRotationIds, setCurrentRotationIds] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [savedFeedback, setSavedFeedback] = useState<string | null>(null);
   const [formValidationError, setFormValidationError] = useState<string | null>(null);
   const [resultView, setResultView] = useState<'all' | 'cards' | 'matrix'>('all');
+  const [showCropGuide, setShowCropGuide] = useState(false);
+  const [inspectedCropId, setInspectedCropId] = useState<string>('wheat');
 
   // Sync defaults when active farm changes
   useEffect(() => {
     if (!activeFarm) return;
     setWaterConstraint(activeFarm.details.waterAvailability);
+    setGoalOverride('saved');
     const normalized = normalizeCropIdForBackend(activeFarm.history.previousCropId);
     if (isEngineSupportedCropId(normalized)) {
       setReferencePrevCropId(normalized);
+      setInspectedCropId(normalized);
     } else {
       setReferencePrevCropId('');
+      setInspectedCropId('wheat');
     }
+
+    // Derive multi-season current practice ONLY when farmer explicitly recorded >= 2 supported seasons
+    // (history.seasons is stored reverse-chronologically; reverse slice to restore sowing order)
+    const rawSeasons = activeFarm.history.seasons ?? [];
+    const chronologicalSupported = [...rawSeasons.slice(0, 3)]
+      .reverse()
+      .map((s) => normalizeCropIdForBackend(s.cropId))
+      .filter((cid) => isEngineSupportedCropId(cid));
+
+    if (chronologicalSupported.length >= 2 && chronologicalSupported.length === Math.min(rawSeasons.length, 3)) {
+      setCurrentRotationIds(chronologicalSupported);
+    } else {
+      setCurrentRotationIds([]);
+    }
+
     setSelectedCandidateIds([]);
     setFormValidationError(null);
     setSavedFeedback(null);
@@ -144,6 +170,8 @@ export function PlannerPage() {
     : referencePrevCropId;
 
   const priorityMapping = mapPrioritiesToBackendGoal(activeFarm.priorities);
+  const effectiveGoal: BackendRotationGoal =
+    goalOverride === 'saved' ? priorityMapping.activeGoal : goalOverride;
   const backendWaterLevel = mapWaterAvailabilityToBackend(waterConstraint);
   const farmPlans = plans.filter((p) => p.farmId === activeFarm.id);
   const liveResult = rotationMutation.data ?? latestRotationByFarm[activeFarm.id] ?? null;
@@ -160,6 +188,12 @@ export function PlannerPage() {
       ? activeFarm.soil.ph
       : null;
 
+  const socReferenceGKg =
+    activeFarm.environmentalContext?.soilReference?.socGKg !== undefined &&
+    activeFarm.environmentalContext?.soilReference?.socGKg !== null
+      ? activeFarm.environmentalContext.soilReference.socGKg
+      : null;
+
   const handleToggleCandidate = (cropId: string) => {
     setFormValidationError(null);
     setSelectedCandidateIds((prev) =>
@@ -167,7 +201,18 @@ export function PlannerPage() {
     );
   };
 
-  const handleRunScreening = () => {
+  const handleOpenCropGuide = (cropId?: string) => {
+    if (cropId && isEngineSupportedCropId(cropId)) {
+      setInspectedCropId(normalizeCropIdForBackend(cropId));
+    }
+    setShowCropGuide(true);
+  };
+
+  const cleanCurrentBaseline = currentRotationIds
+    .slice(0, horizonSeasons)
+    .filter((id) => Boolean(id) && isEngineSupportedCropId(id));
+
+  const runScreeningWithGoal = (goalToRun: BackendRotationGoal) => {
     setFormValidationError(null);
     setSavedFeedback(null);
 
@@ -193,7 +238,7 @@ export function PlannerPage() {
         selectedCandidateIds.length >= 2 ? selectedCandidateIds : undefined,
       soil_ph: validSoilPh,
       water_availability: backendWaterLevel,
-      goal: priorityMapping.activeGoal,
+      goal: goalToRun,
       planting_month: plantingMonth,
       seasons: horizonSeasons,
       start_year: startYear,
@@ -206,8 +251,18 @@ export function PlannerPage() {
       drainage: activeFarm.soil.drainage || null,
       salinity_concern: activeFarm.soil.salinityConcern || null,
       irrigation_method: activeFarm.details.irrigationMethod || null,
+      soil_ph_provenance: validSoilPh !== null ? activeFarm.soil.phProvenance : null,
+      soil_texture_provenance:
+        activeFarm.soil.texture && activeFarm.soil.texture !== 'unknown'
+          ? activeFarm.soil.textureProvenance
+          : null,
+      soil_organic_carbon_g_kg: socReferenceGKg,
+      current_rotation_crop_ids:
+        cleanCurrentBaseline.length >= 2 ? cleanCurrentBaseline : undefined,
     });
   };
+
+  const handleRunScreening = () => runScreeningWithGoal(effectiveGoal);
 
   const handleSavePlan = (snapshot?: RotationPlanOption | null) => {
     const now = new Date().toISOString();
@@ -231,7 +286,7 @@ export function PlannerPage() {
       previousCropId: effectivePreviousCropId || activeFarm.history.previousCropId,
       previousCropName: activeFarm.history.previousCropName,
       goals: activeFarm.priorities,
-      activeBackendGoal: priorityMapping.activeGoal,
+      activeBackendGoal: effectiveGoal,
       notes: notes.trim(),
       topPlanSnapshot: snapshot ?? liveResult?.plans?.[0] ?? null,
       createdAt: now,
@@ -262,32 +317,59 @@ export function PlannerPage() {
             Crop Rotation Planner — {activeFarm.details.name}
           </h2>
           <p className="text-sm text-[var(--as-text-muted)]">
-            Screen multi-season crop sequences against 10-year NASA POWER historical temperatures, water supply, crop family diversity, and optional soil pH.
+            Screen multi-season crop sequences against NASA POWER historical climate variability, verified regional planting calendars, soil context, and your farming priorities.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleRunScreening}
-          disabled={rotationMutation.isPending}
-          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors disabled:opacity-60 whitespace-nowrap self-start"
-        >
-          {rotationMutation.isPending ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Screening Crops...
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-4 h-4" />
-              Find Rotation Options
-            </>
-          )}
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5 self-start shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowCropGuide((prev) => !prev)}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-surface)] text-[var(--as-text-primary)] hover:border-[var(--as-accent-text)] transition-colors whitespace-nowrap"
+          >
+            <BookOpen className="w-4 h-4 as-text-accent" />
+            {showCropGuide ? 'Hide Crop Guide' : 'Crop Guide & Fit'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleRunScreening}
+            disabled={rotationMutation.isPending}
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg as-btn-primary transition-colors disabled:opacity-60 whitespace-nowrap"
+          >
+            {rotationMutation.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Screening Crops...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                Find Rotation Options
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
+      {/* Reusable Crop Intelligence Panel (Part 3) */}
+      {showCropGuide && (
+        <CropIntelligencePanel
+          crops={engineCatalog}
+          selectedCropId={inspectedCropId}
+          onSelectCrop={(cid) => setInspectedCropId(cid)}
+          onClose={() => setShowCropGuide(false)}
+          farm={activeFarm}
+          temperatureUnit={settings.temperatureUnit}
+          sources={liveResult?.sources ?? cropsQuery.data?.sources ?? []}
+          regionalContext={liveResult?.regional_context ?? null}
+          activePlans={liveResult?.plans ?? []}
+          isLiveCatalogLoaded={Boolean(cropsQuery.data?.crops?.length)}
+        />
+      )}
+
       {/* Unsupported #1 Priority Notice */}
-      {priorityMapping.unsupportedTopNotice && (
+      {goalOverride === 'saved' && priorityMapping.unsupportedTopNotice && (
         <StatusBanner
           tone="info"
           title="Priority Alignment Notice"
@@ -331,17 +413,27 @@ export function PlannerPage() {
             <div>
               <span className="text-[var(--as-text-muted)]">Active Screening Goal</span>
               <p className="font-semibold text-sm mt-0.5">
-                {BACKEND_GOAL_LABELS[priorityMapping.activeGoal]}
+                {BACKEND_GOAL_LABELS[effectiveGoal]}
+                {goalOverride !== 'saved' ? ' (Planner test)' : ''}
               </p>
             </div>
             <div>
-              <span className="text-[var(--as-text-muted)]">Soil Context</span>
+              <span className="text-[var(--as-text-muted)]">Soil Context &amp; Provenance</span>
               <p className="font-semibold text-sm mt-0.5 capitalize">
-                {activeFarm.soil.texture.replace(/_/g, ' ')} ·{' '}
+                {activeFarm.soil.texture.replace(/_/g, ' ')}
+                {activeFarm.soil.texture !== 'unknown'
+                  ? ` (${formatProvenanceLabel(activeFarm.soil.textureProvenance)})`
+                  : ''}{' '}
+                ·{' '}
                 {validSoilPh !== null
-                  ? `pH ${validSoilPh}`
+                  ? `pH ${validSoilPh} (${formatProvenanceLabel(activeFarm.soil.phProvenance)})`
                   : 'pH not recorded (not scored)'}
               </p>
+              {socReferenceGKg !== null && (
+                <p className="text-[11px] text-[var(--as-text-muted)] mt-0.5">
+                  SoilGrids SOC reference: {socReferenceGKg} g/kg (context only)
+                </p>
+              )}
             </div>
             <div>
               <span className="text-[var(--as-text-muted)]">Location</span>
@@ -441,6 +533,31 @@ export function PlannerPage() {
 
             <div>
               <label
+                htmlFor="plan-priority-focus"
+                className="block text-xs font-semibold mb-1.5"
+              >
+                Screening Priority Focus
+              </label>
+              <select
+                id="plan-priority-focus"
+                value={goalOverride}
+                onChange={(e) =>
+                  setGoalOverride(e.target.value as 'saved' | BackendRotationGoal)
+                }
+                className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
+              >
+                <option value="saved">
+                  Follow Saved Order ({BACKEND_GOAL_LABELS[priorityMapping.activeGoal]})
+                </option>
+                <option value="water">Reduce water demand (Water priority)</option>
+                <option value="soil">Support soil health &amp; pH (Soil priority)</option>
+                <option value="climate">Climate resilience (Temperature priority)</option>
+                <option value="diversity">Crop family diversity (Break priority)</option>
+              </select>
+            </div>
+
+            <div>
+              <label
                 htmlFor="plan-title"
                 className="block text-xs font-semibold mb-1.5"
               >
@@ -456,7 +573,7 @@ export function PlannerPage() {
               />
             </div>
 
-            <div className="sm:col-span-2">
+            <div>
               <label
                 htmlFor="plan-season"
                 className="block text-xs font-semibold mb-1.5"
@@ -468,27 +585,90 @@ export function PlannerPage() {
                 type="text"
                 value={localSeasonLabel}
                 onChange={(e) => setLocalSeasonLabel(e.target.value)}
-                placeholder="e.g. Long Rains / Short Rains, Kharif-Rabi, Spring-Fall"
+                placeholder="e.g. Kharif-Rabi, Long/Short Rains"
                 className="w-full px-3 py-2 text-sm rounded-lg border border-[#E2E8F0] dark:border-[#1E2E26] bg-white dark:bg-[#0B1310]"
               />
             </div>
           </div>
 
+          {/* Current Farming Practice Baseline Selector (Part 5 — never inferred from 1 crop) */}
+          <div className="p-3.5 rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-subtle)] space-y-2.5 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 font-semibold text-[var(--as-text-primary)]">
+                <Scale className="w-3.5 h-3.5 as-text-accent" />
+                <span>Compare Against Your Current Rotation (Optional Baseline)</span>
+              </div>
+              {cleanCurrentBaseline.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setCurrentRotationIds([])}
+                  className="text-xs as-text-accent hover:underline font-medium"
+                >
+                  Clear baseline
+                </button>
+              )}
+            </div>
+            <p className="text-[11px] text-[var(--as-text-muted)]">
+              Specify at least 2 crops in your usual multi-season sequence (chronological order) to score it under the exact same climate, timing, and priority rules. We never guess a full rotation from a single previous crop alone.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {Array.from({ length: horizonSeasons }).map((_, idx) => (
+                <div key={`baseline-s-${idx}`}>
+                  <label
+                    htmlFor={`baseline-season-${idx + 1}`}
+                    className="block text-[11px] text-[var(--as-text-muted)] mb-1"
+                  >
+                    Baseline Season {idx + 1}
+                  </label>
+                  <select
+                    id={`baseline-season-${idx + 1}`}
+                    value={currentRotationIds[idx] ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCurrentRotationIds((prev) => {
+                        const next = [...prev];
+                        next[idx] = val;
+                        return next;
+                      });
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-[var(--as-border)] bg-[var(--as-bg-surface)] text-[var(--as-text-primary)]"
+                  >
+                    <option value="">Not specified</option>
+                    {engineCatalog.map((crop) => (
+                      <option key={crop.id} value={crop.id}>
+                        {crop.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Optional Candidate Crop Filter */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-semibold">
                 Filter Candidate Crops (optional — leave unchecked to screen all {engineCatalog.length})
               </span>
-              {selectedCandidateIds.length > 0 && (
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => setSelectedCandidateIds([])}
+                  onClick={() => handleOpenCropGuide(selectedCandidateIds[0] || effectivePreviousCropId || 'wheat')}
                   className="text-xs as-text-accent font-medium hover:underline"
                 >
-                  Clear filter ({selectedCandidateIds.length})
+                  Inspect selected crop profile
                 </button>
-              )}
+                {selectedCandidateIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCandidateIds([])}
+                    className="text-xs as-text-accent font-medium hover:underline"
+                  >
+                    Clear filter ({selectedCandidateIds.length})
+                  </button>
+                )}
+              </div>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {engineCatalog.map((crop) => {
@@ -674,6 +854,8 @@ export function PlannerPage() {
       {/* Ranked Rotation Screening Results */}
       {liveResult && liveResult.status === 'ok' && liveResult.plans.length > 0 && (() => {
         const topPlanScore = liveResult.plans[0]?.score ?? 0;
+        const topPlan = liveResult.plans[0];
+        const baselineComp = liveResult.current_practice_comparison;
         const chartData = liveResult.plans.map((opt, idx) => ({
           option: formatSequenceChartLabel(opt, idx + 1),
           Overall: Number(opt.score.toFixed(1)),
@@ -691,7 +873,7 @@ export function PlannerPage() {
                   Ranked Rotation Options ({liveResult.plans.length})
                 </h3>
                 <p className="text-xs text-[var(--as-text-muted)]">
-                  Climate basis: {liveResult.climate_source || 'NASA POWER historical observations'} ({startYear}–{endYear}) · Goal: {BACKEND_GOAL_LABELS[priorityMapping.activeGoal]}
+                  Climate basis: {liveResult.climate_source || 'NASA POWER historical observations'} ({startYear}–{endYear}) · Goal: {BACKEND_GOAL_LABELS[effectiveGoal]}
                 </p>
               </div>
 
@@ -743,6 +925,159 @@ export function PlannerPage() {
                   'Crop planting windows were screened against documented regional cropping calendars alongside NASA POWER historical climate.'
                 }
               />
+            )}
+
+            {/* Part 4 — Computed Priority Sensitivity Comparison */}
+            {liveResult.priority_sensitivity && liveResult.priority_sensitivity.length > 0 && (
+              <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 sm:p-5 space-y-3 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-sm font-semibold text-[var(--as-text-primary)]">
+                      How Priority Choice Shapes Your Top Rotation
+                    </h4>
+                    <p className="text-[11px] text-[var(--as-text-muted)]">
+                      Computed directly from your farm&apos;s dimension scores under each priority focus (preserving verified calendar evidence order).
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {liveResult.priority_sensitivity.map((item) => (
+                    <div
+                      key={item.goal}
+                      className={`rounded-lg border p-3 space-y-1.5 ${
+                        item.is_active
+                          ? 'border-[var(--as-primary)] bg-[var(--as-accent-surface)]'
+                          : 'border-[var(--as-border)] bg-[var(--as-bg-subtle)]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-[var(--as-text-primary)]">
+                          {item.label}
+                        </span>
+                        <span className="font-mono tabular-nums font-semibold as-text-accent">
+                          {item.top_score.toFixed(1)}
+                        </span>
+                      </div>
+                      <p className="font-semibold text-[var(--as-text-primary)]">
+                        #1: {item.top_crop_names.join(' → ')}
+                      </p>
+                      <p className="text-[11px] text-[var(--as-text-muted)] leading-relaxed">
+                        {item.reason}
+                      </p>
+                      {!item.is_active && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGoalOverride(item.goal);
+                            runScreeningWithGoal(item.goal);
+                          }}
+                          className="text-[11px] font-semibold as-text-accent hover:underline"
+                        >
+                          Switch &amp; screen with {item.label.toLowerCase()}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Part 5 — Current Farming Practice vs Alternatives Comparison */}
+            {baselineComp && (
+              <div className="rounded-xl border border-[var(--as-border)] bg-[var(--as-bg-surface)] p-4 sm:p-5 space-y-3 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Scale className="w-4 h-4 as-text-accent shrink-0" />
+                    <h4 className="text-sm font-semibold text-[var(--as-text-primary)]">
+                      Your Current Rotation vs. Top Ranked Alternative
+                    </h4>
+                  </div>
+                  {baselineComp.evaluated_plan && (
+                    <span className="font-mono tabular-nums text-[11px] text-[var(--as-text-muted)]">
+                      Baseline: {baselineComp.evaluated_plan.score.toFixed(1)}/100 · Top Option:{' '}
+                      {topPlan.score.toFixed(1)}/100
+                    </span>
+                  )}
+                </div>
+
+                {baselineComp.comparison_summary && (
+                  <p className="text-[var(--as-text-primary)] leading-relaxed">
+                    {baselineComp.comparison_summary}
+                  </p>
+                )}
+                {baselineComp.message && (
+                  <p className="as-text-warning">{baselineComp.message}</p>
+                )}
+
+                {baselineComp.status === 'ok' && baselineComp.evaluated_plan && (
+                  <div className="overflow-x-auto rounded-lg border border-[var(--as-border)]">
+                    <table className="w-full text-left text-xs">
+                      <thead className="border-b border-[var(--as-border)] bg-[var(--as-bg-subtle)]">
+                        <tr>
+                          <th className="px-3 py-2 font-semibold">Sequence</th>
+                          <th className="px-3 py-2 font-semibold">Timing Evidence</th>
+                          <th className="px-3 py-2 font-semibold text-right">Overall</th>
+                          <th className="px-3 py-2 font-semibold text-right">Climate</th>
+                          <th className="px-3 py-2 font-semibold text-right">Water</th>
+                          <th className="px-3 py-2 font-semibold text-right">Soil Health</th>
+                          <th className="px-3 py-2 font-semibold text-right">Diversity</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--as-border)]">
+                        <tr>
+                          <td className="px-3 py-2 font-semibold">
+                            Current: {baselineComp.evaluated_plan.seasons.map((s) => s.name).join(' → ')}
+                          </td>
+                          <td className="px-3 py-2 text-[var(--as-text-muted)]">
+                            {baselineComp.evaluated_plan.compatibility_band || 'Evaluated'}
+                          </td>
+                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                            {baselineComp.evaluated_plan.score.toFixed(1)}
+                          </td>
+                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                            {baselineComp.evaluated_plan.diagnostics?.climate_compatibility.toFixed(1) ?? '—'}
+                          </td>
+                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                            {baselineComp.evaluated_plan.diagnostics?.water_compatibility.toFixed(1) ?? '—'}
+                          </td>
+                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                            {baselineComp.evaluated_plan.diagnostics?.soil_health_score?.toFixed(1) ?? '—'}
+                          </td>
+                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                            {baselineComp.evaluated_plan.diagnostics?.family_rotation.toFixed(1) ?? '—'}
+                          </td>
+                        </tr>
+                        <tr className="bg-[var(--as-bg-subtle)]/50">
+                          <td className="px-3 py-2 font-semibold as-text-accent">
+                            Option #1: {topPlan.seasons.map((s) => s.name).join(' → ')}
+                          </td>
+                          <td className="px-3 py-2 text-[var(--as-text-muted)]">
+                            {topPlan.compatibility_band || 'Screening match'}
+                          </td>
+                          <td className="px-3 py-2 font-mono tabular-nums font-semibold text-right">
+                            {topPlan.score.toFixed(1)}
+                            {baselineComp.score_delta_vs_top !== null
+                              ? ` (${baselineComp.score_delta_vs_top > 0 ? `+${baselineComp.score_delta_vs_top}` : baselineComp.score_delta_vs_top})`
+                              : ''}
+                          </td>
+                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                            {topPlan.diagnostics?.climate_compatibility.toFixed(1) ?? '—'}
+                          </td>
+                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                            {topPlan.diagnostics?.water_compatibility.toFixed(1) ?? '—'}
+                          </td>
+                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                            {topPlan.diagnostics?.soil_health_score?.toFixed(1) ?? '—'}
+                          </td>
+                          <td className="px-3 py-2 font-mono tabular-nums text-right">
+                            {topPlan.diagnostics?.family_rotation.toFixed(1) ?? '—'}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             )}
 
             {liveResult.rainfall_intelligence && (
@@ -875,6 +1210,7 @@ export function PlannerPage() {
                     topScore={topPlanScore}
                     temperatureUnit={settings.temperatureUnit}
                     onSavePlan={(chosen) => handleSavePlan(chosen)}
+                    onInspectCrop={(cid) => handleOpenCropGuide(cid)}
                   />
                 ))}
               </div>
@@ -966,6 +1302,7 @@ export function PlannerPage() {
                       topScore={topPlanScore}
                       temperatureUnit={settings.temperatureUnit}
                       onSavePlan={(chosen) => handleSavePlan(chosen)}
+                      onInspectCrop={(cid) => handleOpenCropGuide(cid)}
                     />
                   ))}
                 </div>
