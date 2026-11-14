@@ -313,3 +313,105 @@ def test_analyze_preserves_independent_satellite_when_open_meteo_returns_429():
     assert mock_get.call_count == 1
 
 
+def test_complete_api_success_caps_confidence_at_moderate_and_reports_pixel_coverage():
+    services.clear_provider_caches()
+    sat_ok = {
+        'satellite_available': True,
+        'ndvi': 0.56,
+        'ndmi': 0.24,
+        'satellite_observation_date': '2026-11-10',
+        'cloud_cover_percent': 8.0,
+        'valid_coverage_percent': 92.0,
+        'excluded_pixel_percent': 8.0,
+    }
+    weather_ok = {
+        'weather_available': True,
+        'weather_source': 'open-meteo',
+        'temperature_c': 26.0,
+        'humidity_percent': 58,
+        'recent_rainfall_mm': 4.0,
+    }
+    with patch('app.services.get_satellite_data', return_value=sat_ok), \
+         patch('app.services.get_weather_data', return_value=weather_ok):
+        out = services.process_farm_analysis(31.2, 72.4, 5.0, None, 'en')
+
+    assert out['analysis_confidence'] == 'MODERATE'
+    assert out['analysis_confidence'] != 'HIGH'
+    assert out['observation_quality'] == 'GOOD'
+    assert out['valid_coverage_percent'] == 92.0
+    assert out['excluded_pixel_percent'] == 8.0
+    assert 'crop type' in out['ai_explanation'].lower()
+    assert 'growth stage' in out['ai_explanation'].lower()
+
+
+def test_low_vegetation_and_low_ndmi_do_not_claim_no_moisture_stress():
+    services.clear_provider_caches()
+    low_veg = {
+        'satellite_available': True,
+        'ndvi': 0.12,
+        'ndmi': -0.04,
+        'satellite_observation_date': '2026-11-10',
+        'cloud_cover_percent': 4.0,
+        'valid_coverage_percent': 96.0,
+        'excluded_pixel_percent': 4.0,
+    }
+    mild_dry_weather = {
+        'weather_available': True,
+        'weather_source': 'open-meteo',
+        'temperature_c': 27.0,
+        'humidity_percent': 45,
+        'recent_rainfall_mm': 0.2,
+    }
+    with patch('app.services.get_satellite_data', return_value=low_veg), \
+         patch('app.services.get_weather_data', return_value=mild_dry_weather):
+        out = services.process_farm_analysis(31.2, 72.4, 5.0, None, 'en')
+
+    assert out['ndvi'] == 0.12
+    assert out['ndmi'] == -0.04
+    assert out['possible_water_stress'] is None
+    assert out['moisture_stress_status'] == 'INCONCLUSIVE_LOW_VEGETATION'
+    assert out['analysis_confidence'] == 'LOW'
+    assert 'cannot confirm or rule out' in out['ai_explanation'].lower()
+
+
+def test_low_ndmi_with_cool_wet_weather_remains_inconclusive_rather_than_no_stress():
+    services.clear_provider_caches()
+    sat_low_ndmi = {
+        'satellite_available': True,
+        'ndvi': 0.34,
+        'ndmi': 0.04,
+        'satellite_observation_date': '2026-11-10',
+        'cloud_cover_percent': 5.0,
+        'valid_coverage_percent': 95.0,
+        'excluded_pixel_percent': 5.0,
+    }
+    cool_wet = {
+        'weather_available': True,
+        'weather_source': 'open-meteo',
+        'temperature_c': 22.0,
+        'humidity_percent': 72,
+        'recent_rainfall_mm': 12.0,
+    }
+    with patch('app.services.get_satellite_data', return_value=sat_low_ndmi), \
+         patch('app.services.get_weather_data', return_value=cool_wet):
+        out = services.process_farm_analysis(31.2, 72.4, 5.0, None, 'en')
+
+    assert out['possible_water_stress'] is None
+    assert out['moisture_stress_status'] == 'INCONCLUSIVE_MIXED'
+    assert 'do not assume moisture stress is absent' in out['ai_explanation'].lower()
+
+
+def test_missing_observations_keep_confidence_low_and_stress_unavailable():
+    services.clear_provider_caches()
+    with patch('app.services.get_satellite_data', return_value={'satellite_available': False, 'satellite_message': 'offline'}), \
+         patch('app.services.get_weather_data', return_value={'weather_available': True, 'weather_source': 'open-meteo', 'temperature_c': 25.0, 'humidity_percent': 50, 'recent_rainfall_mm': 0.0}):
+        out = services.process_farm_analysis(31.2, 72.4, 5.0, None, 'en')
+
+    assert out['analysis_confidence'] == 'LOW'
+    assert out['observation_quality'] == 'LIMITED'
+    assert out['possible_water_stress'] is None
+    assert out['moisture_stress_status'] == 'UNAVAILABLE'
+    assert 'cannot assess canopy condition or confirm or rule out' in out['ai_explanation'].lower()
+
+
+

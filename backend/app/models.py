@@ -73,12 +73,17 @@ class FarmAnalyzeResponse(BaseModel):
     heat_risk: Optional[str] = None
     rainfall_status: Optional[str] = None
     possible_water_stress: Optional[bool] = None
+    moisture_stress_status: Optional[str] = None
 
     analysis_confidence: str
+    observation_quality: Optional[str] = None
+    confidence_reason: Optional[str] = None
 
     satellite_available: bool
     satellite_observation_date: Optional[str] = None
     cloud_cover_percent: Optional[float] = None
+    valid_coverage_percent: Optional[float] = None
+    excluded_pixel_percent: Optional[float] = None
     satellite_message: Optional[str] = None
     satellite_error_kind: Optional[str] = None
 

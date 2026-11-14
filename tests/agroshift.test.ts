@@ -5,6 +5,12 @@ import path from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { AssistantMarkdown } from '../src/components/assistant/AssistantMarkdown.tsx';
+import {
+  describeDataAvailability,
+  describeInterpretationConfidence,
+  describeMoistureStress,
+  describeObservationQuality,
+} from '../src/pages/FieldHealthPage.tsx';
 
 import {
   ACRES_PER_HECTARE,
@@ -1238,4 +1244,80 @@ test('27. Weather displays include Open-Meteo CC BY 4.0 attribution and partial 
     globalThis.fetch = originalFetch;
   }
 });
+
+test('28. FieldHealthPage distinguishes availability, pixel quality, screening confidence, and inconclusive low-vegetation stress', () => {
+  const base = {
+    ndvi: 0.56,
+    ndvi_status: 'GOOD',
+    ndmi: 0.24,
+    ndmi_status: 'MODERATE',
+    temperature_c: 26,
+    humidity_percent: 58,
+    recent_rainfall_mm: 3,
+    heat_risk: 'LOW',
+    rainfall_status: 'MODERATE',
+    possible_water_stress: false,
+    moisture_stress_status: 'NOT_FLAGGED',
+    analysis_confidence: 'HIGH', // Even if legacy cache says HIGH, UI never displays High confidence
+    observation_quality: 'GOOD',
+    confidence_reason: null,
+    satellite_available: true,
+    satellite_observation_date: '2026-11-10',
+    cloud_cover_percent: 8.0,
+    valid_coverage_percent: 92.0,
+    excluded_pixel_percent: 8.0,
+    satellite_message: null,
+    weather_available: true,
+    weather_message: null,
+    weather_source: 'open-meteo',
+    ai_explanation: 'Screening summary.',
+    recommendations: [],
+  };
+
+  assert.equal(describeDataAvailability(base), 'Satellite + Weather loaded');
+  assert.equal(describeObservationQuality(base), 'Good');
+  assert.ok(!describeInterpretationConfidence(base).toLowerCase().includes('high'));
+  assert.match(describeInterpretationConfidence(base), /Screening only \(Moderate\)/);
+  assert.match(describeMoistureStress(base), /cannot rule out localized field stress/i);
+
+  // Low vegetation (NDVI < 0.20) must never report absence of moisture stress even if boolean was false
+  const lowVeg = {
+    ...base,
+    ndvi: 0.14,
+    ndvi_status: 'VERY_LOW',
+    ndmi: -0.05,
+    ndmi_status: 'VERY_LOW',
+    possible_water_stress: false,
+    moisture_stress_status: 'INCONCLUSIVE_LOW_VEGETATION',
+    analysis_confidence: 'LOW',
+  };
+  assert.match(describeInterpretationConfidence(lowVeg), /^Low/);
+  assert.match(describeMoistureStress(lowVeg), /^Inconclusive/i);
+  assert.match(describeMoistureStress(lowVeg), /bare soil/i);
+
+  // Missing satellite keeps availability, quality, confidence, and stress distinct
+  const missingSat = {
+    ...base,
+    satellite_available: false,
+    ndvi: null,
+    ndmi: null,
+    possible_water_stress: null,
+    moisture_stress_status: 'UNAVAILABLE',
+    observation_quality: 'LIMITED',
+    analysis_confidence: 'LOW',
+  };
+  assert.equal(describeDataAvailability(missingSat), 'Weather only (satellite unavailable)');
+  assert.equal(describeObservationQuality(missingSat), 'Limited');
+  assert.match(describeInterpretationConfidence(missingSat), /^Low/);
+  assert.match(describeMoistureStress(missingSat), /^Unavailable/i);
+
+  const pageSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/pages/FieldHealthPage.tsx'),
+    'utf8'
+  );
+  assert.match(pageSource, /Valid sample coverage:/);
+  assert.match(pageSource, /Excluded\/unusable:/);
+  assert.match(pageSource, /crop type, growth stage, soil background, season/);
+});
+
 

@@ -25,10 +25,15 @@ export interface FieldAnalyzeResponse {
   heat_risk: string | null;
   rainfall_status: string | null;
   possible_water_stress: boolean | null;
+  moisture_stress_status?: string | null;
   analysis_confidence: string;
+  observation_quality?: string | null;
+  confidence_reason?: string | null;
   satellite_available: boolean;
   satellite_observation_date: string | null;
   cloud_cover_percent: number | null;
+  valid_coverage_percent?: number | null;
+  excluded_pixel_percent?: number | null;
   satellite_message: string | null;
   satellite_error_kind?: string | null;
   weather_available: boolean;

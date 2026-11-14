@@ -675,12 +675,16 @@ def fetch_sentinel2_indices(polygon_geometry: Dict[str, Any], token: str) -> Dic
         ndmi_value = _safe_number((ndmi_stats or {}).get("mean"), -1, 1)
         if ndvi_value is None or not observation_date:
             continue
+        valid_pct = round(valid_fraction * 100, 1)
+        excluded_pct = round((1 - valid_fraction) * 100, 1)
         candidate = {
             "date": observation_date,
             "ndvi": ndvi_value,
             "ndmi": ndmi_value,
             "valid_fraction": valid_fraction,
-            "cloud_cover_percent": round((1 - valid_fraction) * 100, 1),
+            "valid_coverage_percent": valid_pct,
+            "excluded_pixel_percent": excluded_pct,
+            "cloud_cover_percent": excluded_pct,
         }
 
         # Prefer the most recent date with a usable observation.
@@ -700,6 +704,8 @@ def fetch_sentinel2_indices(polygon_geometry: Dict[str, Any], token: str) -> Dic
         "ndmi": round(float(best_candidate["ndmi"]), 3) if best_candidate["ndmi"] is not None else None,
         "satellite_observation_date": best_candidate["date"],
         "cloud_cover_percent": best_candidate["cloud_cover_percent"],
+        "valid_coverage_percent": best_candidate["valid_coverage_percent"],
+        "excluded_pixel_percent": best_candidate["excluded_pixel_percent"],
     }
 
 
@@ -1017,12 +1023,141 @@ def get_weather_data(lat: float, lng: float) -> Dict[str, Any]:
     return primary_result
 
 
-def compute_confidence(satellite_available: bool, weather_available: bool, cloud_cover_percent: Optional[float]) -> str:
+def _observation_age_days(observation_date: Optional[str]) -> Optional[int]:
+    if not observation_date or not isinstance(observation_date, str):
+        return None
+    try:
+        obs_date = datetime.strptime(observation_date[:10], "%Y-%m-%d").date()
+        return max(0, (datetime.now(timezone.utc).date() - obs_date).days)
+    except ValueError:
+        return None
+
+
+def compute_observation_quality(
+    satellite_available: bool,
+    weather_available: bool,
+    excluded_pixel_percent: Optional[float],
+    observation_date: Optional[str] = None,
+) -> str:
+    """Rate physical observation completeness and pixel quality, separate from agronomic confidence."""
+    if not satellite_available and not weather_available:
+        return "UNAVAILABLE"
+    if not satellite_available:
+        return "LIMITED"
+
+    age_days = _observation_age_days(observation_date)
+    if not weather_available or (excluded_pixel_percent is not None and excluded_pixel_percent > 50) or (age_days is not None and age_days > 21):
+        return "LIMITED"
+    if (excluded_pixel_percent is not None and excluded_pixel_percent > 20) or (age_days is not None and age_days > 14):
+        return "MODERATE"
+    return "GOOD"
+
+
+def compute_confidence(
+    satellite_available: bool,
+    weather_available: bool,
+    cloud_cover_percent: Optional[float],
+    ndvi: Optional[float] = None,
+    observation_date: Optional[str] = None,
+) -> str:
+    """
+    Rate scientific interpretation confidence for a single-date remote-sensing snapshot.
+
+    Even when satellite and weather APIs both succeed with clean pixels, optical indices
+    lack crop type, growth stage, soil moisture ground truth, and multi-date baseline,
+    so interpretation confidence never exceeds 'MODERATE' (screening-level only).
+    """
     if not satellite_available or not weather_available:
         return "LOW"
     if cloud_cover_percent is not None and cloud_cover_percent > 40:
-        return "MEDIUM"
-    return "HIGH"
+        return "LOW"
+    if ndvi is not None and ndvi < 0.20:
+        return "LOW"
+    age_days = _observation_age_days(observation_date)
+    if age_days is not None and age_days > 21:
+        return "LOW"
+    return "MODERATE"
+
+
+def evaluate_moisture_stress(
+    ndvi: Optional[float],
+    ndmi_status: Optional[str],
+    heat_risk: Optional[str],
+    rainfall_status: Optional[str],
+    satellite_available: bool,
+    weather_available: bool,
+) -> Tuple[Optional[bool], str]:
+    """
+    Evaluate screening moisture-stress status without inferring absence of stress from
+    bare-soil/low-NDVI readings or limited 1-day weather data.
+    """
+    if (
+        not satellite_available
+        or not weather_available
+        or ndmi_status is None
+        or heat_risk is None
+        or rainfall_status is None
+    ):
+        return None, "UNAVAILABLE"
+
+    if ndvi is not None and ndvi < 0.20:
+        # Very low NDVI reflects sparse vegetation, fallow land, or bare soil where
+        # NDMI cannot diagnose crop water status or rule out moisture stress.
+        return None, "INCONCLUSIVE_LOW_VEGETATION"
+
+    if ndmi_status in ("VERY_LOW", "LOW"):
+        if heat_risk in ("MODERATE", "HIGH") or rainfall_status == "LOW":
+            return True, "POSSIBLE_STRESS"
+        # Low NDMI with cool/wet single-day weather cannot rule out crop stress.
+        return None, "INCONCLUSIVE_MIXED"
+
+    if heat_risk == "HIGH" and rainfall_status == "LOW":
+        return None, "INCONCLUSIVE_MIXED"
+
+    return False, "NOT_FLAGGED"
+
+
+def build_confidence_reason(
+    lang: str,
+    satellite_available: bool,
+    weather_available: bool,
+    observation_quality: str,
+    confidence: str,
+    ndvi: Optional[float],
+    excluded_pixel_percent: Optional[float],
+) -> str:
+    if lang == "ur":
+        if not satellite_available or not weather_available:
+            return "نامکمل ڈیٹا دستیابی: سیٹلائٹ اور موسمی مشاہدات دونوں کے بغیر فیلڈ کی حالت کا مکمل جائزہ ممکن نہیں۔"
+        if ndvi is not None and ndvi < 0.20:
+            return "کم نباتاتی سگنل: کم NDVI خالی مٹی، کٹائی کے بعد کی حالت، یا ابتدائی اگاؤ ظاہر کر سکتا ہے، اس لیے فصل کے دباؤ کا یقینی نتیجہ نہیں نکالا جا سکتا۔"
+        if excluded_pixel_percent is not None and excluded_pixel_percent > 40:
+            return "محدود پکسل کوالٹی: بادلوں، سائے یا فیلڈ کے کناروں کی وجہ سے کئی پکسل خارج ہوئے، جس سے اندازے کی یقینی کیفیت کم ہے۔"
+        return "اسکریننگ سطح کا جائزہ: ایک دن کے سیٹلائٹ اور موسمی اشاریے فصل کی قسم، نشوونما کے مرحلے، مٹی اور موسم کے بغیر حتمی تشخیص نہیں دیتے۔"
+
+    if not satellite_available and not weather_available:
+        return "Neither satellite nor weather data was available for this snapshot."
+    if not satellite_available or not weather_available:
+        return "Only partial observations loaded; both satellite and weather context are needed for basic screening."
+    if ndvi is not None and ndvi < 0.20:
+        return (
+            "Very low NDVI (< 0.20) often indicates bare soil, fallow ground, residue, or early emergence; "
+            "crop stress cannot be reliably confirmed or ruled out from this snapshot."
+        )
+    if excluded_pixel_percent is not None and excluded_pixel_percent > 40:
+        return (
+            f"Over {excluded_pixel_percent:.0f}% of sampled pixels were masked or outside valid bounds, "
+            "reducing observation reliability."
+        )
+    if observation_quality == "LIMITED":
+        return (
+            "Observation quality is limited (older scene or sparse valid pixels), and single-date optical indices "
+            "depend on crop type, growth stage, soil background, and season."
+        )
+    return (
+        f"Screening-level ({confidence.lower()}) only: single-date NDVI/NDMI and 1-day weather depend on crop type, "
+        "growth stage, soil background, season, and pixel quality."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1150,100 +1285,214 @@ Return STRICTLY valid JSON with this shape:
 }}"""
 
 
-def default_ai_response(lang: str, satellite_available: bool, weather_available: bool) -> Dict[str, Any]:
+def default_ai_response(
+    lang: str,
+    satellite_available: bool,
+    weather_available: bool,
+    facts: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """
-    Static fallback text used when Groq is unavailable or its response could not be parsed.
-    Wording must always match what data actually came back - never imply a measurement
-    is known when its source (satellite or weather) was unavailable for this request.
+    Deterministic fallback text used when Groq is unavailable or unconfigured.
+    Never claims high diagnostic confidence, never treats excluded pixels as pure
+    cloud cover, and never infers an absence of moisture stress from low NDVI/NDMI
+    or limited 1-day weather.
     """
+    facts = facts or {}
+    ndvi = facts.get("ndvi")
+    ndmi_status = facts.get("ndmi_status")
+    stress_status = facts.get("moisture_stress_status")
+    possible_stress = facts.get("possible_water_stress")
+    excluded_pct = facts.get("excluded_pixel_percent")
+    if excluded_pct is None:
+        excluded_pct = facts.get("cloud_cover_percent")
+
+    coverage_note_en = ""
+    coverage_note_ur = ""
+    if excluded_pct is not None and excluded_pct > 30:
+        coverage_note_en = f" Note that {excluded_pct:.1f}% of sampled pixels were excluded (cloud/shadow mask or boundary edge)."
+        coverage_note_ur = f" واضح رہے کہ نمونے کے {excluded_pct:.1f}% پکسل (بادل، سایہ یا کنارہ) خارج ہوئے۔"
+
     if lang == "en":
         if satellite_available and weather_available:
+            if ndvi is not None and ndvi < 0.20:
+                return {
+                    "ai_explanation": (
+                        "Vegetation cover appears very low in this snapshot (which commonly reflects bare soil, "
+                        "fallow land, harvested residue, or early emergence). Optical NDVI and NDMI alone cannot "
+                        "confirm or rule out crop moisture stress, and interpretation depends on crop type, "
+                        "growth stage, soil background, season, and pixel quality." + coverage_note_en
+                    ),
+                    "recommendations": [
+                        "Confirm on site whether the field is bare, recently sown, or in early emergence before acting on low index values.",
+                        "Check top-soil and root-zone moisture directly by hand if a crop is already planted.",
+                        "Re-check satellite vegetation indices once canopy cover develops, as bare soil heavily influences optical reflectance.",
+                    ],
+                }
+            if possible_stress is True or stress_status == "POSSIBLE_STRESS":
+                return {
+                    "ai_explanation": (
+                        "Lower canopy moisture signal combined with warm or dry recent weather suggests possible "
+                        "moisture stress, though screening confidence remains limited. NDVI and NDMI depend on crop "
+                        "type, growth stage, soil background, season, and pixel quality rather than providing a "
+                        "direct soil diagnosis." + coverage_note_en
+                    ),
+                    "recommendations": [
+                        "Inspect crop leaves during afternoon warmth and check root-zone soil moisture directly across the field.",
+                        "Review recent irrigation or rainfall distribution in drier zones before adjusting watering.",
+                        "Track follow-up observations together with your crop's growth stage and local field conditions.",
+                    ],
+                }
+            if stress_status == "INCONCLUSIVE_MIXED" or ndmi_status in ("VERY_LOW", "LOW"):
+                return {
+                    "ai_explanation": (
+                        "Canopy moisture indicators are on the lower side, while single-day weather cannot confirm "
+                        "whether this reflects crop water stress, sparse canopy, soil background, or growth stage. "
+                        "Do not assume moisture stress is absent without an on-farm check." + coverage_note_en
+                    ),
+                    "recommendations": [
+                        "Check soil moisture directly at root depth in several spots across the field.",
+                        "Compare satellite readings against your current crop type, planting date, and canopy cover.",
+                        "Monitor field conditions and upcoming weather over the next several days.",
+                    ],
+                }
             return {
-                "ai_explanation": "Structured vegetation and weather indicators were calculated for this area, but "
-                                   "an AI-generated interpretation is not available right now. The measurements "
-                                   "above reflect the current satellite and weather data for the selected area.",
+                "ai_explanation": (
+                    "Canopy vegetation and moisture indicators were retrieved for this snapshot with current "
+                    "weather context. Because single-date NDVI and NDMI depend on crop type, growth stage, "
+                    "soil background, season, and pixel quality, they provide screening context only and cannot "
+                    "rule out localized field stress." + coverage_note_en
+                ),
                 "recommendations": [
-                    "Inspect the selected area for visible signs of moisture stress.",
-                    "Consider checking field moisture and irrigation coverage if low rainfall continues.",
-                    "Continue monitoring vegetation and weather conditions over the coming days.",
+                    "Verify crop vigor and root-zone soil moisture directly on site, as localized stress can still occur.",
+                    "Interpret NDVI and NDMI alongside your crop's current growth stage and recent irrigation history.",
+                    "Compare subsequent clear satellite dates to track changes rather than relying on one snapshot.",
                 ],
             }
         if weather_available and not satellite_available:
             return {
-                "ai_explanation": "Weather indicators were retrieved successfully for the selected area, but "
-                                   "satellite indicators are currently unavailable. The available weather data "
-                                   "shows the current environmental conditions, while vegetation and "
-                                   "satellite-derived moisture conditions cannot be assessed until satellite data "
-                                   "becomes available.",
+                "ai_explanation": (
+                    "Recent weather context was retrieved, but satellite vegetation and moisture indicators are "
+                    "currently unavailable. Single-day weather alone cannot assess canopy condition or confirm "
+                    "or rule out crop moisture stress."
+                ),
                 "recommendations": [
-                    "Review the available weather conditions shown above.",
-                    "Check back later for satellite-based vegetation and moisture indicators.",
-                    "Consider a field visit to assess vegetation and moisture conditions directly in the meantime.",
+                    "Inspect crop cover and root-zone soil moisture directly in the field.",
+                    "Retry later when a clear Sentinel-2 observation is available for this boundary.",
+                    "Keep track of local rainfall and irrigation timing alongside the weather readings above.",
                 ],
             }
         if satellite_available and not weather_available:
             return {
-                "ai_explanation": "Satellite indicators were retrieved successfully for the selected area, but "
-                                   "weather indicators are currently unavailable. The available satellite data "
-                                   "shows vegetation and moisture conditions, while current temperature, humidity, "
-                                   "and rainfall cannot be assessed until weather data becomes available.",
+                "ai_explanation": (
+                    "Satellite vegetation and moisture indicators were retrieved, but current weather readings "
+                    "are unavailable. NDVI and NDMI depend on crop type, growth stage, soil background, season, "
+                    "and pixel quality, so moisture stress cannot be assessed without weather and on-site checks." + coverage_note_en
+                ),
                 "recommendations": [
-                    "Review the available vegetation and moisture indicators shown above.",
-                    "Check back later for current weather conditions for this area.",
-                    "Consider a field visit to verify current temperature and moisture conditions in the meantime.",
+                    "Check root-zone moisture and local temperature conditions directly in the field.",
+                    "Interpret NDVI and NDMI alongside your crop's growth stage and field cover.",
+                    "Retry later once weather data is reachable again.",
                 ],
             }
         return {
-            "ai_explanation": "Neither satellite nor weather data could be retrieved for the selected area, so a "
-                               "full analysis is not currently available.",
+            "ai_explanation": (
+                "Neither satellite nor weather observations could be retrieved for this area, so field "
+                "condition and moisture-stress screening cannot be performed right now."
+            ),
             "recommendations": [
-                "Try the analysis again later once satellite and weather data sources are reachable.",
-                "Consider verifying the selected location or trying a nearby area.",
-                "In the meantime, consider a field visit to assess current conditions directly.",
+                "Inspect the field directly to check crop growth and soil moisture.",
+                "Verify the saved field location or boundary and try again later.",
+                "Retry when both satellite and weather providers are reachable.",
             ],
         }
 
+    # Urdu deterministic explanations
     if satellite_available and weather_available:
+        if ndvi is not None and ndvi < 0.20:
+            return {
+                "ai_explanation": (
+                    "اس تصویر میں نباتاتی سرگرمی بہت کم نظر آ رہی ہے (جو خالی مٹی، کٹائی کے بعد کی حالت، یا "
+                    "ابتدائی اگاؤ میں عام ہے)۔ صرف NDVI اور NDMI سے فصل میں پانی کے دباؤ کی تصدیق یا نفی نہیں کی "
+                    "جا سکتی، کیونکہ ان کی تشریح فصل کی قسم، مرحلے، مٹی اور موسم پر منحصر ہے۔" + coverage_note_ur
+                ),
+                "recommendations": [
+                    "کم اشاریوں پر فیصلہ کرنے سے پہلے کھیت میں جا کر دیکھیں کہ زمین خالی ہے یا فصل ابتدائی مرحلے میں ہے۔",
+                    "اگر فصل لگی ہوئی ہے تو جڑوں کے قریب مٹی کی نمی خود چیک کریں۔",
+                    "جب فصل کا پھیلاؤ بڑھ جائے تو بعد کی صاف سیٹلائٹ تصاویر سے دوبارہ موازنہ کریں۔",
+                ],
+            }
+        if possible_stress is True or stress_status == "POSSIBLE_STRESS":
+            return {
+                "ai_explanation": (
+                    "کم نمی کے اشاریے اور گرم یا خشک موسم ممکنہ آبی دباؤ کی نشاندہی کر سکتے ہیں، تاہم یہ صرف "
+                    "ابتدائی اسکریننگ ہے۔ NDVI اور NDMI کی تشریح فصل کی قسم، نشوونما کے مرحلے، مٹی کے پس منظر، "
+                    "موسم اور پکسل کوالٹی پر منحصر ہے۔" + coverage_note_ur
+                ),
+                "recommendations": [
+                    "دوپہر کی گرمی میں پتوں کی حالت اور جڑوں کے پاس مٹی کی نمی کا براہ راست معائنہ کریں۔",
+                    "پانی لگانے کا فیصلہ کرنے سے پہلے حالیہ آبپاشی اور بارش کی صورتحال چیک کریں۔",
+                    "فصل کے مرحلے کو مدنظر رکھتے ہوئے اگلے چند دنوں میں دوبارہ نگرانی کریں۔",
+                ],
+            }
+        if stress_status == "INCONCLUSIVE_MIXED" or ndmi_status in ("VERY_LOW", "LOW"):
+            return {
+                "ai_explanation": (
+                    "نمی کا سیٹلائٹ اشاریہ نسبتاً کم ہے، لیکن صرف ایک دن کے موسم سے یہ طے نہیں کیا جا سکتا کہ "
+                    "یہ آبی دباؤ ہے یا خالی مٹی اور فصل کے مرحلے کا اثر۔ کھیت کے معائنے کے بغیر آبی دباؤ کی "
+                    "عدم موجودگی فرض نہ کریں۔" + coverage_note_ur
+                ),
+                "recommendations": [
+                    "کھیت کے مختلف حصوں میں جڑوں کی گہرائی پر مٹی کی نمی چیک کریں۔",
+                    "سیٹلائٹ اشاریوں کو اپنی موجودہ فصل کی قسم اور بوائی کی تاریخ کے ساتھ ملا کر دیکھیں۔",
+                    "اگلے چند دنوں میں موسم اور فصل کی حالت پر نظر رکھیں۔",
+                ],
+            }
         return {
-            "ai_explanation": "اس رقبے کے لیے نباتاتی اور موسمی اشاریے حاصل کر لیے گئے ہیں، لیکن اس وقت AI کی تفصیلی "
-                               "تشریح دستیاب نہیں۔ اوپر دی گئی اقدار موجودہ سیٹلائٹ اور موسمی ڈیٹا کی عکاسی کرتی ہیں۔",
+            "ai_explanation": (
+                "اس رقبے کے لیے سیٹلائٹ اور موسمی اشاریے حاصل کر لیے گئے ہیں۔ تاہم ایک دن کے NDVI اور NDMI "
+                "فصل کی قسم، مرحلے، مٹی اور پکسل کوالٹی پر منحصر ہوتے ہیں، اس لیے یہ صرف ابتدائی رہنمائی ہیں "
+                "اور کھیت میں مقامی دباؤ کے امکان کو ختم نہیں کرتے۔" + coverage_note_ur
+            ),
             "recommendations": [
-                "منتخب رقبے میں نمی کے دباؤ کی ظاہری علامات کے لیے معائنہ کریں۔",
-                "اگر بارش کم ہو رہی ہے تو زمین کی نمی اور آبپاشی کی صورتحال چیک کرنے پر غور کریں۔",
-                "اگلے چند دنوں تک نباتات اور موسمی حالات کی نگرانی جاری رکھیں۔",
+                "کھیت میں جا کر فصل کی بڑھوتری اور مٹی کی نمی کی خود تصدیق کریں۔",
+                "ان اشاریوں کو فصل کے موجودہ مرحلے اور حالیہ آبپاشی کے تناظر میں دیکھیں۔",
+                "ایک تصویر پر انحصار کے بجائے آنے والی صاف سیٹلائٹ تاریخوں کا موازنہ کریں۔",
             ],
         }
     if weather_available and not satellite_available:
         return {
-            "ai_explanation": "اس رقبے کے لیے موسمی اشاریے کامیابی سے حاصل کر لیے گئے ہیں، لیکن سیٹلائٹ اشاریے اس "
-                               "وقت دستیاب نہیں۔ موجودہ موسمی ڈیٹا ماحولیاتی حالات ظاہر کرتا ہے، جبکہ نباتاتی سرگرمی "
-                               "اور سیٹلائٹ سے حاصل ہونے والی نمی کی صورتحال کا اندازہ سیٹلائٹ ڈیٹا دستیاب ہونے تک "
-                               "نہیں لگایا جا سکتا۔",
+            "ai_explanation": (
+                "حالیہ موسمی معلومات حاصل ہو گئی ہیں، لیکن سیٹلائٹ اشاریے اس وقت دستیاب نہیں۔ صرف ایک دن کے موسم "
+                "سے فصل کی حالت یا آبی دباؤ کی تصدیق یا نفی نہیں کی جا سکتی۔"
+            ),
             "recommendations": [
-                "اوپر دی گئی موسمی صورتحال کا جائزہ لیں۔",
-                "سیٹلائٹ پر مبنی نباتاتی اور نمی کے اشاریوں کے لیے بعد میں دوبارہ چیک کریں۔",
-                "اس دوران نباتات اور نمی کی صورتحال جانچنے کے لیے کھیت کا معائنہ کرنے پر غور کریں۔",
+                "کھیت میں نباتات اور جڑوں کے قریب مٹی کی نمی کا براہ راست معائنہ کریں۔",
+                "جب اس رقبے کے لیے صاف سیٹلائٹ مشاہدہ دستیاب ہو تو دوبارہ چیک کریں۔",
+                "موسمی اعداد کے ساتھ مقامی بارش اور آبپاشی کے وقفوں کا ریکارڈ رکھیں۔",
             ],
         }
     if satellite_available and not weather_available:
         return {
-            "ai_explanation": "اس رقبے کے لیے سیٹلائٹ اشاریے کامیابی سے حاصل کر لیے گئے ہیں، لیکن موسمی اشاریے اس "
-                               "وقت دستیاب نہیں۔ موجودہ سیٹلائٹ ڈیٹا نباتاتی سرگرمی اور نمی کی صورتحال ظاہر کرتا ہے، "
-                               "جبکہ موجودہ درجہ حرارت، نمی اور بارش کا اندازہ موسمی ڈیٹا دستیاب ہونے تک نہیں لگایا "
-                               "جا سکتا۔",
+            "ai_explanation": (
+                "سیٹلائٹ اشاریے حاصل ہو گئے ہیں، لیکن موجودہ موسمی اعداد دستیاب نہیں۔ NDVI اور NDMI فصل کی "
+                "قسم، مرحلے، مٹی اور پکسل کوالٹی پر منحصر ہیں، اس لیے موسم اور کھیت کے معائنے کے بغیر آبی دباؤ "
+                "کا اندازہ نہیں لگایا جا سکتا۔" + coverage_note_ur
+            ),
             "recommendations": [
-                "اوپر دی گئی نباتاتی اور نمی کی صورتحال کا جائزہ لیں۔",
-                "اس رقبے کے موجودہ موسمی حالات کے لیے بعد میں دوبارہ چیک کریں۔",
-                "اس دوران موجودہ درجہ حرارت اور نمی کی تصدیق کے لیے کھیت کا معائنہ کرنے پر غور کریں۔",
+                "کھیت میں جا کر مٹی کی نمی اور درجہ حرارت کی صورتحال خود چیک کریں۔",
+                "ان اشاریوں کو اپنی فصل کے مرحلے اور زمین کے ڈھکاؤ کے مطابق پرکھیں۔",
+                "موسمی سروس بحال ہونے پر دوبارہ تجزیہ چلائیں۔",
             ],
         }
     return {
-        "ai_explanation": "اس منتخب رقبے کے لیے نہ سیٹلائٹ اور نہ ہی موسمی ڈیٹا حاصل کیا جا سکا، اس لیے مکمل تجزیہ "
-                           "اس وقت دستیاب نہیں۔",
+        "ai_explanation": (
+            "اس منتخب رقبے کے لیے نہ سیٹلائٹ اور نہ ہی موسمی ڈیٹا حاصل کیا جا سکا، اس لیے اس وقت فیلڈ "
+            "کی حالت یا آبی دباؤ کی اسکریننگ ممکن نہیں۔"
+        ),
         "recommendations": [
-            "سیٹلائٹ اور موسمی ڈیٹا دستیاب ہونے کے بعد دوبارہ کوشش کریں۔",
-            "منتخب مقام کی تصدیق کریں یا قریبی رقبے کو آزمائیں۔",
-            "اس دوران موجودہ حالات جانچنے کے لیے کھیت کا معائنہ کرنے پر غور کریں۔",
+            "فصل اور مٹی کی نمی جانچنے کے لیے کھیت کا براہ راست معائنہ کریں۔",
+            "محفوظ شدہ مقام یا حد کی تصدیق کر کے بعد میں دوبارہ کوشش کریں۔",
+            "سیٹلائٹ اور موسمی سروسز دستیاب ہونے پر دوبارہ تجزیہ کریں۔",
         ],
     }
 
@@ -1251,7 +1500,9 @@ def default_ai_response(lang: str, satellite_available: bool, weather_available:
 def get_ai_explanation(lang: str, facts: Dict[str, Any]) -> Dict[str, Any]:
     satellite_available = bool(facts.get("satellite_available", False))
     weather_available = bool(facts.get("weather_available", False))
-    fallback = sanitize_ai_result(default_ai_response(lang, satellite_available, weather_available))
+    fallback = sanitize_ai_result(
+        default_ai_response(lang, satellite_available, weather_available, facts=facts)
+    )
     if not groq_client:
         return fallback
 
@@ -1368,16 +1619,46 @@ def process_farm_analysis(
     heat_risk = classify_heat(temp_c) if temp_c is not None else None
     rainfall_status = classify_rainfall(rainfall) if rainfall is not None else None
 
-    possible_water_stress = None
-    if ndmi_status is not None and heat_risk is not None and rainfall_status is not None:
-        possible_water_stress = bool(
-            ndmi_status in ("VERY_LOW", "LOW") and heat_risk == "HIGH" and rainfall_status == "LOW"
-        )
+    sat_available = bool(satellite.get("satellite_available", False))
+    weather_available = bool(weather.get("weather_available", False))
+    obs_date = satellite.get("satellite_observation_date")
+    excluded_pct = satellite.get("excluded_pixel_percent")
+    if excluded_pct is None:
+        excluded_pct = satellite.get("cloud_cover_percent")
+    valid_pct = satellite.get("valid_coverage_percent")
+    if valid_pct is None and excluded_pct is not None:
+        valid_pct = round(max(0.0, min(100.0, 100.0 - float(excluded_pct))), 1)
 
+    possible_water_stress, moisture_stress_status = evaluate_moisture_stress(
+        ndvi=ndvi,
+        ndmi_status=ndmi_status,
+        heat_risk=heat_risk,
+        rainfall_status=rainfall_status,
+        satellite_available=sat_available,
+        weather_available=weather_available,
+    )
+
+    observation_quality = compute_observation_quality(
+        satellite_available=sat_available,
+        weather_available=weather_available,
+        excluded_pixel_percent=excluded_pct,
+        observation_date=obs_date,
+    )
     confidence = compute_confidence(
-        satellite.get("satellite_available", False),
-        weather.get("weather_available", False),
-        satellite.get("cloud_cover_percent"),
+        satellite_available=sat_available,
+        weather_available=weather_available,
+        cloud_cover_percent=excluded_pct,
+        ndvi=ndvi,
+        observation_date=obs_date,
+    )
+    confidence_reason = build_confidence_reason(
+        lang=lang,
+        satellite_available=sat_available,
+        weather_available=weather_available,
+        observation_quality=observation_quality,
+        confidence=confidence,
+        ndvi=ndvi,
+        excluded_pixel_percent=excluded_pct,
     )
 
     facts = {
@@ -1392,11 +1673,15 @@ def process_farm_analysis(
         "heat_risk": heat_risk,
         "rainfall_status": rainfall_status,
         "possible_water_stress": possible_water_stress,
+        "moisture_stress_status": moisture_stress_status,
         "analysis_confidence": confidence,
-        "satellite_observation_date": satellite.get("satellite_observation_date"),
+        "observation_quality": observation_quality,
+        "satellite_observation_date": obs_date,
         "cloud_cover_percent": satellite.get("cloud_cover_percent"),
-        "satellite_available": satellite.get("satellite_available", False),
-        "weather_available": weather.get("weather_available", False),
+        "valid_coverage_percent": valid_pct,
+        "excluded_pixel_percent": excluded_pct,
+        "satellite_available": sat_available,
+        "weather_available": weather_available,
     }
 
     ai_result = get_ai_explanation(lang, facts)
@@ -1412,13 +1697,18 @@ def process_farm_analysis(
         "heat_risk": heat_risk,
         "rainfall_status": rainfall_status,
         "possible_water_stress": possible_water_stress,
+        "moisture_stress_status": moisture_stress_status,
         "analysis_confidence": confidence,
-        "satellite_available": satellite.get("satellite_available", False),
-        "satellite_observation_date": satellite.get("satellite_observation_date"),
+        "observation_quality": observation_quality,
+        "confidence_reason": confidence_reason,
+        "satellite_available": sat_available,
+        "satellite_observation_date": obs_date,
         "cloud_cover_percent": satellite.get("cloud_cover_percent"),
+        "valid_coverage_percent": valid_pct,
+        "excluded_pixel_percent": excluded_pct,
         "satellite_message": satellite.get("satellite_message"),
         "satellite_error_kind": satellite.get("satellite_error_kind"),
-        "weather_available": weather.get("weather_available", False),
+        "weather_available": weather_available,
         "weather_message": weather.get("weather_message"),
         "weather_source": weather.get("weather_source"),
         "weather_error_kind": weather.get("weather_error_kind"),
